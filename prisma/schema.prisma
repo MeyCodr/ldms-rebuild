@@ -1,0 +1,147 @@
+// LDMS v2 schema.
+// Phase 1 covers the org chart, staff, roles, audit log and settings.
+// Training, PME, TNA, TNI and skill-matrix models are added in later phases.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum StaffStatus {
+  ACTIVE
+  RESIGNED
+}
+
+enum Designation {
+  NON_EXECUTIVE
+  EXECUTIVE
+  MANAGER
+  CONTRACT
+  TRAINEE
+}
+
+// Roles granted explicitly. HOD and division head are not roles: they come
+// from Department.hodId and Division.headId, so they can never disagree
+// with the org chart.
+enum RoleCode {
+  LD_ADMIN
+  MAIN_CLERK
+  CLERK
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  SIGN_IN
+  IMPORT
+}
+
+model Division {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique @db.VarChar(120)
+  shortName   String?      @db.VarChar(20)
+  headId      Int?
+  legacyId    Int?         @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  head        Staff?       @relation("DivisionHead", fields: [headId], references: [id], onDelete: SetNull)
+  departments Department[]
+}
+
+model Department {
+  id         Int       @id @default(autoincrement())
+  divisionId Int
+  name       String    @db.VarChar(120)
+  shortName  String?   @db.VarChar(20)
+  hodId      Int? // replaces the trigger that rewrote user.hodid
+  legacyId   Int?      @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  division   Division  @relation(fields: [divisionId], references: [id])
+  hod        Staff?    @relation("DepartmentHod", fields: [hodId], references: [id], onDelete: SetNull)
+  sections   Section[]
+  staff      Staff[]   @relation("DepartmentStaff")
+
+  @@unique([divisionId, name])
+  @@index([hodId])
+}
+
+model Section {
+  id           Int        @id @default(autoincrement())
+  departmentId Int
+  name         String     @db.VarChar(120)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id])
+  staff        Staff[]
+
+  @@unique([departmentId, name])
+}
+
+model Staff {
+  id                 Int          @id @default(autoincrement())
+  staffNo            String       @unique @db.VarChar(20) // the old table allowed duplicates
+  name               String       @db.VarChar(160)
+  email              String?      @db.VarChar(160)
+  position           String?      @db.VarChar(120)
+  designation        Designation
+  status             StaffStatus  @default(ACTIVE)
+  dateJoined         DateTime?    @db.Date
+  dateResigned       DateTime?    @db.Date
+  departmentId       Int
+  sectionId          Int?
+  passwordHash       String?      @db.VarChar(255) // argon2id
+  legacyMd5          String?      @db.Char(32) // cleared after the first sign-in
+  mustChangePassword Boolean      @default(false)
+  lastSignInAt       DateTime?
+  legacyId           Int?         @unique
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  department         Department   @relation("DepartmentStaff", fields: [departmentId], references: [id])
+  section            Section?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  roles              StaffRole[]
+  hodOf              Department[] @relation("DepartmentHod")
+  headOf             Division[]   @relation("DivisionHead")
+  auditEntries       AuditLog[]
+
+  @@index([departmentId, status])
+  @@index([designation, status])
+  @@index([name])
+}
+
+model StaffRole {
+  staffId   Int
+  role      RoleCode
+  grantedAt DateTime @default(now())
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, role])
+}
+
+model AuditLog {
+  id        BigInt      @id @default(autoincrement())
+  actorId   Int?
+  action    AuditAction
+  entity    String      @db.VarChar(40)
+  entityId  String?     @db.VarChar(40)
+  summary   String      @db.VarChar(255)
+  changes   Json? // { field: [before, after] }
+  createdAt DateTime    @default(now())
+  actor     Staff?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model Setting {
+  key         String   @id @db.VarChar(80)
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById Int?
+}
