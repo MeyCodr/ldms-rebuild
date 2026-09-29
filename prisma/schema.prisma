@@ -37,7 +37,6 @@ enum AuditAction {
   CREATE
   UPDATE
   DELETE
-  SIGN_IN
   IMPORT
 }
 
@@ -98,6 +97,7 @@ model Staff {
   passwordHash       String?      @db.VarChar(255) // argon2id
   legacyMd5          String?      @db.Char(32) // cleared after the first sign-in
   mustChangePassword Boolean      @default(false)
+  sessionVersion     Int          @default(0) // bumped on password reset/change; older sessions stop working
   lastSignInAt       DateTime?
   legacyId           Int?         @unique
   createdAt          DateTime     @default(now())

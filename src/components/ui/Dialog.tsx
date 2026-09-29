@@ -1,0 +1,77 @@
+"use client";
+
+import { createContext, useContext, useRef, useState } from "react";
+
+const CloseContext = createContext<() => void>(() => {});
+export const useCloseDialog = () => useContext(CloseContext);
+
+/**
+ * A button that opens a native <dialog>. Used for confirmations and short
+ * forms (resign, reset password, transfer) that should not leave the page.
+ */
+export function DialogButton({
+  label,
+  title,
+  description,
+  variant = "secondary",
+  size,
+  width = 440,
+  hideTrigger = false,
+  onClose,
+  children,
+}: {
+  label: React.ReactNode;
+  title: string;
+  description?: React.ReactNode;
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "danger-ghost";
+  size?: "sm";
+  width?: number;
+  /** Hide the button but keep the dialog mounted, e.g. when the action it opens no longer applies. */
+  hideTrigger?: boolean;
+  onClose?: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  // Remount the body on every open so forms start fresh.
+  const [openCount, setOpenCount] = useState(0);
+  const open = () => {
+    setOpenCount((n) => n + 1);
+    ref.current?.showModal();
+  };
+  const close = () => ref.current?.close();
+  const cls = { primary: "btn-primary", secondary: "", danger: "btn-danger", ghost: "btn-ghost", "danger-ghost": "btn-danger-ghost" }[variant];
+
+  return (
+    <>
+      <button type="button" hidden={hideTrigger} className={`btn ${cls} ${size === "sm" ? "btn-sm" : ""}`} onClick={open}>
+        {label}
+      </button>
+      <dialog
+        ref={ref}
+        className="m-auto rounded-md border border-rule-strong bg-surface p-0 text-ink shadow-[0_12px_32px_rgb(28_32_30/0.18)]"
+        style={{ width: `min(${width}px, calc(100vw - 32px))` }}
+        onClose={onClose}
+        onClick={(e) => {
+          if (e.target === ref.current) close();
+        }}
+      >
+        <div className="border-b border-rule px-5 py-3">
+          <h2 className="text-[15px] font-semibold">{title}</h2>
+          {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
+        </div>
+        <div key={openCount} className="px-5 py-4">
+          <CloseContext.Provider value={close}>{children}</CloseContext.Provider>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
+export function CancelButton({ label = "Cancel" }: { label?: string }) {
+  const close = useCloseDialog();
+  return (
+    <button type="button" className="btn" onClick={close}>
+      {label}
+    </button>
+  );
+}

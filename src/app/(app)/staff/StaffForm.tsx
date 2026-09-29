@@ -1,0 +1,114 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
+import { Select } from "@/components/ui/Select";
+import type { ActionState } from "@/lib/action-state";
+import { DESIGNATION_LABELS } from "@/lib/validation/staff";
+
+type Department = { id: number; name: string; division: { name: string }; sections: { id: number; name: string }[] };
+
+export type StaffFormValues = {
+  staffNo: string;
+  name: string;
+  email: string;
+  position: string;
+  designation: string;
+  departmentId: number | "";
+  sectionId: number | "";
+  dateJoined: string;
+};
+
+export function StaffForm({
+  action,
+  initial,
+  departments,
+  designations,
+  submitLabel,
+  cancelHref,
+}: {
+  action: (prev: ActionState, fd: FormData) => Promise<ActionState>;
+  initial: StaffFormValues;
+  departments: Department[];
+  designations: string[];
+  submitLabel: string;
+  cancelHref: string;
+}) {
+  const { state, onSubmit, pending } = useFormAction(action);
+  const [departmentId, setDepartmentId] = useState<number | "">(initial.departmentId);
+  const sections = departments.find((d) => d.id === departmentId)?.sections ?? [];
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="flex max-w-[720px] flex-col gap-7">
+      <FormMessage state={state} />
+      <p className="-mb-3 text-xs text-ink-3">
+        Fields marked <span className="text-bad">*</span> are required.
+      </p>
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="ruled-heading mb-4 w-full">Identity</legend>
+        <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+          <Field label="Staff no." name="staffNo" required state={state} hint="As printed on the staff pass.">
+            <input {...fieldProps("staffNo", state)} defaultValue={initial.staffNo} className="input num uppercase" maxLength={20} autoComplete="off" spellCheck={false} />
+          </Field>
+          <Field label="Full name" name="name" required state={state} hint="As in the IC or passport.">
+            <input {...fieldProps("name", state)} defaultValue={initial.name} className="input" maxLength={160} autoComplete="off" />
+          </Field>
+        </div>
+        <Field label="Company email" name="email" state={state} hint="Needed for PME and attendance reminders. Leave blank if the staff member has no company account.">
+          <input {...fieldProps("email", state)} defaultValue={initial.email} type="email" className="input sm:max-w-[360px]" maxLength={160} autoComplete="off" />
+        </Field>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="ruled-heading mb-4 w-full">Employment</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Designation" name="designation" required state={state} hint={designations.length === 1 ? "You can add contract staff only." : "Decides PME eligibility and headcount."}>
+            <Select
+              {...fieldProps("designation", state)}
+              defaultValue={initial.designation}
+              options={designations.map((d) => ({ value: d, label: DESIGNATION_LABELS[d as keyof typeof DESIGNATION_LABELS] }))}
+            />
+          </Field>
+          <Field label="Position" name="position" state={state} hint="Job title, e.g. Senior Technician.">
+            <input {...fieldProps("position", state)} defaultValue={initial.position} className="input" maxLength={120} />
+          </Field>
+          <Field label="Department" name="departmentId" required state={state}>
+            <Select
+              {...fieldProps("departmentId", state)}
+              value={departmentId === "" ? "" : String(departmentId)}
+              onChange={(v) => setDepartmentId(v ? Number(v) : "")}
+              options={departments.map((d) => ({ value: String(d.id), label: d.name, group: d.division.name }))}
+            />
+          </Field>
+          <Field
+            label="Section"
+            name="sectionId"
+            state={state}
+            hint={departmentId === "" ? "Choose a department first." : sections.length === 0 ? "This department has no sections." : undefined}
+          >
+            <Select
+              key={departmentId}
+              {...fieldProps("sectionId", state)}
+              defaultValue={departmentId === initial.departmentId ? String(initial.sectionId) : ""}
+              placeholder="None"
+              disabled={sections.length === 0}
+              options={[{ value: "", label: "None" }, ...sections.map((s) => ({ value: String(s.id), label: s.name }))]}
+            />
+          </Field>
+          <Field label="Date joined" name="dateJoined" state={state}>
+            <input {...fieldProps("dateJoined", state)} defaultValue={initial.dateJoined} type="date" className="input num" />
+          </Field>
+        </div>
+      </fieldset>
+
+      <div className="flex items-center gap-2 border-t border-rule pt-4">
+        <SubmitButton pending={pending}>{submitLabel}</SubmitButton>
+        <Link href={cancelHref} className="btn btn-ghost">
+          Cancel
+        </Link>
+      </div>
+    </form>
+  );
+}

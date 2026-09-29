@@ -1,26 +1,373 @@
 @import "tailwindcss";
 
+/*
+  LDMS colour system.
+  Navy (primary) frames the app and carries actions. Teal (learning accent)
+  marks progress, links and where you are. Neutral cool surfaces keep records
+  easy to read. A small category palette tells modules and divisions apart,
+  tuned to sit beside navy and teal. Status colours mean status only.
+*/
+
+@theme {
+  --font-sans: var(--font-plex-sans), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Consolas, monospace;
+  --font-display: var(--font-bricolage), var(--font-plex-sans), system-ui, sans-serif;
+
+  /* Surfaces and text */
+  --color-paper: #f6f8fa; /* Background */
+  --color-surface: #ffffff; /* Surface */
+  --color-sunken: #eef2f5;
+  --color-rule: #d9e0e6; /* Border */
+  --color-rule-strong: #c2ccd5;
+  --color-ink: #1f2933; /* Primary text */
+  --color-ink-2: #475467;
+  --color-ink-3: #667085; /* Secondary text */
+
+  /* Frame: sidebar and brand surfaces, built on Primary */
+  --color-night: #17324d;
+  --color-night-2: #22445f;
+  --color-night-text: #d5dee8;
+  --color-night-muted: #8ea2b7;
+
+  /* Primary: actions */
+  --color-primary: #17324d;
+  --color-primary-hover: #0f2438;
+  --color-primary-soft: #e6edf4;
+
+  /* Secondary / learning accent: links, current location, progress */
+  --color-accent: #167d7f;
+  --color-accent-hover: #10686a;
+  --color-accent-soft: #e2f1f1;
+  --color-accent-bright: #4fc1bd; /* accent on navy */
+
+  /* Category palette (modules, divisions). -soft fills, -deep text on -soft. */
+  --color-jade: #167d7f;
+  --color-jade-soft: #e2f1f1;
+  --color-jade-deep: #0f5c5e;
+  --color-cobalt: #3b6ea8;
+  --color-cobalt-soft: #e5edf7;
+  --color-cobalt-deep: #24497a;
+  --color-plum: #75508f;
+  --color-plum-soft: #efe8f5;
+  --color-plum-deep: #54366b;
+  --color-marigold: #d69a2d;
+  --color-marigold-soft: #f9efdb;
+  --color-marigold-deep: #7d5410;
+  --color-coral: #cf6a4f;
+  --color-coral-soft: #f8e6e0;
+  --color-coral-deep: #8f3d27;
+  --color-olive: #6f8a3a;
+  --color-olive-soft: #edf2e2;
+  --color-olive-deep: #465a1f;
+  --color-slate: #5b6b7c;
+  --color-slate-soft: #e9eef3;
+  --color-slate-deep: #3a4756;
+
+  /* Status */
+  --color-ok: #2e7d5b;
+  --color-ok-soft: #e4f1ea;
+  --color-wait: #b7791f;
+  --color-wait-soft: #fbf1df;
+  --color-bad: #c0392b;
+  --color-bad-soft: #f9e4e1;
+  --color-na: #8a94a3;
+
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-md: 7px;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers people compare down a column: staff no., dates, hours. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9em;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+@layer components {
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.1s, border-color 0.1s;
+  }
+  .btn:hover {
+    background: var(--color-sunken);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn-primary {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.18);
+  }
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+  }
+  .btn-danger {
+    background: var(--color-bad);
+    border-color: var(--color-bad);
+    color: #fff;
+  }
+  .btn-danger:hover {
+    background: #8a2a22;
+  }
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    background: var(--color-sunken);
+  }
+  /* Destructive actions that should be findable but not loud. */
+  .btn-danger-ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-bad);
+  }
+  .btn-danger-ghost:hover {
+    background: var(--color-bad-soft);
+  }
+  .btn-sm {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 12.5px;
+  }
+
+  .link {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ---------- Form controls ---------- */
+  .input,
+  .select,
+  .textarea {
+    width: 100%;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 13.5px;
+  }
+  .textarea {
+    height: auto;
+    min-height: 72px;
+    padding: 6px 9px;
+  }
+  .select {
+    padding-right: 26px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23717771' stroke-width='1.4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+  }
+  .input:hover,
+  .select:hover,
+  .textarea:hover {
+    border-color: var(--color-ink-3);
+  }
+  .input:focus,
+  .select:focus,
+  .textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-soft);
+  }
+  .input[aria-invalid="true"],
+  .select[aria-invalid="true"] {
+    border-color: var(--color-bad);
+  }
+  .input:disabled,
+  .select:disabled {
+    background: var(--color-sunken);
+    color: var(--color-ink-3);
+  }
+
+  .label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--color-ink-2);
+  }
+  .req::after {
+    content: " *";
+    color: var(--color-bad);
+  }
+  .hint {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--color-ink-3);
+  }
+  .field-error {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--color-bad);
+  }
+
+  /* ---------- Section heading used inside forms and record sheets ---------- */
+  .ruled-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--color-rule);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  /* ---------- Tables ---------- */
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 7px 10px;
+    /* A shadow, not a border: collapsed borders scroll away from a sticky header. */
+    box-shadow: inset 0 -1px 0 var(--color-rule-strong);
+    background: var(--color-sunken);
+    color: var(--color-ink-2);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-rule);
+    vertical-align: top;
+  }
+  .table tbody tr:hover td {
+    background: #f3f6f9;
+  }
+  .table .muted {
+    color: var(--color-ink-3);
+  }
+
+  /* ---------- Notices ---------- */
+  .notice {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-rule);
+    border-left-width: 3px;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: 13px;
+  }
+  .notice-ok {
+    border-left-color: var(--color-ok);
+  }
+  .notice-wait {
+    border-left-color: var(--color-wait);
+    background: var(--color-wait-soft);
+  }
+  .notice-bad {
+    border-left-color: var(--color-bad);
+    background: var(--color-bad-soft);
+  }
+
+  .kbd-tag {
+    display: inline-block;
+    padding: 0 5px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background: var(--color-sunken);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-ink-2);
+  }
+}
+
+/* Page and section titles: a warmer display face, kept at working sizes. */
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.015em;
+}
+
+/*
+  Screen-height pages: the header and filters stay put and the table fills the
+  rest of the screen, scrolling on its own. Heights subtract the main padding
+  (24px top, and a 24px bottom gap instead of the usual 64px) and, below lg,
+  the 56px top bar.
+*/
+.page-fit {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 104px);
+  margin-bottom: -40px; /* keep 24px of the main area's 64px bottom padding */
+}
+@media (min-width: 1024px) {
+  .page-fit {
+    height: calc(100dvh - 48px);
+  }
+}
+.page-fit > .table-scroll {
+  flex: 1 1 auto; /* fill the remaining height, even with few rows */
+  min-height: 0; /* and shrink to scroll when there are many */
+  overflow: auto;
+}
+
+dialog::backdrop {
+  background: rgb(23 50 77 / 0.45);
 }

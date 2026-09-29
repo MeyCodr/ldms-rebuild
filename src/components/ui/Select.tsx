@@ -1,0 +1,307 @@
+"use client";
+
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Search } from "lucide-react";
+
+export type SelectOption = {
+  value: string;
+  label: string;
+  /** Secondary text on the right, e.g. a staff no. or department. Also searched. */
+  hint?: string;
+  /** Options with the same group are listed under one heading, in first-seen order. */
+  group?: string;
+  disabled?: boolean;
+};
+
+type Props = {
+  /** Submitted with the form through a hidden input. */
+  name: string;
+  options: SelectOption[];
+  /** Controlled value. Use with onChange. */
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  /** Show a search box. Defaults to on for lists longer than 8. */
+  searchable?: boolean;
+  disabled?: boolean;
+  id?: string;
+  className?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+};
+
+const SEARCH_THRESHOLD = 8;
+
+/**
+ * LDMS dropdown. Keyboard: Enter/Space/↓ opens, ↑↓ Home End move, Enter picks,
+ * Esc closes, typing searches (long lists) or jumps to a match (short lists).
+ */
+export function Select({
+  name,
+  options,
+  value,
+  defaultValue = "",
+  onChange,
+  placeholder = "Choose…",
+  searchable,
+  disabled,
+  id,
+  className = "",
+  ...aria
+}: Props) {
+  const autoId = useId();
+  const triggerId = id ?? `${autoId}-trigger`;
+  const listId = `${autoId}-list`;
+  const controlled = value !== undefined;
+  const [inner, setInner] = useState(defaultValue);
+  const current = controlled ? value : inner;
+  const selected = options.find((o) => o.value === current);
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number; maxHeight: number; up: boolean } | null>(null);
+
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const typeahead = useRef({ text: "", at: 0 });
+  const withSearch = searchable ?? options.length > SEARCH_THRESHOLD;
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => `${o.label} ${o.hint ?? ""} ${o.group ?? ""}`.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const choose = useCallback(
+    (o: SelectOption) => {
+      if (o.disabled) return;
+      if (!controlled) setInner(o.value);
+      if (o.value !== current) onChange?.(o.value);
+      setOpen(false);
+      trigger.current?.focus();
+    },
+    [controlled, current, onChange],
+  );
+
+  function openList(initialQuery = "") {
+    if (disabled) return;
+    setQuery(initialQuery);
+    const idx = options.findIndex((o) => o.value === current);
+    setActive(initialQuery ? 0 : Math.max(0, idx));
+    setOpen(true);
+  }
+
+  // Place the panel under the trigger, or above it when there is no room.
+  // Fixed positioning keeps it clear of scrolling containers and dialogs.
+  const place = useCallback(() => {
+    const r = trigger.current?.getBoundingClientRect();
+    if (!r) return;
+    const below = window.innerHeight - r.bottom - 8;
+    const above = r.top - 8;
+    const up = below < 220 && above > below;
+    const width = Math.max(r.width, 220);
+    const left = Math.min(r.left, window.innerWidth - width - 8);
+    setPos({ left: Math.max(8, left), top: up ? r.top - 4 : r.bottom + 4, width, maxHeight: Math.min(320, up ? above : below), up });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, place]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (withSearch) search.current?.focus();
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open, withSearch]);
+
+  // Keep the highlighted option in view.
+  useEffect(() => {
+    if (!open) return;
+    panel.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  function move(delta: number) {
+    if (!visible.length) return;
+    let i = active;
+    for (let step = 0; step < visible.length; step++) {
+      i = (i + delta + visible.length) % visible.length;
+      if (!visible[i].disabled) break;
+    }
+    setActive(i);
+  }
+
+  function onListKey(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        move(1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        move(-1);
+        break;
+      case "Home":
+        if (!withSearch) {
+          e.preventDefault();
+          setActive(0);
+        }
+        break;
+      case "End":
+        if (!withSearch) {
+          e.preventDefault();
+          setActive(visible.length - 1);
+        }
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (visible[active]) choose(visible[active]);
+        break;
+      case "Escape":
+        e.preventDefault();
+        e.stopPropagation(); // don't also close a surrounding dialog
+        setOpen(false);
+        trigger.current?.focus();
+        break;
+      case "Tab":
+        setOpen(false);
+        break;
+      default:
+        if (!withSearch && e.key.length === 1) jumpTo(e.key);
+    }
+  }
+
+  // Short lists: typing jumps to the first option starting with what was typed.
+  function jumpTo(ch: string) {
+    const now = Date.now();
+    const t = typeahead.current;
+    t.text = now - t.at < 600 ? t.text + ch.toLowerCase() : ch.toLowerCase();
+    t.at = now;
+    const i = visible.findIndex((o) => !o.disabled && o.label.toLowerCase().startsWith(t.text));
+    if (i >= 0) setActive(i);
+  }
+
+  function onTriggerKey(e: React.KeyboardEvent) {
+    // Keys typed quickly after opening arrive here before the search box has
+    // focus; add them to the search instead of losing them.
+    if (open && withSearch && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || e.key === "Backspace")) {
+      e.preventDefault();
+      setQuery((q) => (e.key === "Backspace" ? q.slice(0, -1) : q + e.key));
+      setActive(0);
+      search.current?.focus();
+      return;
+    }
+    if (open) return onListKey(e);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openList();
+    } else if (withSearch && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      openList(e.key);
+    }
+  }
+
+  return (
+    <div className={`relative ${className}`}>
+      <input type="hidden" name={name} value={current} />
+      <button
+        ref={trigger}
+        id={triggerId}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open && !withSearch && visible[active] ? `${listId}-${active}` : undefined}
+        aria-invalid={aria["aria-invalid"]}
+        aria-describedby={aria["aria-describedby"]}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onTriggerKey}
+        className={`select flex items-center gap-2 text-left ${open ? "border-accent shadow-[0_0_0_2px_var(--color-accent-soft)]" : ""} disabled:cursor-not-allowed`}
+        style={{ backgroundImage: "none" }}
+      >
+        <span className={`min-w-0 flex-1 truncate ${selected ? "" : "text-ink-3"}`}>{selected ? selected.label : placeholder}</span>
+        {selected?.hint && <span className="hidden shrink-0 truncate text-xs text-ink-3 sm:inline">{selected.hint}</span>}
+        <ChevronDown size={15} aria-hidden className={`shrink-0 text-ink-3 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && pos && (
+        <div
+          ref={panel}
+          className="fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-rule-strong bg-surface shadow-[0_10px_28px_rgb(23_50_77/0.14)]"
+          style={{ left: pos.left, width: pos.width, maxHeight: pos.maxHeight, ...(pos.up ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
+          onKeyDown={withSearch ? onListKey : undefined}
+        >
+          {withSearch && (
+            <div className="flex items-center gap-2 border-b border-rule px-3">
+              <Search size={14} aria-hidden className="shrink-0 text-ink-3" />
+              <input
+                ref={search}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActive(0);
+                }}
+                role="combobox"
+                aria-expanded="true"
+                aria-controls={listId}
+                aria-activedescendant={visible[active] ? `${listId}-${active}` : undefined}
+                aria-label="Search options"
+                placeholder="Type to search"
+                className="h-9 w-full bg-transparent text-[13.5px] outline-none placeholder:text-ink-3 focus-visible:outline-none"
+              />
+            </div>
+          )}
+          <ul id={listId} role="listbox" aria-labelledby={triggerId} className="overflow-y-auto py-1">
+            {visible.map((o, i) => {
+              const heading = o.group && o.group !== visible[i - 1]?.group ? o.group : null;
+              const isSelected = o.value === current;
+              return (
+                <li key={`${o.group ?? ""}:${o.value}`} role="presentation">
+                  {heading && (
+                    <div role="presentation" className="px-3 pt-2.5 pb-1 text-2xs font-semibold tracking-[0.08em] text-ink-3 uppercase">
+                      {heading}
+                    </div>
+                  )}
+                  <div
+                    id={`${listId}-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={isSelected}
+                    aria-disabled={o.disabled || undefined}
+                    onMouseEnter={() => setActive(i)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => choose(o)}
+                    className={`mx-1 flex cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-[13.5px] ${
+                      o.disabled ? "cursor-not-allowed opacity-45" : i === active ? "bg-sunken" : ""
+                    } ${isSelected ? "font-medium text-accent" : "text-ink"}`}
+                  >
+                    <Check size={14} aria-hidden className={`shrink-0 ${isSelected ? "text-accent" : "invisible"}`} />
+                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    {o.hint && <span className="shrink-0 truncate text-xs font-normal text-ink-3">{o.hint}</span>}
+                  </div>
+                </li>
+              );
+            })}
+            {visible.length === 0 && <li className="px-3 py-3 text-[13px] text-ink-3">No match for &ldquo;{query}&rdquo;</li>}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
