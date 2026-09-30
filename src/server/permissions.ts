@@ -14,7 +14,9 @@ export type Permission =
   | "staff.manage"
   | "staff.import"
   | "staff.roles"
-  | "audit.view";
+  | "audit.view"
+  | "training.view"
+  | "training.manage";
 
 export type SessionUser = {
   id: number;
@@ -30,7 +32,17 @@ export type SessionUser = {
 };
 
 const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
-  LD_ADMIN: ["org.view", "org.manage", "staff.view", "staff.manage", "staff.import", "staff.roles", "audit.view"],
+  LD_ADMIN: [
+    "org.view",
+    "org.manage",
+    "staff.view",
+    "staff.manage",
+    "staff.import",
+    "staff.roles",
+    "audit.view",
+    "training.view",
+    "training.manage",
+  ],
   MAIN_CLERK: ["staff.view", "staff.manage", "staff.import"],
   CLERK: ["staff.view", "staff.manage", "staff.import"],
 };
@@ -42,7 +54,7 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<RoleCode, string> = {
-  LD_ADMIN: "Full access: organization, all staff, imports, roles and the audit log.",
+  LD_ADMIN: "Full access: trainings, organization, all staff, imports, roles and the audit log.",
   MAIN_CLERK: "Adds and updates contract staff. Will also handle OJT, TNA, PME and skill matrix for contract staff as those screens open.",
   CLERK: "Adds and updates contract staff. Will also enter OJT once that screen opens.",
 };

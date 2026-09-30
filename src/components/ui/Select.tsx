@@ -32,6 +32,7 @@ type Props = {
 };
 
 const SEARCH_THRESHOLD = 8;
+const MAX_PANEL_WIDTH = 440;
 
 /**
  * LDMS dropdown. Keyboard: Enter/Space/↓ opens, ↑↓ Home End move, Enter picks,
@@ -61,7 +62,7 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [pos, setPos] = useState<{ left: number; top: number; width: number; maxHeight: number; up: boolean } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; minWidth: number; maxWidth: number; maxHeight: number; up: boolean } | null>(null);
 
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -102,10 +103,21 @@ export function Select({
     const below = window.innerHeight - r.bottom - 8;
     const above = r.top - 8;
     const up = below < 220 && above > below;
-    const width = Math.max(r.width, 220);
-    const left = Math.min(r.left, window.innerWidth - width - 8);
-    setPos({ left: Math.max(8, left), top: up ? r.top - 4 : r.bottom + 4, width, maxHeight: Math.min(320, up ? above : below), up });
+    // At least as wide as the trigger; wider when an option needs it, up to
+    // MAX_PANEL_WIDTH and the screen. Options longer than that wrap.
+    const maxWidth = Math.min(Math.max(r.width, MAX_PANEL_WIDTH), window.innerWidth - 16);
+    const minWidth = Math.min(Math.max(r.width, 220), maxWidth);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8));
+    setPos({ left, top: up ? r.top - 4 : r.bottom + 4, minWidth, maxWidth, maxHeight: Math.min(320, up ? above : below), up });
   }, []);
+
+  // Once the panel has its real width, pull it left if it would run off the screen.
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!open || !pos || !el) return;
+    const overflow = el.getBoundingClientRect().right - (window.innerWidth - 8);
+    if (overflow > 0) el.style.left = `${Math.max(8, pos.left - overflow)}px`;
+  }, [open, pos]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -244,7 +256,7 @@ export function Select({
         <div
           ref={panel}
           className="fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-rule-strong bg-surface shadow-[0_10px_28px_rgb(23_50_77/0.14)]"
-          style={{ left: pos.left, width: pos.width, maxHeight: pos.maxHeight, ...(pos.up ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
+          style={{ left: pos.left, width: "max-content", minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, ...(pos.up ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
           onKeyDown={withSearch ? onListKey : undefined}
         >
           {withSearch && (
@@ -284,16 +296,19 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     aria-disabled={o.disabled || undefined}
-                    onMouseEnter={() => setActive(i)}
+                    // Only real pointer movement highlights; a list opened from the keyboard
+                    // under a resting pointer keeps the current option highlighted.
+                    onMouseMove={() => active !== i && setActive(i)}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => choose(o)}
-                    className={`mx-1 flex cursor-pointer items-center gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-[13.5px] ${
+                    className={`mx-1 flex cursor-pointer items-start gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-[13.5px] ${
                       o.disabled ? "cursor-not-allowed opacity-45" : i === active ? "bg-sunken" : ""
                     } ${isSelected ? "font-medium text-accent" : "text-ink"}`}
                   >
-                    <Check size={14} aria-hidden className={`shrink-0 ${isSelected ? "text-accent" : "invisible"}`} />
-                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                    {o.hint && <span className="shrink-0 truncate text-xs font-normal text-ink-3">{o.hint}</span>}
+                    <Check size={14} aria-hidden className={`mt-[3px] shrink-0 ${isSelected ? "text-accent" : "invisible"}`} />
+                    {/* Wrap rather than cut off, so every option can be read in full. */}
+                    <span className="min-w-0 flex-1 break-words">{o.label}</span>
+                    {o.hint && <span className="mt-px shrink-0 text-xs font-normal text-ink-3">{o.hint}</span>}
                   </div>
                 </li>
               );

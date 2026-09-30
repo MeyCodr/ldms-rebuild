@@ -45,3 +45,6 @@ next-env.d.ts
 # test output
 /test-results/
 /playwright-report/
+
+# uploaded files (certificates, imports)
+/uploads/

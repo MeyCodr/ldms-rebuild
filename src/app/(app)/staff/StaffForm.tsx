@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
+import { DateField } from "@/components/ui/DateField";
 import { Select } from "@/components/ui/Select";
 import type { ActionState } from "@/lib/action-state";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
@@ -98,7 +99,7 @@ export function StaffForm({
             />
           </Field>
           <Field label="Date joined" name="dateJoined" state={state}>
-            <input {...fieldProps("dateJoined", state)} defaultValue={initial.dateJoined} type="date" className="input num" />
+            <DateField {...fieldProps("dateJoined", state)} defaultValue={initial.dateJoined} />
           </Field>
         </div>
       </fieldset>

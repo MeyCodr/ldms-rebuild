@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import type { RoleCode } from "@prisma/client";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { PageHeader } from "@/components/PageHeader";
+import { HistoryPanel } from "@/components/HistoryPanel";
 import { Panel } from "@/components/Panel";
+import { Sheet, SheetItem } from "@/components/Sheet";
 import { Status, StaffStatus } from "@/components/ui/Status";
 import { formatDate, formatDateTime, plural, yearsOfService } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
@@ -81,7 +83,7 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-5">
           <Sheet title="Employment">
-            <Item label="Department">
+            <SheetItem label="Department">
               <DivisionMark tone={divisionTone(staff.department.division.id)} className="mr-2" />
               {can(user, "org.view") ? (
                 <Link href={`/organization/departments/${staff.departmentId}`} className="link">
@@ -91,11 +93,11 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
                 staff.department.name
               )}
               <span className="text-ink-3"> · {staff.department.division.name}</span>
-            </Item>
-            <Item label="Section">{staff.section?.name ?? <span className="text-ink-3">None</span>}</Item>
-            <Item label="Position">{staff.position ?? <span className="text-ink-3">Not recorded</span>}</Item>
-            <Item label="Designation">{DESIGNATION_LABELS[staff.designation]}</Item>
-            <Item label="Date joined">
+            </SheetItem>
+            <SheetItem label="Section">{staff.section?.name ?? <span className="text-ink-3">None</span>}</SheetItem>
+            <SheetItem label="Position">{staff.position ?? <span className="text-ink-3">Not recorded</span>}</SheetItem>
+            <SheetItem label="Designation">{DESIGNATION_LABELS[staff.designation]}</SheetItem>
+            <SheetItem label="Date joined">
               {staff.dateJoined ? (
                 <>
                   <span className="num">{formatDate(staff.dateJoined)}</span>
@@ -104,18 +106,18 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
               ) : (
                 <span className="text-ink-3">Not recorded</span>
               )}
-            </Item>
+            </SheetItem>
             {staff.dateResigned && (
-              <Item label="Last working day">
+              <SheetItem label="Last working day">
                 <span className="num">{formatDate(staff.dateResigned)}</span>
-              </Item>
+              </SheetItem>
             )}
-            <Item label="Email">{staff.email ? <a href={`mailto:${staff.email}`} className="link">{staff.email}</a> : <span className="text-ink-3">None</span>}</Item>
+            <SheetItem label="Email">{staff.email ? <a href={`mailto:${staff.email}`} className="link">{staff.email}</a> : <span className="text-ink-3">None</span>}</SheetItem>
           </Sheet>
 
           {active && (
             <Sheet title="Reporting line">
-              <Item label="Approver">
+              <SheetItem label="Approver">
                 {approver?.approverId && approver.approver ? (
                   <>
                     <Link href={`/staff/${approver.approver.id}`} className="link">
@@ -126,36 +128,13 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
                 ) : approver?.basis === "NONE" ? (
                   <Status tone={hasNoApproverByDesign(approver) ? "na" : "wait"}>{approverReasonLabel[approver.reason]}</Status>
                 ) : null}
-              </Item>
-              {heads.length > 0 && <Item label="Heads">{heads.map((h) => h[0].toUpperCase() + h.slice(1)).join("; ")}</Item>}
-              {approves > 0 && <Item label="Approves for">{plural(approves, "active staff member", "active staff")}</Item>}
+              </SheetItem>
+              {heads.length > 0 && <SheetItem label="Heads">{heads.map((h) => h[0].toUpperCase() + h.slice(1)).join("; ")}</SheetItem>}
+              {approves > 0 && <SheetItem label="Approves for">{plural(approves, "active staff member", "active staff")}</SheetItem>}
             </Sheet>
           )}
 
-          {history.length > 0 && (
-            <Panel title="History" flush>
-              <ol className="px-5 text-[13px]">
-                {history.map((h) => (
-                  <li key={String(h.id)} className="grid gap-x-4 border-b border-rule py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr]">
-                    <div className="num text-xs text-ink-3 sm:pt-0.5">{formatDateTime(h.createdAt)}</div>
-                    <div>
-                      {h.summary}
-                      <span className="text-ink-3"> · {h.actor?.name ?? "System"}</span>
-                      {h.changes && typeof h.changes === "object" && !Array.isArray(h.changes) && (
-                        <ul className="mt-0.5 text-xs text-ink-2">
-                          {Object.entries(h.changes as Record<string, [unknown, unknown]>).map(([k, [a, b]]) => (
-                            <li key={k}>
-                              {k}: <span className="text-ink-3">{String(a ?? "blank")}</span> → {String(b ?? "blank")}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </Panel>
-          )}
+          <HistoryPanel entries={history} />
         </div>
 
         <aside className="flex flex-col gap-5">
@@ -194,23 +173,6 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
           </Panel>
         </aside>
       </div>
-    </div>
-  );
-}
-
-function Sheet({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Panel title={title}>
-      <dl className="-my-2 text-[13.5px]">{children}</dl>
-    </Panel>
-  );
-}
-
-function Item({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[130px_1fr] gap-3 border-b border-rule py-2 last:border-b-0 sm:grid-cols-[160px_1fr]">
-      <dt className="text-ink-3">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
     </div>
   );
 }

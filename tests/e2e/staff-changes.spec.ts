@@ -20,13 +20,13 @@ test("admin adds a staff member, marks them resigned and reinstates them", async
   await expect(page.getByRole("heading", { name: "Nurul Izzah binti Othman" })).toBeVisible();
   await expect(page.getByText("HOD of the department")).toBeVisible();
 
-  await page.getByRole("button", { name: "Mark as resigned…" }).click();
+  await page.getByRole("button", { name: "Mark as resigned" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Mark as resigned" }).click();
   await expect(page.getByRole("dialog").getByText("Marked as resigned.")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
   await expect(page.getByText("Cannot sign in (resigned)")).toBeVisible();
 
-  await page.getByRole("button", { name: "Reinstate…" }).click();
+  await page.getByRole("button", { name: "Reinstate" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Reinstate" }).click();
   await expect(page.getByRole("dialog").getByText("Reinstated as active.")).toBeVisible();
 });

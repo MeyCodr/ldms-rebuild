@@ -7,7 +7,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | --- | --- | --- |
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
-| 2 | Training core: trainings, participants, attendance, OJT | Next |
+| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: module 1 (Trainings) done; module 2 next, see `docs/phase-2-plan.md` |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | |
 | 4 | Reporting, exports, daily jobs | |
 | 5 | Migration rehearsal and cutover | |

@@ -1,8 +1,9 @@
-// Development seed: settings plus a demo org chart and staff list.
+// Development seed: settings, a demo org chart and staff list, and demo trainings.
 // Real data comes from scripts/legacy-import in phase 5; this is only so the
-// screens have something realistic to show. Runs only on an empty database.
+// screens have something realistic to show. Each part runs only while its
+// table is empty, so later phases can add demo data to an existing database.
 
-import { PrismaClient, type Designation, type RoleCode } from "@prisma/client";
+import { PrismaClient, type Designation, type Prisma, type RoleCode, type TrainingFunction, type TrainingPlatform, type TrainingProgram } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
 import { createHash } from "node:crypto";
 
@@ -119,11 +120,15 @@ async function main() {
     create: { key: "mail.testMode", value: { enabled: true, address: "ldms-test@phn.com.my" } },
   });
 
-  if ((await db.staff.count()) > 0) {
-    console.log("Staff table is not empty, skipping demo data.");
-    return;
-  }
+  if ((await db.staff.count()) > 0) console.log("Staff table is not empty, skipping demo staff.");
+  else await seedStaff();
 
+  if ((await db.training.count()) > 0) console.log("Training table is not empty, skipping demo trainings.");
+  else await seedTrainings();
+  await classifyDemoTrainings();
+}
+
+async function seedStaff() {
   const demoHash = await hash(DEMO_PASSWORD);
   let permanentNo = 10231;
   let contractNo = 2041;
@@ -228,6 +233,94 @@ async function main() {
   console.log(`Seeded ${count} staff.`);
   console.log(`Sign in with password ${DEMO_PASSWORD}: 10001 (L&D admin), 10002 (main clerk), 10003 (clerk)${hod ? `, ${hod.staffNo} (HOD Stamping)` : ""}.`);
   console.log(`Everyone else has the migrated MD5 password "phn12345", upgraded to argon2 on first sign-in.`);
+}
+
+// ---------- Trainings ----------
+
+// Program, function and platform of each demo training, by title. Also fills
+// them in on demo trainings seeded before these fields existed.
+const DEMO_CLASSIFICATION: Record<string, [TrainingProgram, TrainingFunction, TrainingPlatform]> = {
+  "ISO 9001:2015 Internal Auditor": ["EXTERNAL_PUBLIC", "BUSINESS", "PHYSICAL"],
+  "Power Press Safety": ["INTERNAL_INTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+  "5S Workplace Organisation": ["INTERNAL_INTERNAL_TRAINER", "PERSONAL_EFFECTIVENESS", "PHYSICAL"],
+  "Forklift Operation Licence": ["EXTERNAL_PUBLIC", "BUSINESS", "PHYSICAL"],
+  "Spot Welding Parameter Setting": ["INTERNAL_INTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+  "IATF 16949 Awareness": ["INTERNAL_INTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+  "Die Maintenance Basics": ["INTERNAL_INTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+  "Excel for Production Reporting": ["INTERNAL_INTERNAL_TRAINER", "DIGITAL", "PHYSICAL"],
+  "Industrial Energy Management": ["EXTERNAL_PUBLIC", "BUSINESS", "PHYSICAL"],
+  "Chemical Handling and SDS": ["INTERNAL_EXTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+  "Advanced Product Quality Planning (APQP) and PPAP": ["EXTERNAL_PUBLIC", "BUSINESS", "ONLINE"],
+  "Lockout Tagout (LOTO)": ["INTERNAL_INTERNAL_TRAINER", "BUSINESS", "PHYSICAL"],
+};
+
+async function classifyDemoTrainings() {
+  let n = 0;
+  for (const [title, [program, fn, platform]] of Object.entries(DEMO_CLASSIFICATION)) {
+    const r = await db.training.updateMany({ where: { title, program: null }, data: { program, function: fn, platform } });
+    n += r.count;
+  }
+  if (n) console.log(`Set program, function and platform on ${n} demo trainings.`);
+
+  // Internal-trainer trainings name a real executive or manager: the staff
+  // member with the same name if there is one, otherwise the most senior
+  // person in the organising department (or L&D for company-wide ones).
+  const unlinked = await db.training.findMany({ where: { program: "INTERNAL_INTERNAL_TRAINER", trainerStaffId: null } });
+  const eligible: Prisma.StaffWhereInput = { status: "ACTIVE", designation: { in: ["EXECUTIVE", "MANAGER"] } };
+  const hra = await db.department.findFirst({ where: { shortName: "HRA" } });
+  for (const t of unlinked) {
+    const trainer =
+      (t.trainerName ? await db.staff.findFirst({ where: { ...eligible, name: t.trainerName } }) : null) ??
+      (await db.staff.findFirst({ where: { ...eligible, departmentId: t.departmentId ?? hra?.id }, orderBy: [{ designation: "desc" }, { staffNo: "asc" }] }));
+    if (trainer) await db.training.update({ where: { id: t.id }, data: { trainerStaffId: trainer.id, trainerName: trainer.name } });
+  }
+  if (unlinked.length) console.log(`Linked ${unlinked.length} internal-trainer demo trainings to staff.`);
+}
+
+const day = (s: string) => new Date(`${s}T00:00:00Z`);
+const time = (s: string) => new Date(`1970-01-01T${s}:00Z`);
+
+async function seedTrainings() {
+  const admin = await db.staff.findUnique({ where: { staffNo: "10001" } });
+  const dept = async (short: string) => (await db.department.findFirst({ where: { shortName: short } }))?.id ?? null;
+  const [hra, stp, wld, mtn, qa] = await Promise.all(["HRA", "STP", "WLD", "MTN", "QA"].map(dept));
+
+  type Spec = Omit<Prisma.TrainingCreateInput, "startDate" | "endDate" | "startTime" | "endTime" | "department" | "sessions"> & {
+    dates: [string, string];
+    times: [string, string];
+    departmentId?: number | null;
+    sessions?: [string, string, string][];
+  };
+  const specs: Spec[] = [
+    { type: "PUBLIC_INHOUSE", title: "ISO 9001:2015 Internal Auditor", code: "QMS-IA-01", provider: "SIRIM QAS International", trainerName: "Ir. Lim Boon Huat", venue: "SIRIM, Shah Alam", category: "Quality", hrdfClaimable: true, cost: "3800.00", dates: ["2025-03-11", "2025-03-12"], times: ["09:00", "17:00"], description: "Planning, conducting and reporting internal audits against ISO 9001:2015." },
+    { type: "PUBLIC_INHOUSE", title: "Power Press Safety", provider: "PHN Safety & Health Committee", trainerName: "Mohd Rizal bin Hassan", venue: "Training Room 2", category: "Safety", dates: ["2025-05-20", "2025-05-20"], times: ["08:30", "17:30"], departmentId: stp },
+    { type: "PUBLIC_INHOUSE", title: "5S Workplace Organisation", provider: "PHN Industry", trainerName: "Tan Wei Liang", venue: "Training Room 1", category: "Productivity", dates: ["2025-08-14", "2025-08-14"], times: ["08:30", "12:30"] },
+    { type: "PUBLIC_INHOUSE", title: "Forklift Operation Licence", code: "DOSH-FL", provider: "Safety Pro Training Sdn Bhd", venue: "Klang", category: "Safety", hrdfClaimable: true, cost: "1450.00", dates: ["2025-10-07", "2025-10-08"], times: ["08:30", "17:30"] },
+    { type: "OJT", title: "Spot Welding Parameter Setting", trainerName: "Chong Siew Yin", venue: "Spot Welding cell 3", category: "Technical", dates: ["2025-11-18", "2025-11-18"], times: ["09:00", "12:00"], departmentId: wld },
+    { type: "PUBLIC_INHOUSE", title: "IATF 16949 Awareness", code: "IATF-AW", provider: "PHN Quality Assurance", trainerName: "Wong Mei Ling", venue: "Training Room 1", category: "Quality", dates: ["2026-01-21", "2026-01-21"], times: ["08:30", "12:30"], departmentId: qa },
+    { type: "OJT", title: "Die Maintenance Basics", trainerName: "Muthu a/l Ramasamy", venue: "Tooling Workshop", category: "Technical", dates: ["2026-02-10", "2026-02-12"], times: ["14:00", "17:00"], departmentId: mtn },
+    { type: "DEPARTMENTAL", title: "Excel for Production Reporting", provider: "HRA, Learning & Development", trainerName: "Nor Azlina binti Hamid", venue: "Computer Lab", category: "IT skills", dates: ["2026-03-04", "2026-03-06"], times: ["09:00", "12:00"], departmentId: hra },
+    { type: "PUBLIC_INHOUSE", title: "Industrial Energy Management", provider: "Malaysian Green Technology Corporation", venue: "Bangi", category: "Engineering", hrdfClaimable: true, cost: "2200.00", dates: ["2026-06-16", "2026-06-17"], times: ["09:00", "17:00"], status: "CANCELLED" },
+    { type: "PUBLIC_INHOUSE", title: "Chemical Handling and SDS", provider: "PHN Safety & Health Committee", trainerName: "Siti Hajar binti Ismail", venue: "Training Room 2", category: "Safety", dates: ["2026-09-08", "2026-09-08"], times: ["08:30", "12:30"] },
+    { type: "PUBLIC_INHOUSE", title: "Advanced Product Quality Planning (APQP) and PPAP", code: "AIAG-APQP", provider: "Automotive Quality Academy", venue: "Online", category: "Quality", hrdfClaimable: true, cost: "2650.00", dates: ["2026-10-20", "2026-10-21"], times: ["09:00", "17:00"] },
+    { type: "PUBLIC_INHOUSE", title: "Lockout Tagout (LOTO)", provider: "PHN Safety & Health Committee", trainerName: "Mohd Rizal bin Hassan", venue: "Training Room 2", category: "Safety", dates: ["2026-11-12", "2026-11-12"], times: ["08:30", "17:30"] },
+  ];
+
+  for (const { dates, times, departmentId, sessions, ...rest } of specs) {
+    await db.training.create({
+      data: {
+        ...rest,
+        startDate: day(dates[0]),
+        endDate: day(dates[1]),
+        startTime: time(times[0]),
+        endTime: time(times[1]),
+        createdById: admin?.id,
+        department: departmentId ? { connect: { id: departmentId } } : undefined,
+        sessions: sessions ? { create: sessions.map(([date, start, end]) => ({ date: day(date), startTime: time(start), endTime: time(end) })) } : undefined,
+      },
+    });
+  }
+  console.log(`Seeded ${specs.length} trainings.`);
 }
 
 main()

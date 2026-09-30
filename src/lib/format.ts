@@ -35,3 +35,30 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 export function nowInMalaysia(): Date {
   return new Date(Date.now() + 8 * 60 * 60 * 1000);
 }
+
+/** 9 h, 12.5 h, 1.25 h. Hours come from trainingHours(), already rounded. */
+export function formatHours(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return "";
+  return `${hours.toLocaleString("en-MY", { maximumFractionDigits: 2 })} h`;
+}
+
+/** 08:30, from a Prisma @db.Time value (a Date on 1970-01-01 UTC). */
+export function formatTime(t: Date | null | undefined): string {
+  if (!t) return "";
+  return `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+/** 03 Apr 2026, or 03 – 05 Apr 2026, or 30 Mar – 02 Apr 2026. */
+export function formatDateRange(start: Date, end: Date): string {
+  if (start.getTime() === end.getTime()) return formatDate(start);
+  const [sd, sm, sy] = formatDate(start).split(" ");
+  if (sy !== String(end.getUTCFullYear())) return `${formatDate(start)} – ${formatDate(end)}`;
+  if (sm !== MONTHS[end.getUTCMonth()]) return `${sd} ${sm} – ${formatDate(end)}`;
+  return `${sd} – ${formatDate(end)}`;
+}
+
+/** RM 1,250.00 */
+export function formatMoney(amount: { toString(): string } | null | undefined): string {
+  if (amount === null || amount === undefined) return "";
+  return `RM ${Number(amount.toString()).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}

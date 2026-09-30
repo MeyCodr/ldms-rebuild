@@ -65,7 +65,7 @@ test("transferring staff moves them and back again", async ({ page }) => {
   const row = page.locator("tbody tr").last();
   const name = (await row.getByRole("link").textContent())!.trim();
   await row.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Transfer 1…" }).click();
+  await page.getByRole("button", { name: "Transfer 1" }).click();
   await choose(page.getByRole("dialog"), "To department", "Purchasing");
   await page.getByRole("dialog").getByRole("button", { name: "Transfer" }).click();
   await expect(page.getByRole("dialog").getByText("Transferred 1 staff.")).toBeVisible();
@@ -75,7 +75,7 @@ test("transferring staff moves them and back again", async ({ page }) => {
   // Move them back.
   await openDepartment(page, "Purchasing");
   await page.locator("tbody tr", { hasText: name }).getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Transfer 1…" }).click();
+  await page.getByRole("button", { name: "Transfer 1" }).click();
   await choose(page.getByRole("dialog"), "To department", "Information Technology");
   await page.getByRole("dialog").getByRole("button", { name: "Transfer" }).click();
   await expect(page.getByRole("dialog").getByText("Transferred 1 staff.")).toBeVisible();

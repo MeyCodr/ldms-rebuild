@@ -23,7 +23,7 @@ async function addContractStaff(admin: Page, staffNo: string, name: string): Pro
 
 async function resetPassword(admin: Page, recordUrl: string, password: string) {
   await admin.goto(recordUrl);
-  await admin.getByRole("button", { name: "Reset password…" }).click();
+  await admin.getByRole("button", { name: "Reset password" }).click();
   await admin.getByRole("dialog").getByLabel("Temporary password").fill(password);
   await admin.getByRole("dialog").getByRole("button", { name: "Reset password" }).click();
   await expect(admin.getByRole("dialog").getByText(/signed out everywhere/)).toBeVisible();
@@ -102,7 +102,7 @@ test("a clerk cannot change contract staff who hold extra access", async ({ brow
   await signIn(clerk, "10003");
   await clerk.goto(record);
   await expect(clerk.getByRole("heading", { name: "Bishnu Tamang" })).toBeVisible();
-  await expect(clerk.getByRole("button", { name: "Reset password…" })).toHaveCount(0);
+  await expect(clerk.getByRole("button", { name: "Reset password" })).toHaveCount(0);
   await expect(clerk.getByRole("link", { name: "Edit" })).toHaveCount(0);
   const res = await clerk.goto(`${record}/edit`);
   expect(res?.status()).toBe(403);

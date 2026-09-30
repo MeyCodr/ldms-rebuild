@@ -11,7 +11,7 @@ export const DESIGNATION_LABELS: Record<(typeof DESIGNATIONS)[number], string> =
 };
 
 const optionalDate = z
-  .union([z.literal(""), z.iso.date("Use the date picker")])
+  .union([z.literal(""), z.iso.date("Enter a date as DD/MM/YYYY")])
   .transform((v) => (v ? new Date(`${v}T00:00:00Z`) : null));
 
 export const staffNoSchema = z

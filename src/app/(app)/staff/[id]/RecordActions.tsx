@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/ui/DateField";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import type { ActionState } from "@/lib/action-state";
@@ -22,7 +23,7 @@ export function ResignDialog({ id, name, hodNote, hidden }: { id: number; name: 
   return (
     <DialogButton
       hideTrigger={hidden}
-      label="Mark as resigned…"
+      label="Mark as resigned"
       title={`Mark ${name} as resigned`}
       description="They will no longer be able to sign in, and will drop out of headcount and approver lists. Their training history is kept."
     >
@@ -40,7 +41,7 @@ function ResignForm({ id, hodNote }: { id: number; hodNote?: string }) {
       <FormMessage state={state} />
       {hodNote && <div className="notice notice-wait">{hodNote}</div>}
       <Field label="Last working day" name="dateResigned" required state={state}>
-        <input {...fieldProps("dateResigned", state)} type="date" defaultValue={today} className="input num w-48" />
+        <DateField {...fieldProps("dateResigned", state)} defaultValue={today} className="w-48" />
       </Field>
       <div className="flex justify-end gap-2 border-t border-rule pt-4">
         <CancelButton />
@@ -54,7 +55,7 @@ function ResignForm({ id, hodNote }: { id: number; hodNote?: string }) {
 
 export function ReinstateDialog({ id, name, hidden }: { id: number; name: string; hidden?: boolean }) {
   return (
-    <DialogButton hideTrigger={hidden} label="Reinstate…" title={`Reinstate ${name}`} description="Use this when a resignation was recorded by mistake, or the staff member has rejoined.">
+    <DialogButton hideTrigger={hidden} label="Reinstate" title={`Reinstate ${name}`} description="Use this when a resignation was recorded by mistake, or the staff member has rejoined.">
       <ReinstateForm id={id} />
     </DialogButton>
   );
@@ -79,7 +80,7 @@ function ReinstateForm({ id }: { id: number }) {
 
 export function ResetPasswordDialog({ id, name, staffNo }: { id: number; name: string; staffNo: string }) {
   return (
-    <DialogButton label="Reset password…" title={`Reset password for ${name}`} description={`Staff no. ${staffNo}`}>
+    <DialogButton label="Reset password" title={`Reset password for ${name}`} description={`Staff no. ${staffNo}`}>
       <ResetPasswordForm id={id} />
     </DialogButton>
   );

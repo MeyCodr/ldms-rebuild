@@ -34,3 +34,17 @@ test("dropdown: arrow keys move, Escape closes the list but not the dialog aroun
   await expect(dialog.getByRole("listbox")).toHaveCount(0);
   await expect(dialog).toBeVisible();
 });
+
+test("dropdown: long options are shown in full, not cut off", async ({ page }) => {
+  await signIn(page, "10001");
+  await page.goto("/trainings/new");
+  await page.getByLabel("Program", { exact: true }).click();
+  const options = page.getByRole("listbox").getByRole("option");
+  await expect(options).toHaveCount(3);
+  await expect(options.nth(1)).toHaveText("Internal training by external trainer");
+  // No option's text overflows its box, and the list stays on screen.
+  const clipped = await options.evaluateAll((els) => els.filter((el) => [...el.querySelectorAll("span")].some((s) => s.scrollWidth > s.clientWidth + 1)).length);
+  expect(clipped).toBe(0);
+  const box = await page.getByRole("listbox").boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+});

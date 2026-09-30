@@ -24,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Navigation is grouped by what people do, and only lists screens the user
   // can open. Modules appear here as each phase ships.
   const groups: NavGroup[] = [{ items: [{ href: "/", label: "Overview", module: "overview" }] }];
+  if (can(user, "training.view")) groups.push({ label: "Training", items: [{ href: "/trainings", label: "Trainings", module: "training" }] });
   const records: NavGroup["items"] = [];
   if (can(user, "staff.view")) records.push({ href: "/staff", label: "Staff", module: "staff" });
   if (can(user, "org.view")) records.push({ href: "/organization", label: "Organization", module: "organization" });

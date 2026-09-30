@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import { Select, type SelectOption } from "@/components/ui/Select";
@@ -145,7 +146,7 @@ export function ConfirmDialog({
   action,
   confirm,
   size,
-  variant = "danger-ghost",
+  variant = "danger",
 }: {
   label: string;
   title: string;
@@ -153,10 +154,19 @@ export function ConfirmDialog({
   action: (prev: ActionState) => Promise<ActionState>;
   confirm: string;
   size?: "sm";
-  variant?: "ghost" | "secondary" | "danger-ghost";
+  variant?: "ghost" | "secondary" | "danger" | "danger-ghost";
 }) {
+  // Deletes look the same everywhere: solid red with a bin, like Delete on a training.
+  const content =
+    variant === "danger" ? (
+      <>
+        <Trash2 size={size === "sm" ? 13 : 14} aria-hidden /> {label}
+      </>
+    ) : (
+      label
+    );
   return (
-    <DialogButton label={label} title={title} size={size} variant={variant}>
+    <DialogButton label={content} title={title} size={size} variant={variant}>
       <ConfirmForm action={action} confirm={confirm} description={description} />
     </DialogButton>
   );
@@ -236,7 +246,7 @@ export function StaffTransferTable({
         <span className="text-[13px] text-ink-2">{selected.size ? `${selected.size} selected` : "Tick staff, then choose Transfer to move them to another department or section."}</span>
         {/* Stays mounted after a transfer so its result is shown; the selection clears when it closes. */}
         <DialogButton
-          label={`Transfer ${selected.size}…`}
+          label={`Transfer ${selected.size}`}
           title={`Transfer ${selected.size} staff`}
           size="sm"
           variant="primary"

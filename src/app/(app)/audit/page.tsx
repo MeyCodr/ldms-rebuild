@@ -10,13 +10,14 @@ import { requirePermission } from "@/server/session";
 export const metadata: Metadata = { title: "Audit log" };
 
 const PAGE = 100;
-const ENTITIES = ["Staff", "Department", "Division", "Section"] as const;
+const ENTITIES = ["Staff", "Training", "Department", "Division", "Section"] as const;
 const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "IMPORT"];
 const ACTION_LABEL: Record<AuditAction, string> = { CREATE: "Added", UPDATE: "Changed", DELETE: "Deleted", IMPORT: "Import" };
 
 function recordHref(entity: string, id: string | null): string | null {
   if (!id || !/^\d+$/.test(id)) return null;
   if (entity === "Staff") return `/staff/${id}`;
+  if (entity === "Training") return `/trainings/${id}`;
   if (entity === "Department") return `/organization/departments/${id}`;
   if (entity === "Division") return `/organization#division-${id}`;
   return null;
@@ -48,7 +49,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
 
   return (
     <div className="page-fit mx-auto max-w-[1280px]">
-      <PageHeader module="audit" context="Administration" title="Audit log" meta={<span>Every change to the org chart and staff records, newest first.</span>} />
+      <PageHeader module="audit" context="Administration" title="Audit log" meta={<span>Every change to trainings, the org chart and staff records, newest first.</span>} />
 
       <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-rule bg-surface p-3" role="search" aria-label="Filter audit log">
         <div className="w-full sm:w-72">
