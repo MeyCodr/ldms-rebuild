@@ -181,7 +181,7 @@ export function DateField({ name, id, value, defaultValue = "", onChange, min, m
           id={panelId}
           role="dialog"
           aria-label="Choose date"
-          className="fixed z-[60] overflow-auto rounded-lg border border-rule-strong bg-surface p-3 shadow-[0_10px_28px_rgb(23_50_77/0.14)]"
+          className="fixed z-[60] overflow-auto rounded-[10px] border border-rule bg-surface p-3 shadow-[var(--shadow-float)]"
           style={style}
         >
           <div className="mb-2 flex items-center justify-between">

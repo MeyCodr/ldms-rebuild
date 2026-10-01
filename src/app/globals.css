@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
 /*
-  LDMS colour system.
-  Navy (primary) frames the app and carries actions. Teal (learning accent)
-  marks progress, links and where you are. Neutral cool surfaces keep records
-  easy to read. A small category palette tells modules and divisions apart,
-  tuned to sit beside navy and teal. Status colours mean status only.
+  LDMS design system.
+  Soft neutral page, white cards with hairline borders, generous spacing.
+  Navy (primary) carries actions and the one hero card per screen. Teal
+  (learning accent) marks progress, links and where you are; it is used
+  sparingly so it keeps meaning. A small category palette tells training
+  categories, modules and divisions apart. Status colours mean status only.
 */
 
 @theme {
@@ -14,70 +15,77 @@
   --font-display: var(--font-bricolage), var(--font-plex-sans), system-ui, sans-serif;
 
   /* Surfaces and text */
-  --color-paper: #f6f8fa; /* Background */
-  --color-surface: #ffffff; /* Surface */
-  --color-sunken: #eef2f5;
-  --color-rule: #d9e0e6; /* Border */
-  --color-rule-strong: #c2ccd5;
-  --color-ink: #1f2933; /* Primary text */
-  --color-ink-2: #475467;
-  --color-ink-3: #667085; /* Secondary text */
+  --color-paper: #f4f6f8; /* Page background */
+  --color-surface: #ffffff; /* Cards */
+  --color-sunken: #eff2f5; /* Wells, table headers, tracks */
+  --color-rule: #e2e7ec; /* Hairline borders */
+  --color-rule-strong: #cbd3db; /* Inputs, emphasised borders */
+  --color-ink: #1a2633; /* Primary text */
+  --color-ink-2: #4a5868; /* Secondary text */
+  --color-ink-3: #6b7787; /* Muted text */
 
-  /* Frame: sidebar and brand surfaces, built on Primary */
+  /* Navy frame: hero cards, the sign-in panel */
   --color-night: #17324d;
   --color-night-2: #22445f;
   --color-night-text: #d5dee8;
-  --color-night-muted: #8ea2b7;
+  --color-night-muted: #9aaec2;
 
   /* Primary: actions */
   --color-primary: #17324d;
   --color-primary-hover: #0f2438;
-  --color-primary-soft: #e6edf4;
+  --color-primary-soft: #e8eef4;
 
-  /* Secondary / learning accent: links, current location, progress */
+  /* Learning accent: links, current location, progress */
   --color-accent: #167d7f;
   --color-accent-hover: #10686a;
-  --color-accent-soft: #e2f1f1;
+  --color-accent-soft: #e3f2f1;
+  --color-accent-deep: #0f5c5e;
   --color-accent-bright: #4fc1bd; /* accent on navy */
 
-  /* Category palette (modules, divisions). -soft fills, -deep text on -soft. */
+  /* Category palette (training categories, modules, divisions). -soft fills, -deep text on -soft. */
   --color-jade: #167d7f;
-  --color-jade-soft: #e2f1f1;
+  --color-jade-soft: #e3f2f1;
   --color-jade-deep: #0f5c5e;
   --color-cobalt: #3b6ea8;
-  --color-cobalt-soft: #e5edf7;
+  --color-cobalt-soft: #e7eef8;
   --color-cobalt-deep: #24497a;
   --color-plum: #75508f;
-  --color-plum-soft: #efe8f5;
+  --color-plum-soft: #f0eaf5;
   --color-plum-deep: #54366b;
   --color-marigold: #d69a2d;
-  --color-marigold-soft: #f9efdb;
+  --color-marigold-soft: #faf1de;
   --color-marigold-deep: #7d5410;
   --color-coral: #cf6a4f;
-  --color-coral-soft: #f8e6e0;
+  --color-coral-soft: #f9e8e2;
   --color-coral-deep: #8f3d27;
   --color-olive: #6f8a3a;
-  --color-olive-soft: #edf2e2;
+  --color-olive-soft: #eef3e4;
   --color-olive-deep: #465a1f;
   --color-slate: #5b6b7c;
-  --color-slate-soft: #e9eef3;
+  --color-slate-soft: #eaeef3;
   --color-slate-deep: #3a4756;
 
   /* Status */
   --color-ok: #2e7d5b;
-  --color-ok-soft: #e4f1ea;
+  --color-ok-soft: #e5f2eb;
   --color-wait: #b7791f;
-  --color-wait-soft: #fbf1df;
+  --color-wait-soft: #fbf2e1;
   --color-bad: #c0392b;
-  --color-bad-soft: #f9e4e1;
+  --color-bad-soft: #f9e5e2;
   --color-na: #8a94a3;
 
-  --radius-sm: 3px;
-  --radius: 5px;
-  --radius-md: 7px;
+  /* Radius scale: controls 8px, cards 12px, hero and media 16px. */
+  --radius-sm: 5px;
+  --radius: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
+
+  /* One soft elevation, for things that float (menus, dialogs). Cards don't use it. */
+  --shadow-float: 0 12px 32px -8px rgb(23 50 77 / 0.18), 0 2px 6px rgb(23 50 77 / 0.06);
 }
 
 :root {
@@ -99,42 +107,59 @@ body {
 
 /* Numbers people compare down a column: staff no., dates, hours. */
 .num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.9em;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 @layer components {
+  /* ---------- Cards ---------- */
+  /* The one container: white, hairline border, 12px corners, no shadow. */
+  .card {
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+  /* Small uppercase label above a section or a figure. */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
   /* ---------- Buttons ---------- */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: 32px;
-    padding: 0 12px;
+    height: 36px;
+    padding: 0 14px;
     border: 1px solid var(--color-rule-strong);
     border-radius: var(--radius);
     background: var(--color-surface);
     color: var(--color-ink);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
-    transition: background-color 0.1s, border-color 0.1s;
+    transition:
+      background-color 0.12s,
+      border-color 0.12s,
+      color 0.12s;
   }
   .btn:hover {
     background: var(--color-sunken);
   }
   .btn:disabled,
   .btn[aria-disabled="true"] {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
   }
@@ -142,7 +167,6 @@ body {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: #fff;
-    box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.18);
   }
   .btn-primary:hover {
     background: var(--color-primary-hover);
@@ -154,7 +178,8 @@ body {
     color: #fff;
   }
   .btn-danger:hover {
-    background: #8a2a22;
+    background: #9f2f23;
+    border-color: #9f2f23;
   }
   .btn-ghost {
     border-color: transparent;
@@ -174,7 +199,7 @@ body {
   }
   /* Attendance actions, tinted like the result they lead to so they can't be mixed up. */
   .btn-ok {
-    border-color: color-mix(in srgb, var(--color-ok) 45%, transparent);
+    border-color: color-mix(in srgb, var(--color-ok) 35%, transparent);
     background: var(--color-ok-soft);
     color: var(--color-ok);
   }
@@ -182,7 +207,7 @@ body {
     background: color-mix(in srgb, var(--color-ok) 16%, white);
   }
   .btn-warn {
-    border-color: color-mix(in srgb, var(--color-wait) 45%, transparent);
+    border-color: color-mix(in srgb, var(--color-wait) 35%, transparent);
     background: var(--color-wait-soft);
     color: #8a5a12;
   }
@@ -190,7 +215,7 @@ body {
     background: color-mix(in srgb, var(--color-wait) 18%, white);
   }
   .btn-bad {
-    border-color: color-mix(in srgb, var(--color-bad) 40%, transparent);
+    border-color: color-mix(in srgb, var(--color-bad) 30%, transparent);
     background: var(--color-bad-soft);
     color: var(--color-bad);
   }
@@ -199,13 +224,13 @@ body {
   }
   /* Square button holding only an icon; always give it an aria-label and a title. */
   .btn-icon {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
   }
   .btn-sm {
-    height: 26px;
-    padding: 0 8px;
+    height: 30px;
+    padding: 0 10px;
     font-size: 12.5px;
   }
 
@@ -218,42 +243,65 @@ body {
     text-underline-offset: 2px;
   }
 
+  /* ---------- Tags ---------- */
+  /* A quiet label for a category, type or platform. Status uses <Status>, never a tag. */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: var(--color-sunken);
+    color: var(--color-ink-2);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
   /* ---------- Form controls ---------- */
   .input,
   .select,
   .textarea {
     width: 100%;
-    height: 32px;
-    padding: 0 9px;
+    height: 36px;
+    padding: 0 11px;
     border: 1px solid var(--color-rule-strong);
     border-radius: var(--radius);
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: 13.5px;
+    transition:
+      border-color 0.12s,
+      box-shadow 0.12s;
+  }
+  .input::placeholder,
+  .textarea::placeholder {
+    color: #8a95a3;
   }
   .textarea {
     height: auto;
-    min-height: 72px;
-    padding: 6px 9px;
+    min-height: 80px;
+    padding: 8px 11px;
   }
   .select {
-    padding-right: 26px;
+    padding-right: 28px;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23717771' stroke-width='1.4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 9px center;
+    background-position: right 11px center;
   }
   .input:hover,
   .select:hover,
   .textarea:hover {
-    border-color: var(--color-ink-3);
+    border-color: #9eabb8;
   }
   .input:focus,
   .select:focus,
   .textarea:focus {
     outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px var(--color-accent-soft);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
   }
   .input[aria-invalid="true"],
   .select[aria-invalid="true"] {
@@ -267,7 +315,7 @@ body {
 
   .label {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     font-size: 12.5px;
     font-weight: 500;
     color: var(--color-ink-2);
@@ -277,12 +325,12 @@ body {
     color: var(--color-bad);
   }
   .hint {
-    margin-top: 3px;
+    margin-top: 4px;
     font-size: 12px;
     color: var(--color-ink-3);
   }
   .field-error {
-    margin-top: 3px;
+    margin-top: 4px;
     font-size: 12px;
     color: var(--color-bad);
   }
@@ -293,11 +341,11 @@ body {
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 6px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--color-rule);
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-3);
   }
@@ -306,29 +354,34 @@ body {
   .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 13.5px;
   }
   .table th {
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: 7px 10px;
+    padding: 10px 12px;
     /* A shadow, not a border: collapsed borders scroll away from a sticky header. */
-    box-shadow: inset 0 -1px 0 var(--color-rule-strong);
-    background: var(--color-sunken);
-    color: var(--color-ink-2);
-    font-size: 11.5px;
+    box-shadow: inset 0 -1px 0 var(--color-rule);
+    background: #f8fafb;
+    color: var(--color-ink-3);
+    font-size: 11px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     text-align: left;
     white-space: nowrap;
   }
   .table td {
-    padding: 6px 10px;
+    padding: 11px 12px;
     border-bottom: 1px solid var(--color-rule);
     vertical-align: top;
   }
+  .table tbody tr:last-child td {
+    border-bottom: 0;
+  }
   .table tbody tr:hover td {
-    background: #f3f6f9;
+    background: #f8fafb;
   }
   .table .muted {
     color: var(--color-ink-3);
@@ -338,22 +391,22 @@ body {
   .notice {
     display: flex;
     gap: 10px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border: 1px solid var(--color-rule);
-    border-left-width: 3px;
     border-radius: var(--radius);
     background: var(--color-surface);
     font-size: 13px;
   }
   .notice-ok {
-    border-left-color: var(--color-ok);
+    border-color: color-mix(in srgb, var(--color-ok) 30%, transparent);
+    background: var(--color-ok-soft);
   }
   .notice-wait {
-    border-left-color: var(--color-wait);
+    border-color: color-mix(in srgb, var(--color-wait) 30%, transparent);
     background: var(--color-wait-soft);
   }
   .notice-bad {
-    border-left-color: var(--color-bad);
+    border-color: color-mix(in srgb, var(--color-bad) 30%, transparent);
     background: var(--color-bad-soft);
   }
 
@@ -367,30 +420,49 @@ body {
     font-size: 11px;
     color: var(--color-ink-2);
   }
+
+  /* ---------- Loading placeholders ---------- */
+  .skeleton {
+    border-radius: var(--radius);
+    background: var(--color-sunken);
+    animation: skeleton 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 /* Page and section titles: a warmer display face, kept at working sizes. */
 .display {
   font-family: var(--font-display);
   font-optical-sizing: auto;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
 /*
   Screen-height pages: the header and filters stay put and the table fills the
   rest of the screen, scrolling on its own. Heights subtract the main padding
-  (24px top, and a 24px bottom gap instead of the usual 64px) and, below lg,
-  the 56px top bar.
+  (28px top, and a 24px bottom gap instead of the usual 64px) and, below lg,
+  the 60px top bar.
 */
 .page-fit {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 104px);
+  height: calc(100dvh - 112px);
   margin-bottom: -40px; /* keep 24px of the main area's 64px bottom padding */
 }
 @media (min-width: 1024px) {
   .page-fit {
-    height: calc(100dvh - 48px);
+    height: calc(100dvh - 52px);
   }
 }
 .page-fit > .table-scroll {
@@ -400,5 +472,5 @@ body {
 }
 
 dialog::backdrop {
-  background: rgb(23 50 77 / 0.45);
+  background: rgb(23 50 77 / 0.4);
 }

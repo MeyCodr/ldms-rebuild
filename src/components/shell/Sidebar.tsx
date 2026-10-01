@@ -16,7 +16,7 @@ type Props = {
   groups: NavGroup[];
   user: { name: string; staffNo: string; departmentName: string; roleLabel: string; tone: Tone };
   signOut: () => Promise<void>;
-  /** Desktop only. The rail is the default; people who prefer labels can expand it. */
+  /** Desktop only. Labels show by default; people who want more room can collapse to icons. */
   defaultCollapsed: boolean;
 };
 
@@ -29,7 +29,7 @@ function Tip({ children }: { children: React.ReactNode }) {
   return (
     <span
       role="tooltip"
-      className="pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-y-1/2 rounded-md bg-ink px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      className="pointer-events-none absolute top-1/2 left-full z-50 ml-3 -translate-y-1/2 rounded-md bg-ink px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-[var(--shadow-float)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
     >
       {children}
     </span>
@@ -48,14 +48,16 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
   }
 
   const renderNav = (rail: boolean) => (
-    <nav aria-label="Main" className={`flex flex-1 flex-col py-5 ${rail ? "gap-3 px-3" : "gap-6 overflow-y-auto px-3"}`}>
+    // Only the labelled nav scrolls: on the rail, overflow would clip the tooltips
+    // that sit beside the icons and add a sideways scrollbar.
+    <nav aria-label="Main" className={`flex flex-1 flex-col py-4 ${rail ? "gap-3 px-3" : "gap-6 overflow-y-auto px-3"}`}>
       {groups.map((group, i) => (
         <div key={group.label ?? i}>
           {group.label &&
             (rail ? (
-              i > 0 && <div aria-hidden className="mx-2 mb-3 border-t border-night-2" />
+              i > 0 && <div aria-hidden className="mx-2 mb-3 border-t border-rule" />
             ) : (
-              <div className="mb-1.5 px-3 text-2xs font-semibold tracking-[0.1em] text-night-muted uppercase">{group.label}</div>
+              <div className="eyebrow mb-1.5 px-3 text-[10.5px]">{group.label}</div>
             ))}
           <ul className="flex flex-col gap-0.5">
             {group.items.map((item) => {
@@ -68,20 +70,19 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     aria-label={rail ? item.label : undefined}
-                    className={`group relative flex h-9 items-center rounded-md text-[13.5px] transition-colors ${rail ? "justify-center" : "gap-3 px-3"} ${
-                      active ? "bg-night-2 font-medium text-white" : "text-night-text hover:bg-night-2/60 hover:text-white"
+                    className={`group relative flex h-10 items-center rounded-lg text-[13.5px] transition-colors ${rail ? "justify-center" : "gap-3 px-2"} ${
+                      active ? "bg-sunken font-medium text-ink" : "text-ink-2 hover:bg-sunken/70 hover:text-ink"
                     }`}
                   >
-                    {active && <span aria-hidden className="absolute top-2 bottom-2 -left-3 w-1 rounded-r bg-accent-bright" />}
                     <span
                       aria-hidden
-                      className={`flex size-6 items-center justify-center rounded-[5px] ${active ? tone.tile : "text-night-muted group-hover:text-night-text"}`}
+                      className={`flex size-7 items-center justify-center rounded-md transition-colors ${active ? tone.tile : "text-ink-3 group-hover:text-ink-2"}`}
                     >
-                      <Icon size={15} strokeWidth={2} />
+                      <Icon size={16} strokeWidth={1.9} />
                     </span>
                     {rail ? (
                       <>
-                        {item.count ? <span aria-hidden className="absolute top-1.5 right-1.5 size-2 rounded-full bg-accent-bright" /> : null}
+                        {item.count ? <span aria-hidden className="absolute top-1.5 right-1.5 size-2 rounded-full bg-accent" /> : null}
                         <Tip>
                           {item.label}
                           {item.count ? ` · ${item.count}` : ""}
@@ -90,9 +91,10 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
                     ) : (
                       <>
                         <span className="flex-1">{item.label}</span>
-                        {item.count ? <span className="num rounded bg-accent-bright px-1.5 text-xs font-medium text-night">{item.count}</span> : null}
+                        {item.count ? <span className="num rounded-md bg-accent-soft px-1.5 text-xs font-semibold text-accent-deep">{item.count}</span> : null}
                       </>
                     )}
+                    {active && !rail && <span aria-hidden className="absolute top-2.5 right-2 bottom-2.5 w-[3px] rounded-full bg-accent" />}
                   </Link>
                 </li>
               );
@@ -105,39 +107,50 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
 
   const renderIdentity = (rail: boolean) =>
     rail ? (
-      <div className="flex flex-col items-center gap-2 border-t border-night-2 py-3.5">
-        <Link href="/account" aria-label={`${user.name}, account`} className="group relative rounded-full p-0.5 hover:bg-night-2/60">
+      <div className="flex flex-col items-center gap-2 border-t border-rule py-3.5">
+        <Link href="/account" aria-label={`${user.name}, account`} className="group relative rounded-full p-0.5 hover:bg-sunken">
           <Avatar name={user.name} tone={user.tone} size={34} />
           <Tip>
             {user.name} · <span className="num">{user.staffNo}</span>
           </Tip>
         </Link>
         <form action={signOut}>
-          <button type="submit" aria-label="Sign out" className="group relative flex size-8 cursor-pointer items-center justify-center rounded-md text-night-muted hover:bg-night-2/60 hover:text-white">
+          <button
+            type="submit"
+            aria-label="Sign out"
+            className="group relative flex size-8 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-sunken hover:text-ink"
+          >
             <LogOut size={15} aria-hidden />
             <Tip>Sign out</Tip>
           </button>
         </form>
       </div>
     ) : (
-      <div className="border-t border-night-2 px-4 py-3.5">
-        <Link href="/account" className="flex items-center gap-3 rounded-md p-1 hover:bg-night-2/60">
-          <Avatar name={user.name} tone={user.tone} size={34} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-white" title={user.name}>
-              {user.name}
+      <div className="border-t border-rule p-3">
+        <div className="flex items-center gap-1 rounded-lg p-1">
+          <Link href="/account" className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 hover:bg-sunken">
+            <Avatar name={user.name} tone={user.tone} size={34} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-ink" title={user.name}>
+                {user.name}
+              </span>
+              <span className="block truncate text-xs text-ink-3">
+                <span className="num">{user.staffNo}</span> · {user.departmentName}
+              </span>
             </span>
-            <span className="block truncate text-xs text-night-muted">
-              <span className="num">{user.staffNo}</span> · {user.departmentName}
-            </span>
-          </span>
-        </Link>
-        {user.roleLabel && <div className="mt-2 px-1 text-xs text-night-muted">{user.roleLabel}</div>}
-        <form action={signOut} className="mt-2 px-1">
-          <button type="submit" className="flex cursor-pointer items-center gap-1.5 text-xs text-night-text hover:text-white">
-            <LogOut size={13} aria-hidden /> Sign out
-          </button>
-        </form>
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              aria-label="Sign out"
+              title="Sign out"
+              className="flex size-8 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-sunken hover:text-ink"
+            >
+              <LogOut size={15} aria-hidden />
+            </button>
+          </form>
+        </div>
+        {user.roleLabel && <div className="mt-1 px-2 text-xs text-ink-3">{user.roleLabel}</div>}
       </div>
     );
 
@@ -147,7 +160,7 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
       onClick={toggle}
       aria-expanded={!collapsed}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      className="group relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-night-muted hover:bg-night-2 hover:text-white"
+      className="group relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-sunken hover:text-ink"
     >
       {collapsed ? <PanelLeftOpen size={17} aria-hidden /> : <PanelLeftClose size={17} aria-hidden />}
       {collapsed && <Tip>Expand sidebar</Tip>}
@@ -156,10 +169,10 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
 
   return (
     <>
-      {/* Desktop: an icon rail by default, expandable to show labels */}
+      {/* Desktop: labels by default, collapsible to an icon rail */}
       <aside
         data-collapsed={collapsed}
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col bg-night transition-[width] duration-200 lg:flex ${collapsed ? "w-[68px]" : "w-60"}`}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-rule bg-surface transition-[width] duration-200 lg:flex ${collapsed ? "w-[72px]" : "w-[252px]"}`}
       >
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 pt-4 pb-1">
@@ -171,7 +184,7 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
         ) : (
           <div className="flex h-16 items-center justify-between gap-2 pr-3 pl-5">
             <Link href="/" aria-label="LDMS overview">
-              <Wordmark onDark />
+              <Wordmark />
             </Link>
             {toggleButton}
           </div>
@@ -181,13 +194,13 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
       </aside>
 
       {/* Tablet and phone: top bar with a drawer */}
-      <div className="sticky top-0 z-30 flex h-14 items-center justify-between bg-night px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-[60px] items-center justify-between border-b border-rule bg-surface/95 px-4 backdrop-blur lg:hidden">
         <Link href="/" aria-label="LDMS overview">
-          <Wordmark onDark />
+          <Wordmark />
         </Link>
         <button
           type="button"
-          className="flex size-9 items-center justify-center rounded-md text-night-text hover:bg-night-2"
+          className="flex size-10 items-center justify-center rounded-lg text-ink-2 hover:bg-sunken"
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Menu"}
@@ -197,11 +210,11 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
         </button>
       </div>
       {open && (
-        <div className="fixed inset-0 top-14 z-20 lg:hidden">
-          <button type="button" aria-label="Close menu" className="absolute inset-0 bg-night/40" onClick={() => setOpen(false)} />
+        <div className="fixed inset-0 top-[60px] z-20 lg:hidden">
+          <button type="button" aria-label="Close menu" className="absolute inset-0 bg-night/30" onClick={() => setOpen(false)} />
           <aside
             id="mobile-nav"
-            className="relative flex h-full w-72 max-w-[85vw] flex-col bg-night"
+            className="relative flex h-full w-72 max-w-[85vw] flex-col border-r border-rule bg-surface shadow-[var(--shadow-float)]"
             onClick={(e) => {
               if ((e.target as HTMLElement).closest("a")) setOpen(false);
             }}

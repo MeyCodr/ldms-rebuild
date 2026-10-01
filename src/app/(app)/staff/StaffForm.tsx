@@ -41,7 +41,7 @@ export function StaffForm({
   const sections = departments.find((d) => d.id === departmentId)?.sections ?? [];
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex max-w-[720px] flex-col gap-7">
+    <form onSubmit={onSubmit} noValidate className="card flex max-w-[760px] flex-col gap-7 p-5 sm:p-7">
       <FormMessage state={state} />
       <p className="-mb-3 text-xs text-ink-3">
         Fields marked <span className="text-bad">*</span> are required.

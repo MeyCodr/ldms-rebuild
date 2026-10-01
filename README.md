@@ -72,20 +72,33 @@ Colour system (tokens in `src/app/globals.css`):
 
 | Role | Colour | Used for |
 | --- | --- | --- |
-| Primary | `#17324D` | Sidebar and sign-in panel, primary buttons |
-| Secondary / learning accent | `#167D7F` | Links, focus rings, current location, selected options |
-| Background / Surface | `#F6F8FA` / `#FFFFFF` | Page / panels, tables, dialogs |
-| Primary / secondary text | `#1F2933` / `#667085` | Body text / labels, hints |
-| Border | `#D9E0E6` | Rules, inputs, panels |
+| Primary | `#17324D` | Primary buttons, the one navy hero card per screen (the overview), sign-in panel |
+| Secondary / learning accent | `#167D7F` | Links, focus rings, current location, progress, chart columns |
+| Background / Surface | `#F4F6F8` / `#FFFFFF` | Page / cards, tables, dialogs |
+| Primary / secondary text | `#1A2633` / `#6B7787` | Body text / labels, hints |
+| Border | `#E2E7EC` (cards), `#CBD3DB` (inputs) | Hairlines |
 | Success / Warning / Danger | `#2E7D5B` / `#B7791F` / `#C0392B` | Status only: done, waiting, blocked |
 
-A small category palette (teal, blue, plum, amber, coral, olive, slate) tells **modules** and **divisions** apart:
-each screen has a module colour (`MODULE_TONE` in `src/lib/tones.ts`) and each division keeps one colour for avatars,
-department markers and headcount bars (`divisionTone()`). Status is a dot plus words, never a filled badge.
+A small category palette (teal, blue, plum, amber, coral, olive, slate) tells **training categories**, **modules** and
+**divisions** apart: each training has a category (`trainingCategory()` in `src/lib/trainingCategory.ts`: its type for
+OJT and departmental, otherwise its function) that sets its cover, icon and tag colour; each screen has a module colour
+(`MODULE_TONE`); each division keeps one colour for avatars and markers (`divisionTone()`). Status is a dot plus words,
+never a filled badge.
 
-The mark is four ascending steps (`src/components/brand.tsx`). Titles use Bricolage Grotesque, body IBM Plex Sans,
-numbers IBM Plex Mono. No gradients, glows or glass; white panels only where a block stands on its own.
-Tokens are in `src/app/globals.css`. Screens only appear in the navigation once they exist.
+**Layout.** A light sidebar (252px, collapsible to a 72px icon rail; a top bar and drawer below 1024px). Everything sits
+in white cards (`.card` / `Panel`: hairline border, 12px corners, no shadow). The overview is a bento grid (12 columns on
+desktop, 6 on tablet, 1 on phones) with deliberately different card sizes: a navy hero with the person's learning
+hours, a tall "next training" card, a wide hours chart, then L&D figures for admins. Trainings have no images, so
+`TrainingCover` draws a cover from the category colour, its icon and the steps mark.
+
+**Pieces.** `Progress` (thin bar), `EmptyState` (icon, what's missing and why), `CategoryTag` / `.tag` (quiet labels),
+`ColumnChart` (single-series columns in HTML: one hue, rounded data end, value on hover/focus, a screen-reader table),
+`.skeleton` (loading placeholder for data loaded on the client). There is no route-level `loading.tsx`: streaming
+would send a 200 before a page can answer 403 or 404.
+
+The mark is four ascending steps (`src/components/brand.tsx`). Titles use Bricolage Grotesque, body IBM Plex Sans with
+tabular figures for numbers in columns. Corners: 8px controls, 12px cards, 16px hero. No gradients, glows or glass; one
+soft shadow only for things that float (menus, dialogs). Screens only appear in the navigation once they exist.
 
 ## Security
 

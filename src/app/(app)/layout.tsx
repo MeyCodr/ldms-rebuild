@@ -20,8 +20,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // and actions call requireUser(), which sends someone with a temporary
   // password to /account.
   const user = await requireUser({ allowPendingPasswordChange: true });
-  // Collapsed to an icon rail unless the person has chosen to keep it open.
-  const sidebarCollapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value !== "open";
+  // Open with labels unless the person has collapsed it to an icon rail.
+  const sidebarCollapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value === "closed";
 
   // Navigation is grouped by what people do, and only lists screens the user
   // can open. Modules appear here as each phase ships.
@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         signOut={doSignOut}
         defaultCollapsed={sidebarCollapsed}
       />
-      <main className="min-w-0 flex-1 px-4 pt-6 pb-16 sm:px-6 lg:px-10">{children}</main>
+      <main className="min-w-0 flex-1 px-4 pt-7 pb-16 sm:px-6 lg:px-10">{children}</main>
     </div>
   );
 }

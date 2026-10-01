@@ -19,24 +19,24 @@ export function PageHeader({ module, context, title, meta, actions, leading }: P
   const Icon = MODULE_ICON[module];
   const tone = TONE[MODULE_TONE[module]];
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-5">
-      <div className="flex min-w-0 items-start gap-3.5">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-6">
+      <div className="flex min-w-0 items-center gap-4">
         {leading ?? (
-          <span aria-hidden className={`mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-lg ${tone.tile}`}>
-            <Icon size={21} strokeWidth={1.9} />
+          <span aria-hidden className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${tone.tile}`}>
+            <Icon size={22} strokeWidth={1.8} />
           </span>
         )}
         <div className="min-w-0">
           {context &&
             (typeof context === "string" ? (
-              <div className={`text-xs font-medium ${tone.deep}`}>{context}</div>
+              <div className="eyebrow">{context}</div>
             ) : (
-              <Link href={context.href} className={`inline-flex items-center gap-1 text-xs font-medium ${tone.deep} hover:underline`}>
-                <ArrowLeft size={12} aria-hidden /> {context.label}
+              <Link href={context.href} className="inline-flex items-center gap-1 text-[12.5px] font-medium text-ink-3 hover:text-accent">
+                <ArrowLeft size={13} aria-hidden /> {context.label}
               </Link>
             ))}
-          <h1 className="display text-[26px] leading-tight font-semibold text-ink">{title}</h1>
-          {meta && <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">{meta}</div>}
+          <h1 className="display mt-0.5 text-[28px] leading-[1.15] font-semibold text-ink">{title}</h1>
+          {meta && <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">{meta}</div>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

@@ -165,7 +165,7 @@ export function TimeField({ name, id, value, defaultValue = "", onChange, disabl
       {open && style && (
         <div
           ref={panel}
-          className="fixed z-[60] overflow-y-auto rounded-lg border border-rule-strong bg-surface py-1 shadow-[0_10px_28px_rgb(23_50_77/0.14)]"
+          className="fixed z-[60] overflow-y-auto rounded-[10px] border border-rule bg-surface py-1 shadow-[var(--shadow-float)]"
           style={{ ...style, maxHeight: Math.min(260, (style.maxHeight as number) ?? 260) }}
         >
           <ul id={listId} role="listbox" aria-label="Times">

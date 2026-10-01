@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { Progress } from "@/components/ui/Progress";
 import { Select } from "@/components/ui/Select";
 import { formatDateRange, formatHours, formatTime, nowInMalaysia, plural } from "@/lib/format";
 import { TRAINING_TYPE_LABELS, TRAINING_TYPE_SHORT_LABELS, TRAINING_TYPES } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { trainingPhase } from "@/server/rules/training";
-import { listTrainings, TRAINING_PAGE_SIZE, TRAINING_SORT_DEFAULT_DIR, trainingYears, type TrainingFilters, type TrainingSort } from "@/server/services/training";
+import {
+  listTrainings,
+  TRAINING_PAGE_SIZE,
+  TRAINING_SORT_DEFAULT_DIR,
+  trainingYears,
+  type TrainingFilters,
+  type TrainingSort,
+} from "@/server/services/training";
 import { requirePermission } from "@/server/session";
 import { filtersToQuery, parseTrainingFilters } from "./filters";
 import { PhaseStatus } from "./PhaseStatus";
@@ -54,7 +62,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
         </div>
       )}
 
-      <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-rule bg-surface p-3" role="search" aria-label="Filter trainings">
+      <form method="get" className="card flex flex-wrap items-end gap-2 p-3" role="search" aria-label="Filter trainings">
         <div className="w-full sm:w-72">
           <label htmlFor="q" className="sr-only">
             Search
@@ -110,7 +118,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
         )}
       </form>
 
-      <div className="table-scroll mt-4 rounded-lg border border-rule bg-surface">
+      <div className="table-scroll card mt-4">
         <table className="table">
           <thead>
             <tr>
@@ -124,7 +132,12 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                 Type
               </SortTh>
               <th className="hidden w-20 text-right sm:table-cell">Hours</th>
-              <SortTh f={f} col="participants" className="hidden w-28 text-right md:table-cell" title="Completed / all participants. Sorts by all participants.">
+              <SortTh
+                f={f}
+                col="participants"
+                className="hidden w-32 text-right md:table-cell"
+                title="Completed / all participants. Sorts by all participants."
+              >
                 Participants
               </SortTh>
               <th className="w-24 sm:w-28">Status</th>
@@ -140,10 +153,13 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                   </div>
                 </td>
                 <td>
-                  <Link href={`/trainings/${t.id}`} className={`link font-medium ${t.status === "CANCELLED" ? "line-through decoration-ink-3" : ""}`}>
+                  <Link
+                    href={`/trainings/${t.id}`}
+                    className={`font-medium text-ink hover:text-accent hover:underline ${t.status === "CANCELLED" ? "line-through decoration-ink-3" : ""}`}
+                  >
                     {t.title}
                   </Link>
-                  <div className="muted text-xs">
+                  <div className="muted mt-0.5 text-xs">
                     {[t.trainerName, t.venue].filter(Boolean).join(" · ")}
                     <span className="md:hidden">
                       {(t.trainerName || t.venue) && " · "}
@@ -151,12 +167,22 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                     </span>
                   </div>
                 </td>
-                <td className="hidden md:table-cell">{TRAINING_TYPE_SHORT_LABELS[t.type]}</td>
+                <td className="hidden md:table-cell">
+                  <span className="tag">{TRAINING_TYPE_SHORT_LABELS[t.type]}</span>
+                </td>
                 <td className="num hidden text-right sm:table-cell">{formatHours(t.hours)}</td>
                 <td className="num hidden text-right md:table-cell">
                   {t.participantCount ? (
                     <>
                       {t.completedCount} <span className="muted">/ {t.participantCount}</span>
+                      <Progress
+                        className="mt-2 ml-auto w-20"
+                        size="sm"
+                        tone="ok"
+                        value={t.completedCount}
+                        max={t.participantCount}
+                        label={`${t.completedCount} of ${t.participantCount} completed`}
+                      />
                     </>
                   ) : (
                     <span className="muted">none</span>

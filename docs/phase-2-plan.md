@@ -73,7 +73,8 @@ Ask these first. The default applies if the user has no preference.
 - **Dropdowns**: always `src/components/ui/Select.tsx` (groups, hints, search on long lists). Never a native `<select>`.
 - **Pages**: `PageHeader` with a `module` (icon tile and colour). List pages with long tables use the `page-fit` +
   `table-scroll` classes (table fills the screen and scrolls on its own). White `Panel`s only for self-contained blocks.
-- **Design**: colour tokens in `src/app/globals.css`. Primary navy `#17324D` (sidebar, primary buttons), learning accent
+- **Design** (redesigned 01 Oct 2026, see README → Design notes): light sidebar, white `.card`s, bento overview,
+  `TrainingCover` for trainings. Colour tokens in `src/app/globals.css`. Primary navy `#17324D` (primary buttons, hero card), learning accent
   teal `#167D7F` (links, focus, current location), background `#F6F8FA`, text `#1F2933`/`#667085`, border `#D9E0E6`,
   success `#2E7D5B`, warning `#B7791F`, danger `#C0392B`. Status is a dot plus words (`Status`), never a filled badge.
   Plain-language labels and hints; explain *why* an action is blocked. Staff no., dates and hours use the `num` class.

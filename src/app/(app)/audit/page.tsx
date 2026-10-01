@@ -52,7 +52,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
     <div className="page-fit mx-auto max-w-[1280px]">
       <PageHeader module="audit" context="Administration" title="Audit log" meta={<span>Every change to trainings, the org chart and staff records, newest first.</span>} />
 
-      <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-rule bg-surface p-3" role="search" aria-label="Filter audit log">
+      <form method="get" className="flex flex-wrap items-end gap-2 card p-3" role="search" aria-label="Filter audit log">
         <div className="w-full sm:w-72">
           <label htmlFor="q" className="sr-only">
             Search
@@ -81,7 +81,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
         )}
       </form>
 
-      <div className="table-scroll mt-4 rounded-lg border border-rule bg-surface">
+      <div className="table-scroll mt-4 card">
         <table className="table">
           <thead>
             <tr>

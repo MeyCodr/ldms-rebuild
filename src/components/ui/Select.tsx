@@ -244,7 +244,7 @@ export function Select({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onTriggerKey}
-        className={`select flex items-center gap-2 text-left ${open ? "border-accent shadow-[0_0_0_2px_var(--color-accent-soft)]" : ""} disabled:cursor-not-allowed`}
+        className={`select flex items-center gap-2 text-left ${open ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]" : ""} disabled:cursor-not-allowed`}
         style={{ backgroundImage: "none" }}
       >
         <span className={`min-w-0 flex-1 truncate ${selected ? "" : "text-ink-3"}`}>{selected ? selected.label : placeholder}</span>
@@ -255,7 +255,7 @@ export function Select({
       {open && pos && (
         <div
           ref={panel}
-          className="fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-rule-strong bg-surface shadow-[0_10px_28px_rgb(23_50_77/0.14)]"
+          className="fixed z-[60] flex flex-col overflow-hidden rounded-[10px] border border-rule bg-surface shadow-[var(--shadow-float)]"
           style={{ left: pos.left, width: "max-content", minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, ...(pos.up ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
           onKeyDown={withSearch ? onListKey : undefined}
         >

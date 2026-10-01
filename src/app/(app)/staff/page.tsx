@@ -62,7 +62,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         }
       />
 
-      <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border border-rule bg-surface p-3" role="search" aria-label="Filter staff">
+      <form method="get" className="flex flex-wrap items-end gap-2 card p-3" role="search" aria-label="Filter staff">
         <div className="w-full sm:w-64">
           <label htmlFor="q" className="sr-only">
             Search
@@ -130,7 +130,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         </div>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-rule bg-surface">
+      <div className="mt-4 overflow-x-auto card">
         <table className="table">
           <thead>
             <tr>

@@ -124,9 +124,9 @@ export function ParticipantsPanel({
           ))}
         </ul>
       )}
-      <section aria-labelledby="participants-heading" className="rounded-lg border border-rule bg-surface">
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-rule px-5 py-3">
-          <h2 id="participants-heading" className="display text-[15px] font-semibold text-ink">
+      <section aria-labelledby="participants-heading" className="card">
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-rule px-5 py-3.5">
+          <h2 id="participants-heading" className="display text-[15.5px] font-semibold text-ink">
             Participants
           </h2>
           <div className="ml-auto flex flex-wrap items-center gap-2">

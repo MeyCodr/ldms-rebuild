@@ -110,7 +110,7 @@ function HowItWorks() {
     { icon: UserRound, title: "Staff", text: "Belong to one department. Move them with Transfer." },
   ];
   return (
-    <details open className="group mt-1 rounded-lg border border-rule bg-surface">
+    <details open className="group mt-1 card">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
         <ChevronRight size={15} aria-hidden className="transition-transform group-open:rotate-90" />
         How the org chart works
@@ -141,7 +141,7 @@ function DivisionPanel({ division, manage, candidates }: { division: Tree[number
   const staff = division.departments.reduce((n, d) => n + d.activeStaff, 0);
 
   return (
-    <section id={`division-${division.id}`} aria-labelledby={`division-${division.id}-title`} className="scroll-mt-6 rounded-lg border border-rule bg-surface">
+    <section id={`division-${division.id}`} aria-labelledby={`division-${division.id}-title`} className="scroll-mt-6 card">
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-rule px-5 py-4">
         <div className="min-w-0">
           <div className="text-xs font-medium tracking-wide text-ink-3 uppercase">Division</div>

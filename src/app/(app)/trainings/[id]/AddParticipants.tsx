@@ -172,7 +172,20 @@ function AddForm({ trainingId }: { trainingId: number }) {
           </span>
         </div>
         <ul aria-label="Staff" className="max-h-[min(340px,45dvh)] overflow-y-auto">
-          {!data && <li className="px-3 py-6 text-center text-[13px] text-ink-3">Loading staff</li>}
+          {!data && (
+            <li aria-busy="true" className="flex flex-col gap-3 px-3 py-3">
+              <span className="sr-only">Loading staff</span>
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} aria-hidden className="flex items-center gap-2.5">
+                  <span className="skeleton size-4 rounded" />
+                  <span className="flex flex-1 flex-col gap-1.5">
+                    <span className="skeleton h-3 w-2/5" />
+                    <span className="skeleton h-2.5 w-1/4" />
+                  </span>
+                </span>
+              ))}
+            </li>
+          )}
           {data && matches.length === 0 && <li className="px-3 py-6 text-center text-[13px] text-ink-3">No active staff match.</li>}
           {matches.slice(0, RENDER_LIMIT).map((s) => (
             <li key={s.id} className="border-b border-rule last:border-b-0">

@@ -29,7 +29,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
           Password changed. You were signed out on any other computer or phone.
         </div>
       )}
-      <section aria-labelledby="pw" className="mt-6 max-w-[640px]">
+      <section aria-labelledby="pw" className="card mt-2 max-w-[640px] p-5 sm:p-7">
         <h2 id="pw" className="ruled-heading">
           Change password
         </h2>

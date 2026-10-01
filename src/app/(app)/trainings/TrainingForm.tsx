@@ -86,7 +86,7 @@ export function TrainingForm({
   const perDay = dailyMinutes(range.startTime, range.endTime);
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex max-w-[760px] flex-col gap-5">
+    <form onSubmit={onSubmit} noValidate className="card flex max-w-[800px] flex-col gap-5 p-5 sm:p-7">
       <FormMessage state={state} />
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         <Field label="Type" name="type" required state={state} hint={type === "OJT" ? "Platform, function and program are optional for OJT." : undefined}>

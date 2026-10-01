@@ -48,18 +48,18 @@ export function DialogButton({
       </button>
       <dialog
         ref={ref}
-        className="m-auto rounded-md border border-rule-strong bg-surface p-0 text-ink shadow-[0_12px_32px_rgb(28_32_30/0.18)]"
+        className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
         style={{ width: `min(${width}px, calc(100vw - 32px))` }}
         onClose={onClose}
         onClick={(e) => {
           if (e.target === ref.current) close();
         }}
       >
-        <div className="border-b border-rule px-5 py-3">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
+        <div className="border-b border-rule px-6 py-4">
+          <h2 className="display text-[16.5px] font-semibold">{title}</h2>
           {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
         </div>
-        <div key={openCount} className="px-5 py-4">
+        <div key={openCount} className="px-6 py-5">
           <CloseContext.Provider value={close}>{children}</CloseContext.Provider>
         </div>
       </dialog>
@@ -105,18 +105,18 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className="m-auto rounded-md border border-rule-strong bg-surface p-0 text-ink shadow-[0_12px_32px_rgb(28_32_30/0.18)]"
+      className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
       style={{ width: `min(${width}px, calc(100vw - 32px))` }}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === ref.current) close();
       }}
     >
-      <div className="border-b border-rule px-5 py-3">
-        <h2 className="text-[15px] font-semibold">{title}</h2>
+      <div className="border-b border-rule px-6 py-4">
+        <h2 className="display text-[16.5px] font-semibold">{title}</h2>
         {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
       </div>
-      <div key={openCount} className="px-5 py-4">
+      <div key={openCount} className="px-6 py-5">
         <CloseContext.Provider value={close}>{open && children}</CloseContext.Provider>
       </div>
     </dialog>

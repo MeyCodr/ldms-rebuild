@@ -1,27 +1,34 @@
-// A white surface for a self-contained block on the overview. List and record
-// pages don't use panels; their content sits directly on the page.
+// The card every screen is built from: white, hairline border, 12px corners.
+// The title sits in the card without a rule under it; only edge-to-edge
+// (flush) content such as a table gets a rule between title and rows.
 
 export function Panel({
   title,
+  description,
   action,
   children,
   className = "",
   flush = false,
 }: {
   title: React.ReactNode;
+  /** One line under the title saying what the card shows. */
+  description?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-  /** No inner padding, for lists that run edge to edge. */
+  /** No inner padding, for lists and tables that run edge to edge. */
   flush?: boolean;
 }) {
   return (
-    <section className={`rounded-lg border border-rule bg-surface ${className}`}>
-      <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-3">
-        <h2 className="display text-[15px] font-semibold text-ink">{title}</h2>
-        {action && <div className="text-[13px]">{action}</div>}
+    <section className={`card flex flex-col ${className}`}>
+      <div className={`flex items-start justify-between gap-3 px-5 pt-4 ${flush ? "border-b border-rule pb-3.5" : ""}`}>
+        <div className="min-w-0">
+          <h2 className="display text-[15.5px] leading-snug font-semibold text-ink">{title}</h2>
+          {description && <p className="mt-0.5 text-[12.5px] text-ink-3">{description}</p>}
+        </div>
+        {action && <div className="shrink-0 pt-0.5 text-[13px]">{action}</div>}
       </div>
-      <div className={flush ? "" : "px-5 py-4"}>{children}</div>
+      <div className={flush ? "min-h-0 flex-1" : "flex-1 px-5 pt-3 pb-5"}>{children}</div>
     </section>
   );
 }
