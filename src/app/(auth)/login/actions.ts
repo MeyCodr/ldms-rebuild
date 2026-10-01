@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/server/auth";
 import type { ActionState } from "@/lib/action-state";
@@ -16,8 +17,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     };
   }
   try {
-    await signIn("credentials", { staffNo, password, redirectTo: safeRedirect(formData.get("from")) });
-    return { status: "idle" };
+    await signIn("credentials", { staffNo, password, redirect: false });
   } catch (e) {
     if (e instanceof AuthError) {
       if ("code" in e && e.code === "locked")
@@ -26,4 +26,5 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     }
     throw e;
   }
+  redirect(safeRedirect(formData.get("from")));
 }

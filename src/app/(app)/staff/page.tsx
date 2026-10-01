@@ -12,6 +12,7 @@ import { departmentOptions } from "@/server/services/org";
 import { listStaff, PAGE_SIZE, STAFF_FLAGS, type StaffFilters } from "@/server/services/staff";
 import { requirePermission } from "@/server/session";
 import { filtersToQuery, parseStaffFilters } from "./filters";
+import { withBasePath } from "@/lib/base-path";
 
 export const metadata: Metadata = { title: "Staff" };
 
@@ -44,7 +45,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         }
         actions={
           <>
-            <a href={`/staff/export${filtersToQuery(f, { page: undefined })}`} className="btn">
+            <a href={withBasePath(`/staff/export${filtersToQuery(f, { page: undefined })}`)} className="btn">
               Export to Excel
             </a>
             {can(user, "staff.import") && (

@@ -6,8 +6,10 @@ type Entry = { id: bigint; createdAt: Date; summary: string; changes: unknown; a
 /**
  * How a record's audited fields read in plain language: a label, an optional
  * formatter for values, or hidden when another field already says the same.
+ * A `listing` field names what the entry covers (who was added, the reason
+ * given) rather than a before → after change, so only its value is shown.
  */
-export type HistoryFields = Record<string, { label: string; format?: (value: unknown) => string } | { hidden: true }>;
+export type HistoryFields = Record<string, { label: string; format?: (value: unknown) => string; listing?: boolean } | { hidden: true }>;
 
 /** The latest audit entries for one record, with field-level changes. */
 export function HistoryPanel({ entries, fields = {} }: { entries: Entry[]; fields?: HistoryFields }) {
@@ -33,7 +35,14 @@ export function HistoryPanel({ entries, fields = {} }: { entries: Entry[]; field
                       const show = (v: unknown) => (v === null || v === undefined || v === "" ? "blank" : field?.format ? field.format(v) : String(v));
                       return (
                         <li key={k}>
-                          {field?.label ?? k}: <span className="text-ink-3">{show(a)}</span> → {show(b)}
+                          {field?.label ?? k}:{" "}
+                          {field?.listing ? (
+                            show(b)
+                          ) : (
+                            <>
+                              <span className="text-ink-3">{show(a)}</span> → {show(b)}
+                            </>
+                          )}
                         </li>
                       );
                     })}

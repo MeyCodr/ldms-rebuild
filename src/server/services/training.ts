@@ -160,15 +160,23 @@ export async function getTraining(user: SessionUser, id: number) {
     },
   });
   if (!training) return null;
-  const [attendance, createdBy] = await Promise.all([
+  const [attendance, createdBy, lastEdit] = await Promise.all([
     db.participant.groupBy({ by: ["attendance"], where: { trainingId: id }, _count: { _all: true } }),
     training.createdById ? db.staff.findUnique({ where: { id: training.createdById }, select: { id: true, name: true } }) : null,
+    // Who last changed the training itself (edit, cancel, restore); the row only stores when.
+    db.auditLog.findFirst({
+      where: { entity: "Training", entityId: String(id), action: "UPDATE" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { createdAt: true, actor: { select: { name: true } } },
+    }),
   ]);
   const count = (a: string) => attendance.find((g) => g.attendance === a)?._count._all ?? 0;
   return {
     ...training,
     hours: trainingHours(training),
     createdBy,
+    // Changes made outside LDMS (e.g. the seed) have no audit entry: time only.
+    lastChange: lastEdit ? { at: lastEdit.createdAt, by: lastEdit.actor?.name ?? null } : { at: training.updatedAt, by: null },
     participantCount: training._count.participants,
     attendance: { pending: count("PENDING"), completed: count("COMPLETED"), absent: count("ABSENT") },
   };
@@ -193,11 +201,12 @@ export async function internalTrainerOptions(currentTrainerId?: number | null) {
   return staff.map((s) => ({ ...s, eligible: canBeInternalTrainer(s) }));
 }
 
+/** Changes to the training and to its participants (both audited under the training's id). */
 export async function trainingHistory(id: number) {
   return db.auditLog.findMany({
-    where: { entity: "Training", entityId: String(id) },
-    orderBy: { createdAt: "desc" },
-    take: 15,
+    where: { entity: { in: ["Training", "Participant"] }, entityId: String(id) },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 25,
     include: { actor: { select: { name: true } } },
   });
 }

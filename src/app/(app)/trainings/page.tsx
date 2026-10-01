@@ -10,6 +10,7 @@ import { listTrainings, TRAINING_PAGE_SIZE, TRAINING_SORT_DEFAULT_DIR, trainingY
 import { requirePermission } from "@/server/session";
 import { filtersToQuery, parseTrainingFilters } from "./filters";
 import { PhaseStatus } from "./PhaseStatus";
+import { withBasePath } from "@/lib/base-path";
 
 export const metadata: Metadata = { title: "Trainings" };
 
@@ -35,7 +36,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
         }
         actions={
           <>
-            <a href={`/trainings/export${filtersToQuery(f, { page: undefined })}`} className="btn">
+            <a href={withBasePath(`/trainings/export${filtersToQuery(f, { page: undefined })}`)} className="btn">
               Export to Excel
             </a>
             {can(user, "training.manage") && (

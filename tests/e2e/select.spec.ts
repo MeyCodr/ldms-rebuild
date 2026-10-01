@@ -3,7 +3,7 @@ import { signIn } from "./helpers";
 
 test("dropdown: type to search, Enter to pick, value submits with the filter form", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/staff");
+  await page.goto("staff");
 
   const department = page.getByLabel("Department", { exact: true });
   await department.focus();
@@ -19,7 +19,7 @@ test("dropdown: type to search, Enter to pick, value submits with the filter for
 
 test("dropdown: arrow keys move, Escape closes the list but not the dialog around it", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/organization");
+  await page.goto("organization");
   await page.getByRole("link", { name: "Purchasing", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: /Purchasing/ })).toBeVisible();
   await page.getByRole("button", { name: /Change HOD|Assign HOD/ }).click();
@@ -37,7 +37,7 @@ test("dropdown: arrow keys move, Escape closes the list but not the dialog aroun
 
 test("dropdown: long options are shown in full, not cut off", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/trainings/new");
+  await page.goto("trainings/new");
   await page.getByLabel("Program", { exact: true }).click();
   const options = page.getByRole("listbox").getByRole("option");
   await expect(options).toHaveCount(3);

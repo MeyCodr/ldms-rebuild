@@ -14,7 +14,7 @@ screenshots at desktop and phone width, then stop and show the user before start
   and a security review with fixes (see README → Security).
 - **Stack**: Next.js 16 (App Router, `src/proxy.ts` instead of middleware), React 19, TypeScript strict, Prisma 6 on
   MySQL 8 (database `ldms_v2`), Auth.js v5 (credentials), Zod 4, Tailwind 4, ExcelJS, Vitest, Playwright (installed Edge).
-- **Dev**: `npm run dev` → http://localhost:3006. Demo sign-ins, password `Ldms@2026`: 10001 L&D admin, 10002 main clerk,
+- **Dev**: `npm run dev` → http://localhost:3006/phn-ldms (base path `/phn-ldms`, see README → Where things are). Demo sign-ins, password `Ldms@2026`: 10001 L&D admin, 10002 main clerk,
   10003 clerk, 10231 HOD Stamping. Other seeded staff: migrated password `phn12345`.
 - **Confirmed rules**: staff report to their department HOD; **HODs and division heads have no approver in LDMS**.
 - **Still unconfirmed**: sign-in by staff no. only (Microsoft Entra later).
@@ -82,9 +82,11 @@ Ask these first. The default applies if the user has no preference.
 - **Excel import**: follow `src/server/services/staffImport.ts`: header-matched columns, per-row errors, preview, then
   commit that re-reads and re-validates the same file, optional "skip rows with errors", template download route.
 - **Tests**: rules → `tests/rules/*.test.ts` (Vitest). Flows → `tests/e2e/*.spec.ts` (Playwright, one worker, uses the
-  `choose()` helper for Select). E2e tests create their own records with unique numbers and restore shared demo data
+  `choose()` helper for Select, relative paths such as `page.goto("trainings")` because of the base path). E2e tests create their own records with unique numbers and restore shared demo data
   in `finally`.
 - **Windows**: stop the dev server before `prisma migrate dev`/`generate` (it locks the query engine DLL).
+- **Base path**: plain `<a href>` (downloads) must use `withBasePath()` from `src/lib/base-path.ts`; `Link` and
+  `redirect()` add it themselves.
 - **Next 16**: read `node_modules/next/dist/docs/` before using an API you're unsure of. `params`/`searchParams` are
   promises; `forbidden()` needs `experimental.authInterrupts` (already on).
 
@@ -167,7 +169,7 @@ model Participant {
   attendance          Attendance        @default(PENDING)
   source              ParticipantSource @default(ADMIN)
   recordedById        Int?              // who added the row (clerk, admin or the staff member)
-  absentReason        String?           @db.VarChar(255)
+  attendanceReason    String?           @db.VarChar(255) // why absent, or why marked completed on their behalf
   feedback            Json?             // answers, shape checked by the Zod schema for feedbackVersion
   feedbackVersion     Int?
   submittedAt         DateTime?
@@ -260,15 +262,28 @@ description, organising department and sessions. Editing leaves them unchanged, 
 with the form's dates and times. Decide at the phase 5 import whether the old data fills them; otherwise remove them.
 Phase 5 must also map the old values of HRDC, platform, function and program.
 
-### Module 2: Participants and attendance
+### Module 2: Participants and attendance (built 30 Sep 2026, awaiting review)
 
-- On `/trainings/[id]`: participants table (staff, department, attendance, feedback submitted, certificate).
-- Add participants: dialog with a searchable staff picker (multi-select), plus "add everyone in department / section".
-  Skip and report duplicates and resigned staff.
-- Row actions: mark absent (reason), undo absent, mark completed on someone's behalf (reason), reopen, remove (only while
-  PENDING). Bulk: tick rows → mark absent / remove.
-- Counts at the top: pending, completed, absent. Excel export of the participant list.
-- **Done when**: every transition in §6 works, is audited, and invalid ones are refused with a clear message.
+- `/trainings/[id]`: Details beside Schedule, then a full-width **Participants** panel, then History. The panel has
+  counts that double as filters (All / Pending / Completed / Absent), a name or staff no. search, and a table: staff no.,
+  name, department and section, attendance (with its reason), feedback date, certificate. On phones the table scrolls
+  sideways inside the panel.
+- **Add participants** dialog: active staff load when it opens; narrow by department, section or search, tick people or
+  "Select all" (everyone matching, which is how a whole department or section is added). Staff already on the list show
+  "Already added". The server skips and reports duplicates and resigned staff.
+- **Row actions**: Pending → Mark completed (reason required, only from the training's last day), Mark absent (reason
+  optional), Remove. Absent → Undo absent. Completed → Reopen (reason optional, kept in history). **Bulk**: Mark
+  completed, Mark absent, Remove for ticked rows. The dialog shows up front which rows will change and why the others
+  are skipped; the server re-checks. Nothing changes while the training is cancelled.
+- Every change writes an audit entry (entity `Participant`, the training's id), shown in the training's History. One
+  entry per add or action, naming everyone it covered (a *Staff* line), so adding a whole department doesn't push the
+  training's own changes out of the History's latest 25.
+- **Excel export** of the participant list: training title and dates on top, then staff, attendance, reason, feedback
+  date, certificate, and hours (training hours only when completed and not cancelled).
+- Rules `src/server/rules/attendance.ts` (tests `tests/rules/attendance.test.ts`), service
+  `src/server/services/participant.ts`, validation `src/lib/validation/participant.ts`, migration
+  `20260930090000_participant_attendance_reason` (renames `absentReason` → `attendanceReason`, which now holds the
+  reason for absent or for completed-on-their-behalf). The seed adds demo participants when the table is empty.
 
 ### Module 3: My Training
 

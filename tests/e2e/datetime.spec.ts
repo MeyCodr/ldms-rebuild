@@ -3,7 +3,7 @@ import { signIn } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/trainings/new");
+  await page.goto("trainings/new");
   await page.waitForLoadState("networkidle");
 });
 

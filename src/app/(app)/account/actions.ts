@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/action-state";
 import { changePasswordSchema } from "@/lib/validation/staff";
 import { parseForm, toErrorState } from "@/server/errors";
@@ -19,6 +20,6 @@ export async function changePasswordAction(_p: ActionState, fd: FormData): Promi
   }
   // Changing the password ends every existing session, including this one.
   // Sign straight back in here so only other devices are signed out.
-  await signIn("credentials", { staffNo: user.staffNo, password: next, redirectTo: user.mustChangePassword ? "/" : "/account?changed=1" });
-  return { status: "idle" };
+  await signIn("credentials", { staffNo: user.staffNo, password: next, redirect: false });
+  redirect(user.mustChangePassword ? "/" : "/account?changed=1");
 }

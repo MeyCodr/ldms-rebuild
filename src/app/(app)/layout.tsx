@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { Sidebar, type NavGroup } from "@/components/shell/Sidebar";
 import { SIDEBAR_COOKIE } from "@/components/shell/sidebarCookie";
 import { signOut } from "@/server/auth";
@@ -9,7 +10,8 @@ import { requireUser } from "@/server/session";
 
 async function doSignOut() {
   "use server";
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirect: false });
+  redirect("/login");
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

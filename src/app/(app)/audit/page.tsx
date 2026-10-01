@@ -10,14 +10,15 @@ import { requirePermission } from "@/server/session";
 export const metadata: Metadata = { title: "Audit log" };
 
 const PAGE = 100;
-const ENTITIES = ["Staff", "Training", "Department", "Division", "Section"] as const;
+const ENTITIES = ["Staff", "Training", "Participant", "Department", "Division", "Section"] as const;
 const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "IMPORT"];
 const ACTION_LABEL: Record<AuditAction, string> = { CREATE: "Added", UPDATE: "Changed", DELETE: "Deleted", IMPORT: "Import" };
 
 function recordHref(entity: string, id: string | null): string | null {
   if (!id || !/^\d+$/.test(id)) return null;
   if (entity === "Staff") return `/staff/${id}`;
-  if (entity === "Training") return `/trainings/${id}`;
+  // Participant entries carry the training's id.
+  if (entity === "Training" || entity === "Participant") return `/trainings/${id}`;
   if (entity === "Department") return `/organization/departments/${id}`;
   if (entity === "Division") return `/organization#division-${id}`;
   return null;

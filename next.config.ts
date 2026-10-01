@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { BASE_PATH } from "./src/lib/base-path";
 
 // Sent with every response. A full Content-Security-Policy needs nonces for
 // Next.js's inline scripts and is planned for the production hardening pass;
@@ -12,6 +13,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Served under /phn-ldms; see src/lib/base-path.ts.
+  basePath: BASE_PATH,
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2", "exceljs"],
   experimental: {
@@ -22,6 +25,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  async redirects() {
+    // Someone who opens the bare host (e.g. http://localhost:3006) lands on LDMS.
+    return [{ source: "/", destination: BASE_PATH, basePath: false, permanent: false }];
   },
 };
 

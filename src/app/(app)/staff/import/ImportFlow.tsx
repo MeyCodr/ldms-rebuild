@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { Status } from "@/components/ui/Status";
 import type { ImportPreview, ImportRow } from "@/server/services/staffImport";
 import { commitImportAction, previewImportAction } from "./actions";
+import { withBasePath } from "@/lib/base-path";
 
 type Step = { kind: "choose" } | { kind: "preview"; preview: ImportPreview } | { kind: "done"; created: number; updated: number; skipped: number };
 
@@ -88,7 +89,7 @@ export function ImportFlow({ contractOnly }: { contractOnly: boolean }) {
             />
             <p className="hint mt-2">
               First sheet, headings in row 1: Staff No, Name, Email, Position, Designation, Department, Section, Date Joined.{" "}
-              <a href="/staff/import/template" className="link" download>
+              <a href={withBasePath("/staff/import/template")} className="link" download>
                 Download the template
               </a>
               , which also lists every department and section.

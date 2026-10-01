@@ -172,6 +172,37 @@ body {
   .btn-danger-ghost:hover {
     background: var(--color-bad-soft);
   }
+  /* Attendance actions, tinted like the result they lead to so they can't be mixed up. */
+  .btn-ok {
+    border-color: color-mix(in srgb, var(--color-ok) 45%, transparent);
+    background: var(--color-ok-soft);
+    color: var(--color-ok);
+  }
+  .btn-ok:hover {
+    background: color-mix(in srgb, var(--color-ok) 16%, white);
+  }
+  .btn-warn {
+    border-color: color-mix(in srgb, var(--color-wait) 45%, transparent);
+    background: var(--color-wait-soft);
+    color: #8a5a12;
+  }
+  .btn-warn:hover {
+    background: color-mix(in srgb, var(--color-wait) 18%, white);
+  }
+  .btn-bad {
+    border-color: color-mix(in srgb, var(--color-bad) 40%, transparent);
+    background: var(--color-bad-soft);
+    color: var(--color-bad);
+  }
+  .btn-bad:hover {
+    background: color-mix(in srgb, var(--color-bad) 16%, white);
+  }
+  /* Square button holding only an icon; always give it an aria-label and a title. */
+  .btn-icon {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
   .btn-sm {
     height: 26px;
     padding: 0 8px;

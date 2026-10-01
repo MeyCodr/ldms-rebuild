@@ -126,6 +126,9 @@ async function main() {
   if ((await db.training.count()) > 0) console.log("Training table is not empty, skipping demo trainings.");
   else await seedTrainings();
   await classifyDemoTrainings();
+
+  if ((await db.participant.count()) > 0) console.log("Participant table is not empty, skipping demo participants.");
+  else await seedParticipants();
 }
 
 async function seedStaff() {
@@ -321,6 +324,45 @@ async function seedTrainings() {
     });
   }
   console.log(`Seeded ${specs.length} trainings.`);
+}
+
+// Participants for the demo trainings: trainings that have ended are mostly
+// completed (some absent, one or two marked completed by L&D), upcoming ones
+// pending. Staff come from the organising department when there is one.
+async function seedParticipants() {
+  seed = 20260930; // independent of how many staff the staff seed drew
+  const admin = await db.staff.findUnique({ where: { staffNo: "10001" } });
+  const today = new Date(Date.now() + 8 * 3600 * 1000);
+  const trainings = await db.training.findMany({ orderBy: { startDate: "asc" } });
+  const active = await db.staff.findMany({ where: { status: "ACTIVE" }, select: { id: true, departmentId: true }, orderBy: { id: "asc" } });
+  // The Stamping HOD is a demo sign-in; give them some history to look at.
+  const hod = await db.department.findFirst({ where: { shortName: "STP" }, select: { hodId: true } });
+  const ABSENT_REASONS = ["Medical leave", "Emergency leave", "Production urgent order", null];
+  let n = 0;
+  for (const t of trainings) {
+    const pool = t.departmentId ? active.filter((s) => s.departmentId === t.departmentId) : active;
+    const size = Math.min(pool.length, 5 + Math.floor(rand() * 10));
+    const chosen = new Set<number>();
+    while (chosen.size < size) chosen.add(pick(pool).id);
+    if (hod?.hodId && rand() < 0.5) chosen.add(hod.hodId);
+    const ended = t.endDate.getTime() <= today.getTime();
+    for (const staffId of chosen) {
+      const r = rand();
+      let data: Prisma.ParticipantCreateManyInput = { trainingId: t.id, staffId, recordedById: admin?.id, source: t.type === "OJT" ? "CLERK" : "ADMIN" };
+      if (ended && t.status !== "CANCELLED") {
+        if (r < 0.12) data = { ...data, attendance: "ABSENT", attendanceReason: pick(ABSENT_REASONS) };
+        else if (r < 0.2) data = { ...data, attendance: "PENDING" }; // feedback not given yet
+        else if (r < 0.26) data = { ...data, attendance: "COMPLETED", attendanceReason: "No computer access; marked by L&D" };
+        else {
+          const submitted = new Date(t.endDate.getTime() + Math.floor(rand() * 10) * 86_400_000 + 9 * 3600 * 1000);
+          data = { ...data, attendance: "COMPLETED", submittedAt: submitted };
+        }
+      }
+      await db.participant.create({ data });
+      n++;
+    }
+  }
+  console.log(`Seeded ${n} participants.`);
 }
 
 main()

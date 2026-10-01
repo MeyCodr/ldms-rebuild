@@ -24,4 +24,9 @@ export const TRAINING_HISTORY_FIELDS: HistoryFields = {
   trainerStaffId: { hidden: true }, // the trainer's name change already shows it
   status: { label: "Status", format: (v) => (v === "CANCELLED" ? "Cancelled" : "Scheduled") },
   sessions: { label: "Sessions" },
+  // Participant entries
+  attendance: { label: "Attendance" },
+  reason: { label: "Reason" },
+  reasonGiven: { label: "Reason", listing: true }, // one reason for several people
+  staff: { label: "Staff", listing: true }, // who an add or a bulk action covered
 };

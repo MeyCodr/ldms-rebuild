@@ -4,7 +4,7 @@ import { choose, signIn } from "./helpers";
 // Each test puts the demo org chart back the way it found it.
 
 async function openDepartment(page: Page, name: string) {
-  await page.goto("/organization");
+  await page.goto("organization");
   await page.getByRole("link", { name, exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: new RegExp(name) })).toBeVisible();
 }
@@ -83,12 +83,12 @@ test("transferring staff moves them and back again", async ({ page }) => {
 
 test("org chart explains itself and lists departments needing a HOD", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/organization");
+  await page.goto("organization");
   await expect(page.getByText("How the org chart works")).toBeVisible();
   const attention = page.getByRole("region", { name: /Needs attention/ });
   await expect(attention.getByRole("link", { name: "Tooling Workshop" })).toBeVisible();
 
   // Old ?dept= links still land on the department page.
-  await page.goto("/organization?dept=1");
+  await page.goto("organization?dept=1");
   await expect(page).toHaveURL(/\/organization\/departments\/1$/);
 });

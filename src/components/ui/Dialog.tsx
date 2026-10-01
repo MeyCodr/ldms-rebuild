@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 const CloseContext = createContext<() => void>(() => {});
 export const useCloseDialog = () => useContext(CloseContext);
@@ -64,6 +64,62 @@ export function DialogButton({
         </div>
       </dialog>
     </>
+  );
+}
+
+/**
+ * A dialog opened by the caller rather than by its own button, for one dialog
+ * shared by many triggers (e.g. every row of a table). The body remounts each
+ * time it opens, so forms start fresh.
+ */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  description,
+  width = 440,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: React.ReactNode;
+  width?: number;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [openCount, setOpenCount] = useState(0);
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpenCount((n) => n + 1);
+  }
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+  const close = () => ref.current?.close();
+
+  return (
+    <dialog
+      ref={ref}
+      className="m-auto rounded-md border border-rule-strong bg-surface p-0 text-ink shadow-[0_12px_32px_rgb(28_32_30/0.18)]"
+      style={{ width: `min(${width}px, calc(100vw - 32px))` }}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === ref.current) close();
+      }}
+    >
+      <div className="border-b border-rule px-5 py-3">
+        <h2 className="text-[15px] font-semibold">{title}</h2>
+        {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
+      </div>
+      <div key={openCount} className="px-5 py-4">
+        <CloseContext.Provider value={close}>{open && children}</CloseContext.Provider>
+      </div>
+    </dialog>
   );
 }
 

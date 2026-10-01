@@ -5,6 +5,7 @@ import { hash, verify } from "@node-rs/argon2";
 import { z } from "zod";
 import { db } from "./db";
 import { matchesLegacyMd5 } from "./rules/password";
+import { withBasePath } from "@/lib/base-path";
 
 class LockedOut extends CredentialsSignin {
   code = "locked";
@@ -32,7 +33,11 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 10 * 60 * 60 },
-  pages: { signIn: "/login" },
+  // Under the app's base path. Sign-in and sign-out pass redirect: false and
+  // redirect with Next.js, because Auth.js would send a relative redirectTo to
+  // the site root, outside the base path.
+  basePath: withBasePath("/api/auth"),
+  pages: { signIn: withBasePath("/login") },
   trustHost: true,
   providers: [
     Credentials({

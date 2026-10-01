@@ -7,7 +7,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | --- | --- | --- |
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
-| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: module 1 (Trainings) done; module 2 next, see `docs/phase-2-plan.md` |
+| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: module 1 (Trainings) done; module 2 (Participants) built, in review; see `docs/phase-2-plan.md` |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | |
 | 4 | Reporting, exports, daily jobs | |
 | 5 | Migration rehearsal and cutover | |
@@ -20,7 +20,7 @@ Needs Node 20.9+ and a local MySQL 8.
 cp .env.example .env          # set DATABASE_URL and AUTH_SECRET
 npm install
 npx prisma migrate dev        # creates the ldms_v2 database and runs the seed
-npm run dev                   # http://localhost:3006
+npm run dev                   # http://localhost:3006/phn-ldms
 ```
 
 Demo sign-ins from the seed (password `Ldms@2026`):
@@ -57,6 +57,11 @@ src/server/services/        all reads and writes; check permissions and write th
 src/app/(app)/              signed-in screens
 src/lib/validation/         Zod schemas shared by forms and services
 ```
+
+**Base path**: the app is served under `/phn-ldms` (`src/lib/base-path.ts`, read by `next.config.ts`). `next/link`
+and `redirect()` add it automatically; a plain `<a>` (file downloads) uses `withBasePath()`. Auth.js signs in and out
+with `redirect: false` and the app redirects itself, because Auth.js would send a relative path to the site root. E2e
+tests go to relative paths (`page.goto("trainings")`, not `"/trainings"`) so they stay under the base path.
 
 Pages and server actions never call Prisma to change data directly; they call a service, which checks the
 permission, applies the rules and writes the audit entry in the same transaction.

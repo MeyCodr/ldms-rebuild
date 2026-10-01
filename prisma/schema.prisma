@@ -246,24 +246,24 @@ model TrainingSession {
 }
 
 model Participant {
-  id              Int               @id @default(autoincrement())
-  trainingId      Int
-  staffId         Int
-  attendance      Attendance        @default(PENDING)
-  source          ParticipantSource @default(ADMIN)
-  recordedById    Int? // who added the row (clerk, admin or the staff member)
-  absentReason    String?           @db.VarChar(255)
-  feedback        Json? // answers, shape checked by the Zod schema for feedbackVersion
-  feedbackVersion Int?
-  submittedAt     DateTime?
-  certificateFile String?           @db.VarChar(255) // stored name under uploads/certificates
-  certificateName String?           @db.VarChar(255) // original file name, for download
-  certificateAt   DateTime?
-  legacyId        Int?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  training        Training          @relation(fields: [trainingId], references: [id])
-  staff           Staff             @relation(fields: [staffId], references: [id])
+  id               Int               @id @default(autoincrement())
+  trainingId       Int
+  staffId          Int
+  attendance       Attendance        @default(PENDING)
+  source           ParticipantSource @default(ADMIN)
+  recordedById     Int? // who added the row (clerk, admin or the staff member)
+  attendanceReason String?           @db.VarChar(255) // why absent, or why an admin marked it completed for them
+  feedback         Json? // answers, shape checked by the Zod schema for feedbackVersion
+  feedbackVersion  Int?
+  submittedAt      DateTime?
+  certificateFile  String?           @db.VarChar(255) // stored name under uploads/certificates
+  certificateName  String?           @db.VarChar(255) // original file name, for download
+  certificateAt    DateTime?
+  legacyId         Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  training         Training          @relation(fields: [trainingId], references: [id])
+  staff            Staff             @relation(fields: [staffId], references: [id])
   // phase 3: pme Pme?
 
   @@unique([trainingId, staffId])

@@ -11,7 +11,7 @@ async function newSession(browser: Browser) {
 }
 
 async function addContractStaff(admin: Page, staffNo: string, name: string): Promise<string> {
-  await admin.goto("/staff/new");
+  await admin.goto("staff/new");
   await admin.getByLabel("Staff no.").fill(staffNo);
   await admin.getByLabel("Full name").fill(name);
   await choose(admin, "Designation", "Contract");
@@ -30,7 +30,7 @@ async function resetPassword(admin: Page, recordUrl: string, password: string) {
 }
 
 async function changeOwnPassword(page: Page, current: string, next: string) {
-  await page.goto("/account");
+  await page.goto("account");
   await page.getByLabel("Current password").fill(current);
   await page.getByLabel("New password", { exact: true }).fill(next);
   await page.getByLabel("Confirm new password").fill(next);
@@ -38,7 +38,7 @@ async function changeOwnPassword(page: Page, current: string, next: string) {
 }
 
 test("security headers are sent and the framework is not advertised", async ({ request }) => {
-  const res = await request.get("/login");
+  const res = await request.get("login");
   const h = res.headers();
   expect(h["x-frame-options"]).toBe("DENY");
   expect(h["content-security-policy"]).toContain("frame-ancestors 'none'");
@@ -49,11 +49,11 @@ test("security headers are sent and the framework is not advertised", async ({ r
 test("sign-in never redirects to another site", async ({ page }) => {
   for (const from of ["%2F%5Cevil.example", "%2F%2Fevil.example", "https%3A%2F%2Fevil.example"]) {
     await page.context().clearCookies();
-    await page.goto(`/login?from=${from}`);
+    await page.goto(`login?from=${from}`);
     await page.getByLabel("Staff no.").fill("10001");
     await page.getByLabel("Password").fill("Ldms@2026");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL("http://localhost:3006/", { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/phn-ldms$/, { timeout: 20_000 });
   }
 });
 
@@ -68,11 +68,11 @@ test("temporary passwords, password changes and resets end other sessions", asyn
   const laptop = await newSession(browser);
   await signIn(laptop, staffNo, `Temp${suffix}a`);
   await expect(laptop).toHaveURL(/\/account$/);
-  await laptop.goto("/");
+  await laptop.goto("./");
   await expect(laptop).toHaveURL(/\/account$/);
 
   await changeOwnPassword(laptop, `Temp${suffix}a`, `Own${suffix}pw1`);
-  await expect(laptop).toHaveURL("http://localhost:3006/", { timeout: 20_000 });
+  await expect(laptop).toHaveURL(/\/phn-ldms$/, { timeout: 20_000 });
 
   // A second device signs in, then the password is changed on the laptop:
   // the laptop stays signed in, the second device is signed out.
@@ -80,12 +80,12 @@ test("temporary passwords, password changes and resets end other sessions", asyn
   await signIn(phone, staffNo, `Own${suffix}pw1`);
   await changeOwnPassword(laptop, `Own${suffix}pw1`, `Own${suffix}pw2`);
   await expect(laptop.getByRole("status").filter({ hasText: "Password changed" })).toBeVisible();
-  await phone.goto("/");
+  await phone.goto("./");
   await expect(phone).toHaveURL(/\/login/);
 
   // An admin reset (e.g. a compromised account) signs the laptop out too.
   await resetPassword(admin, record, `Temp${suffix}b`);
-  await laptop.goto("/");
+  await laptop.goto("./");
   await expect(laptop).toHaveURL(/\/login/);
 });
 

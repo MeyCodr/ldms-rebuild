@@ -6,7 +6,7 @@ import { signIn } from "./helpers";
 // approver shown correctly.
 
 test("wrong password shows an error and keeps the staff no.", async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("login");
   await page.getByLabel("Staff no.").fill("10001");
   await page.getByLabel("Password").fill("wrong-password");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -14,9 +14,26 @@ test("wrong password shows an error and keeps the staff no.", async ({ page }) =
   await expect(page.getByLabel("Staff no.")).toHaveValue("10001");
 });
 
-test("signed-out visitors are sent to sign in", async ({ page }) => {
-  await page.goto("/staff");
-  await expect(page).toHaveURL(/\/login\?from=%2Fstaff/);
+test("signed-out visitors are sent to sign in, and come back to where they were going", async ({ page }) => {
+  await page.goto("staff");
+  await expect(page).toHaveURL(/\/phn-ldms\/login\?from=%2Fstaff/);
+  await page.getByLabel("Staff no.").fill("10001");
+  await page.getByLabel("Password").fill("Ldms@2026");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/phn-ldms\/staff$/, { timeout: 20_000 });
+});
+
+test("the app lives under /phn-ldms, and signing out returns to its sign-in page", async ({ page, baseURL }) => {
+  // The bare host forwards to the app.
+  await page.goto(new URL(baseURL!).origin);
+  await expect(page).toHaveURL(/\/phn-ldms\/login/);
+  await signIn(page, "10001");
+  await expect(page).toHaveURL(/\/phn-ldms$/);
+  // From the keyboard: in dev, Next's badge covers the collapsed sidebar's button.
+  await page.getByRole("button", { name: "Sign out" }).first().press("Enter");
+  await expect(page).toHaveURL(/\/phn-ldms\/login$/, { timeout: 20_000 });
+  await page.goto("staff");
+  await expect(page).toHaveURL(/\/phn-ldms\/login\?from=%2Fstaff/);
 });
 
 test("admin sees data checks and can open a staff record with its approver", async ({ page }) => {
@@ -33,17 +50,17 @@ test("admin sees data checks and can open a staff record with its approver", asy
 
 test("clerk sees contract staff only and cannot open Organization", async ({ page }) => {
   await signIn(page, "10003");
-  await page.goto("/staff");
+  await page.goto("staff");
   await expect(page.getByText("Showing: Contract staff")).toBeVisible();
   const designations = await page.locator("tbody tr").count();
   expect(designations).toBeGreaterThan(0);
-  const res = await page.goto("/organization");
+  const res = await page.goto("organization");
   expect(res?.status()).toBe(403);
 });
 
 test("a validation error keeps what was typed", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/staff/new");
+  await page.goto("staff/new");
   await page.getByLabel("Full name").fill("Test Person Without Staff No");
   await page.getByRole("button", { name: "Add staff" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Check the highlighted fields" })).toBeVisible();

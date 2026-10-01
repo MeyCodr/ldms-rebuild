@@ -8,7 +8,7 @@ const suffix = String(Date.now()).slice(-6);
 test("admin adds a staff member, marks them resigned and reinstates them", async ({ page }) => {
   const staffNo = `E${suffix}`;
   await signIn(page, "10001");
-  await page.goto("/staff/new");
+  await page.goto("staff/new");
   await page.getByLabel("Staff no.").fill(staffNo);
   await page.getByLabel("Full name").fill("Nurul Izzah binti Othman");
   await choose(page, "Designation", "Executive");
@@ -41,7 +41,7 @@ test("clerk imports contract staff; other designations are rejected per row", as
   await wb.xlsx.writeFile(file);
 
   await signIn(page, "10003");
-  await page.goto("/staff/import");
+  await page.goto("staff/import");
   await page.setInputFiles("#file", file);
   await page.getByRole("button", { name: "Check file" }).click();
   await expect(page.getByText("Clerks can import contract staff only")).toBeVisible();

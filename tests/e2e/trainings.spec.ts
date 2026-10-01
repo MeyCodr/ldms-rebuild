@@ -7,7 +7,7 @@ const suffix = String(Date.now()).slice(-6);
 
 test("the form shows the type, then the old system's fields in the same order", async ({ page }) => {
   await signIn(page, "10001");
-  await page.goto("/trainings/new");
+  await page.goto("trainings/new");
   await page.waitForLoadState("networkidle");
   const labels = await page.locator("form label.label").allTextContents();
   expect(labels.map((l) => l.replace(/\s*\*$/, "").trim())).toEqual([
@@ -41,7 +41,7 @@ test("the form shows the type, then the old system's fields in the same order", 
 test("admin creates, edits, cancels, restores and deletes a training", async ({ page }) => {
   const title = `Press Brake Setup ${suffix}`;
   await signIn(page, "10001");
-  await page.goto("/trainings");
+  await page.goto("trainings");
   await page.getByRole("link", { name: "Add training" }).click();
   await expect(page.getByRole("heading", { name: "Add training", level: 1 })).toBeVisible();
 
@@ -106,7 +106,7 @@ test("admin creates, edits, cancels, restores and deletes a training", async ({ 
   await expect(page.getByText("This training was cancelled.")).toHaveCount(0);
 
   // It shows in the list, found by its title.
-  await page.goto(`/trainings?q=${encodeURIComponent(title)}`);
+  await page.goto(`trainings?q=${encodeURIComponent(title)}`);
   await expect(page.getByRole("link", { name: title })).toBeVisible();
 
   // Delete (no participants, so allowed).
@@ -115,13 +115,13 @@ test("admin creates, edits, cancels, restores and deletes a training", async ({ 
   await page.getByRole("dialog").getByRole("button", { name: "Delete training" }).click();
   await expect(page).toHaveURL(/\/trainings\?deleted=1/);
   await expect(page.getByText("Training deleted.")).toBeVisible();
-  await page.goto(`/trainings?q=${encodeURIComponent(title)}`);
+  await page.goto(`trainings?q=${encodeURIComponent(title)}`);
   await expect(page.getByText("No trainings match these filters.")).toBeVisible();
 });
 
 test("the list filters by type and year and exports to Excel", async ({ page }, testInfo) => {
   await signIn(page, "10001");
-  await page.goto("/trainings");
+  await page.goto("trainings");
   await choose(page, "Type", "OJT");
   await choose(page, "Year", "2026");
   await page.getByRole("button", { name: "Apply" }).click();
@@ -150,15 +150,15 @@ test("the list filters by type and year and exports to Excel", async ({ page }, 
 test("clerks and plain staff can't open trainings", async ({ page }) => {
   await signIn(page, "10003");
   await expect(page.getByRole("link", { name: "Trainings" })).toHaveCount(0);
-  const res = await page.goto("/trainings");
+  const res = await page.goto("trainings");
   expect(res?.status()).toBe(403);
-  const exp = await page.request.get("/trainings/export");
+  const exp = await page.request.get("trainings/export");
   expect(exp.status()).toBe(403);
 });
 
 test("column headers sort the list, and the sort survives filters and export", async ({ page }, testInfo) => {
   await signIn(page, "10001");
-  await page.goto("/trainings?year=2025");
+  await page.goto("trainings?year=2025");
   const titles = () => page.locator("tbody tr td:nth-child(2) a").allTextContents();
 
   // Default: newest first.
@@ -182,7 +182,7 @@ test("column headers sort the list, and the sort survives filters and export", a
   await expect(page.getByRole("columnheader", { name: /Training/ })).toHaveAttribute("aria-sort", "descending");
 
   // Dates ascending: oldest first; the export follows the same order.
-  await page.goto("/trainings?year=2025&sort=date&dir=asc");
+  await page.goto("trainings?year=2025&sort=date&dir=asc");
   expect((await titles())[0]).toBe("ISO 9001:2015 Internal Auditor");
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Export to Excel" }).click();
@@ -202,7 +202,7 @@ test("column headers sort the list, and the sort survives filters and export", a
 test("internal trainer is picked from executives and managers", async ({ page }) => {
   const title = `Internal trainer check ${suffix}`;
   await signIn(page, "10001");
-  await page.goto("/trainings/new");
+  await page.goto("trainings/new");
   await page.waitForLoadState("networkidle");
 
   await choose(page, "Type", "Public / In-house");
@@ -236,7 +236,7 @@ test("internal trainer is picked from executives and managers", async ({ page })
 test("an OJT can be added without platform, function or program", async ({ page }) => {
   const title = `OJT check ${suffix}`;
   await signIn(page, "10001");
-  await page.goto("/trainings/new");
+  await page.goto("trainings/new");
   await page.waitForLoadState("networkidle");
   await choose(page, "Type", "OJT");
   await expect(page.getByText("Platform, function and program are optional for OJT.")).toBeVisible();
