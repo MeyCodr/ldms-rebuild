@@ -9,7 +9,7 @@ import { Sheet, SheetItem } from "@/components/Sheet";
 import { Progress } from "@/components/ui/Progress";
 import { Status } from "@/components/ui/Status";
 import { formatDate, formatDateRange, formatDateTime, formatHours, formatMoney, formatTime, nowInMalaysia, plural } from "@/lib/format";
-import { TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
+import { OJT_METHOD_LABELS, TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { dailyMinutes, dayNumber, trainingDeleteBlock, trainingHours, trainingPhase } from "@/server/rules/training";
 import { listParticipants } from "@/server/services/participant";
@@ -54,13 +54,16 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
       : [];
 
   return (
-    <div className="mx-auto max-w-[1240px]">
+    <div className="mx-auto max-w-[1660px]">
       <PageHeader
         module="training"
         context={{ href: "/trainings", label: "Trainings" }}
         title={t.title}
         meta={
           <>
+            <span className="num" title="Training code">
+              {t.trainingCode}
+            </span>
             <span className="tag">{TRAINING_TYPE_LABELS[t.type]}</span>
             <span className="num">{formatDateRange(t.startDate, t.endDate)}</span>
             <PhaseStatus phase={trainingPhase(t, today)} />
@@ -153,6 +156,7 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
             {/* The rest of the training form's fields, in its order. */}
             <Sheet title="Details">
               <SheetItem label="Type">{TRAINING_TYPE_LABELS[t.type]}</SheetItem>
+              {t.type === "OJT" && t.ojtMethod && <SheetItem label="OJT type">{OJT_METHOD_LABELS[t.ojtMethod]}</SheetItem>}
               <SheetItem label="Cost (RM)">{t.cost !== null ? <span className="num">{formatMoney(t.cost)}</span> : none()}</SheetItem>
               <SheetItem label="HRDC">{t.hrdfClaimable ? "Yes" : "No"}</SheetItem>
               <SheetItem label="Function">{t.function ? TRAINING_FUNCTION_LABELS[t.function] : none()}</SheetItem>

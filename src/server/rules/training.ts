@@ -6,7 +6,7 @@
 // a form ("08:30"). Dates come from Prisma (@db.Date → UTC midnight) or from a
 // form ("2026-04-03").
 
-import type { Attendance, Designation, StaffStatus, TrainingStatus } from "@prisma/client";
+import type { Attendance, Designation, StaffStatus, TrainingStatus, TrainingType } from "@prisma/client";
 
 export type TimeValue = Date | string;
 export type DateValue = Date | string;
@@ -84,6 +84,30 @@ export function trainingHours(t: HoursInput): number | null {
 /** Only completed attendance at a training that went ahead counts toward hours. */
 export function countsTowardHours(p: { attendance: Attendance; training: { status: TrainingStatus } }): boolean {
   return p.attendance === "COMPLETED" && p.training.status !== "CANCELLED";
+}
+
+/** Days a training runs: one per session when it has sessions, otherwise start to end date inclusive. Null when the dates are not valid. */
+export function trainingDays(t: Pick<HoursInput, "startDate" | "endDate" | "sessions">): number | null {
+  if (t.sessions && t.sessions.length > 0) return new Set(t.sessions.map((s) => dayNumber(s.date))).size;
+  const first = dayNumber(t.startDate);
+  const last = dayNumber(t.endDate);
+  return first === null || last === null || last < first ? null : last - first + 1;
+}
+
+/** Man hours: the training's hours × the people who completed it (as countsTowardHours); none for a cancelled training. */
+export function manHours(t: { hours: number | null; completedCount: number; status: TrainingStatus }): number {
+  return t.status === "CANCELLED" || t.hours === null ? 0 : round2(t.hours * t.completedCount);
+}
+
+/**
+ * A training's code: "TR" ("OJT" for OJT), the day it was added as YYYYMMDD,
+ * then 6 random digits, e.g. TR20261002909393. Given once when the training is
+ * added and never changed, even if its type or dates are edited later.
+ * `addedOn` is a Malaysia-local date (as from nowInMalaysia()); `random` is 0–999999.
+ */
+export function trainingCode(type: TrainingType, addedOn: Date, random: number): string {
+  const day = addedOn.toISOString().slice(0, 10).replaceAll("-", "");
+  return `${type === "OJT" ? "OJT" : "TR"}${day}${String(random).padStart(6, "0")}`;
 }
 
 export type SessionProblem = { index: number; message: string };

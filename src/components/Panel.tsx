@@ -20,7 +20,8 @@ export function Panel({
   flush?: boolean;
 }) {
   return (
-    <section className={`card flex flex-col ${className}`}>
+    // min-w-0: in a grid, a card shrinks to its column rather than growing to fit a long title.
+    <section className={`card flex min-w-0 flex-col ${className}`}>
       <div className={`flex items-start justify-between gap-3 px-5 pt-4 ${flush ? "border-b border-rule pb-3.5" : ""}`}>
         <div className="min-w-0">
           <h2 className="display text-[15.5px] leading-snug font-semibold text-ink">{title}</h2>

@@ -34,7 +34,7 @@ export default async function OrganizationPage({ searchParams }: PageProps<"/org
   const needHod = departments.filter((d) => !d.hod || d.hod.status !== "ACTIVE");
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto max-w-[1580px]">
       <PageHeader
         module="organization"
         context="Records"
@@ -225,7 +225,8 @@ function DivisionPanel({ division, manage, candidates }: { division: Tree[number
           <table className="table table-fixed">
             <thead>
               <tr>
-                <th className="w-[42%] pl-5">Department</th>
+                <th className="w-14 pl-5 text-right">No.</th>
+                <th className="w-[40%]">Department</th>
                 <th>Head of department</th>
                 <th className="hidden w-24 text-right sm:table-cell">Sections</th>
                 <th className="w-28 text-right">Active staff</th>
@@ -235,11 +236,12 @@ function DivisionPanel({ division, manage, candidates }: { division: Tree[number
               </tr>
             </thead>
             <tbody>
-              {division.departments.map((d) => {
+              {division.departments.map((d, i) => {
                 const hodActive = d.hod?.status === "ACTIVE";
                 return (
                   <tr key={d.id}>
-                    <td className="py-2.5 pl-5 align-middle">
+                    <td className="num muted py-2.5 pl-5 text-right align-middle">{i + 1}</td>
+                    <td className="py-2.5 align-middle">
                       <Link href={`/organization/departments/${d.id}`} className="link font-medium">
                         {d.name}
                       </Link>

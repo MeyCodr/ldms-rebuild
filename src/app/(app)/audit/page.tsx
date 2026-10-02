@@ -49,7 +49,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
   const filterQuery = new URLSearchParams({ ...(entity && { entity }), ...(action && { action }), ...(q && { q }) });
 
   return (
-    <div className="page-fit mx-auto max-w-[1280px]">
+    <div className="page-fit mx-auto max-w-[1700px]">
       <PageHeader module="audit" context="Administration" title="Audit log" meta={<span>Every change to trainings, the org chart and staff records, newest first.</span>} />
 
       <form method="get" className="flex flex-wrap items-end gap-2 card p-3" role="search" aria-label="Filter audit log">

@@ -1,6 +1,6 @@
 import type { HistoryFields } from "@/components/HistoryPanel";
 import { formatDate, formatMoney } from "@/lib/format";
-import { TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
+import { OJT_METHOD_LABELS, TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 
 /** Looks a stored code up in a label map, falling back to the code itself. */
 const label = (map: Record<string, string>) => (v: unknown) => map[String(v)] ?? String(v);
@@ -20,6 +20,7 @@ export const TRAINING_HISTORY_FIELDS: HistoryFields = {
   startTime: { label: "Start time" },
   endTime: { label: "End time" },
   program: { label: "Program", format: label(TRAINING_PROGRAM_LABELS) },
+  ojtMethod: { label: "OJT type", format: label(OJT_METHOD_LABELS) },
   trainerName: { label: "Trainer" },
   trainerStaffId: { hidden: true }, // the trainer's name change already shows it
   status: { label: "Status", format: (v) => (v === "CANCELLED" ? "Cancelled" : "Scheduled") },

@@ -49,7 +49,7 @@ export function DialogButton({
       <dialog
         ref={ref}
         className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
-        style={{ width: `min(${width}px, calc(100vw - 32px))` }}
+        style={{ width: `min(${width}px, calc(100vw / var(--app-zoom) - 32px))` }}
         onClose={onClose}
         onClick={(e) => {
           if (e.target === ref.current) close();
@@ -106,7 +106,7 @@ export function Dialog({
     <dialog
       ref={ref}
       className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
-      style={{ width: `min(${width}px, calc(100vw - 32px))` }}
+      style={{ width: `min(${width}px, calc(100vw / var(--app-zoom) - 32px))` }}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === ref.current) close();

@@ -40,7 +40,7 @@ export default async function DepartmentPage({ params }: PageProps<"/organizatio
   const others = dept.staff.filter((s) => s.id !== dept.hodId).length;
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto max-w-[1580px]">
       <PageHeader
         module="organization"
         context={{ href: "/organization", label: "Organization" }}

@@ -5,9 +5,12 @@ import {
   canBeInternalTrainer,
   countsTowardHours,
   dayNumber,
+  manHours,
   minutesOfDay,
   sessionProblems,
   sessionSpan,
+  trainingCode,
+  trainingDays,
   trainingDeleteBlock,
   trainingHours,
   trainingPhase,
@@ -294,5 +297,46 @@ describe("training permissions", () => {
       expect(can({ ...user, roles: [...roles] }, "training.manage")).toBe(false);
     }
     expect(can({ ...user, hodOfDepartmentIds: [1] }, "training.manage")).toBe(false);
+  });
+});
+
+describe("trainingCode", () => {
+  it("is TR, the day it was added, then 6 digits", () => {
+    expect(trainingCode("PUBLIC_INHOUSE", d("2026-10-02"), 909393)).toBe("TR20261002909393");
+  });
+  it("uses OJT for OJT and TR for departmental", () => {
+    expect(trainingCode("OJT", d("2026-10-02"), 1)).toBe("OJT20261002000001");
+    expect(trainingCode("DEPARTMENTAL", d("2026-01-05"), 999999)).toBe("TR20260105999999");
+  });
+  it("pads the random part to 6 digits and fits the 20-character column", () => {
+    const code = trainingCode("OJT", d("2026-12-31"), 0);
+    expect(code).toBe("OJT20261231000000");
+    expect(code.length).toBeLessThanOrEqual(20);
+  });
+});
+
+describe("trainingDays", () => {
+  it("counts start to end date inclusive", () => {
+    expect(trainingDays({ startDate: d("2026-02-10"), endDate: d("2026-02-12") })).toBe(3);
+    expect(trainingDays({ startDate: d("2026-02-10"), endDate: d("2026-02-10") })).toBe(1);
+  });
+  it("counts the session days when there are sessions, not the span", () => {
+    const s = (date: string) => ({ date: d(date), startTime: t("09:00"), endTime: t("12:00") });
+    expect(trainingDays({ startDate: d("2026-03-02"), endDate: d("2026-03-09"), sessions: [s("2026-03-02"), s("2026-03-05"), s("2026-03-09")] })).toBe(3);
+  });
+  it("is null for an end before the start", () => {
+    expect(trainingDays({ startDate: d("2026-02-12"), endDate: d("2026-02-10") })).toBeNull();
+  });
+});
+
+describe("manHours", () => {
+  it("is hours × completed participants", () => {
+    expect(manHours({ hours: 9, completedCount: 8, status: "SCHEDULED" })).toBe(72);
+    expect(manHours({ hours: 8.5, completedCount: 3, status: "SCHEDULED" })).toBe(25.5);
+  });
+  it("is 0 before anyone completes, for a cancelled training, or without valid hours", () => {
+    expect(manHours({ hours: 9, completedCount: 0, status: "SCHEDULED" })).toBe(0);
+    expect(manHours({ hours: 16, completedCount: 5, status: "CANCELLED" })).toBe(0);
+    expect(manHours({ hours: null, completedCount: 5, status: "SCHEDULED" })).toBe(0);
   });
 });

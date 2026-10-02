@@ -40,7 +40,7 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
   const heads = [...staff.hodOf.map((d) => `HOD of ${d.name}`), ...staff.headOf.map((d) => `head of ${d.name}`)];
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto max-w-[1580px]">
       <PageHeader module="staff"
         context={{ href: "/staff", label: "Staff" }}
         title={staff.name}

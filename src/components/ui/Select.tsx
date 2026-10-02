@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
+import { pageZoom } from "@/lib/zoom";
 
 export type SelectOption = {
   value: string;
@@ -62,7 +63,8 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [pos, setPos] = useState<{ left: number; top: number; minWidth: number; maxWidth: number; maxHeight: number; up: boolean } | null>(null);
+  // In page pixels (screen pixels ÷ the page zoom; see pageZoom).
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; minWidth: number; maxWidth: number; maxHeight: number } | null>(null);
 
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -100,23 +102,32 @@ export function Select({
   const place = useCallback(() => {
     const r = trigger.current?.getBoundingClientRect();
     if (!r) return;
+    // Worked out in screen pixels (page sizes × zoom), then set in page pixels.
+    const z = pageZoom();
     const below = window.innerHeight - r.bottom - 8;
     const above = r.top - 8;
-    const up = below < 220 && above > below;
+    const up = below < 220 * z && above > below;
     // At least as wide as the trigger; wider when an option needs it, up to
     // MAX_PANEL_WIDTH and the screen. Options longer than that wrap.
-    const maxWidth = Math.min(Math.max(r.width, MAX_PANEL_WIDTH), window.innerWidth - 16);
-    const minWidth = Math.min(Math.max(r.width, 220), maxWidth);
+    const maxWidth = Math.min(Math.max(r.width, MAX_PANEL_WIDTH * z), window.innerWidth - 16);
+    const minWidth = Math.min(Math.max(r.width, 220 * z), maxWidth);
     const left = Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8));
-    setPos({ left, top: up ? r.top - 4 : r.bottom + 4, minWidth, maxWidth, maxHeight: Math.min(320, up ? above : below), up });
+    setPos({
+      left: left / z,
+      ...(up ? { bottom: (window.innerHeight - r.top + 4) / z } : { top: (r.bottom + 4) / z }),
+      minWidth: minWidth / z,
+      maxWidth: maxWidth / z,
+      maxHeight: Math.min(320 * z, up ? above : below) / z,
+    });
   }, []);
 
   // Once the panel has its real width, pull it left if it would run off the screen.
   useLayoutEffect(() => {
     const el = panel.current;
     if (!open || !pos || !el) return;
-    const overflow = el.getBoundingClientRect().right - (window.innerWidth - 8);
-    if (overflow > 0) el.style.left = `${Math.max(8, pos.left - overflow)}px`;
+    const z = pageZoom();
+    const overflow = (el.getBoundingClientRect().right - (window.innerWidth - 8)) / z;
+    if (overflow > 0) el.style.left = `${Math.max(8 / z, pos.left - overflow)}px`;
   }, [open, pos]);
 
   useLayoutEffect(() => {
@@ -256,7 +267,7 @@ export function Select({
         <div
           ref={panel}
           className="fixed z-[60] flex flex-col overflow-hidden rounded-[10px] border border-rule bg-surface shadow-[var(--shadow-float)]"
-          style={{ left: pos.left, width: "max-content", minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, ...(pos.up ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
+          style={{ left: pos.left, top: pos.top, bottom: pos.bottom, width: "max-content", minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}
           onKeyDown={withSearch ? onListKey : undefined}
         >
           {withSearch && (

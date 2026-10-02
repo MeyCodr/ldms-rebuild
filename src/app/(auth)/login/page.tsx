@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { from } = await searchParams;
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-[minmax(380px,44%)_1fr]">
+    <div className="grid min-h-full-screen lg:grid-cols-[minmax(380px,44%)_1fr]">
       <aside className="relative hidden overflow-hidden bg-night px-12 py-12 text-night-text lg:flex lg:flex-col">
         <Wordmark onDark full />
         <div className="mt-auto max-w-sm">

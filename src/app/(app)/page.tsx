@@ -3,12 +3,13 @@ import Link from "next/link";
 import { ArrowRight, CalendarClock, CalendarDays, CheckCircle2, Clock, GraduationCap, History, MapPin, UserRound } from "lucide-react";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { ColumnChart, type ColumnPoint } from "@/components/charts/ColumnChart";
+import { DateChip } from "@/components/DateChip";
 import { Panel } from "@/components/Panel";
 import { CategoryTag, TrainingCover } from "@/components/TrainingCover";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Progress } from "@/components/ui/Progress";
 import { Status } from "@/components/ui/Status";
-import { formatDate, formatDateRange, formatHours, formatTime, nowInMalaysia, plural, yearsOfService } from "@/lib/format";
+import { daysAgo, formatDate, formatDateRange, formatHours, formatTime, nowInMalaysia, plural, startsIn, yearsOfService } from "@/lib/format";
 import { divisionTone, TONE, type Tone } from "@/lib/tones";
 import { DESIGNATION_LABELS, DESIGNATIONS } from "@/lib/validation/staff";
 import { TRAINING_PLATFORM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
@@ -16,10 +17,10 @@ import { db } from "@/server/db";
 import { can } from "@/server/permissions";
 import { approverReasonLabel, hasNoApproverByDesign } from "@/server/rules/approver";
 import { isActiveHeadcount } from "@/server/rules/headcount";
-import { dayNumber } from "@/server/rules/training";
 import { approverFor, approvesCount } from "@/server/services/approver";
 import { runDataChecks, type Check } from "@/server/services/checks";
 import { myLearning, trainingOverview, type MyLearning, type TrainingOverview } from "@/server/services/dashboard";
+import { feedbackWaiting, type MyTrainingRow } from "@/server/services/myTraining";
 import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -46,16 +47,6 @@ function greeting(today: Date): string {
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-/** "Today", "Tomorrow", "In 12 days", or "Day 2 of 3" while it runs. */
-function whenLabel(t: { startDate: Date; endDate: Date }, today: Date): string {
-  const now = Math.floor(today.getTime() / 86_400_000);
-  const start = dayNumber(t.startDate)!;
-  const end = dayNumber(t.endDate)!;
-  if (now >= start && now <= end) return end > start ? `Day ${now - start + 1} of ${end - start + 1}` : "Today";
-  const days = start - now;
-  return days === 1 ? "Tomorrow" : `In ${days} days`;
-}
-
 /** Twelve months of a year as chart points; months still to come are empty slots. */
 function monthPoints(values: number[], year: number, today: Date): ColumnPoint[] {
   const current = today.getUTCFullYear() === year ? today.getUTCMonth() : 11;
@@ -79,7 +70,7 @@ export default async function OverviewPage() {
   const isAdmin = can(user, "org.manage");
   const seesTraining = can(user, "training.view");
 
-  const [me, approver, approves, learning, training, checks, hodDepts, divisions] = await Promise.all([
+  const [me, approver, approves, learning, waiting, training, checks, hodDepts, divisions] = await Promise.all([
     db.staff.findUniqueOrThrow({
       where: { id: user.id },
       include: { department: { include: { division: true } }, section: true },
@@ -87,6 +78,7 @@ export default async function OverviewPage() {
     approverFor(user.id),
     approvesCount(user.id),
     myLearning(user, today),
+    feedbackWaiting(user, today),
     seesTraining ? trainingOverview(user, today) : Promise.resolve(null),
     isAdmin ? runDataChecks() : Promise.resolve(null),
     user.hodOfDepartmentIds.length
@@ -105,7 +97,7 @@ export default async function OverviewPage() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-[1320px] flex-col gap-10">
+    <div className="mx-auto flex max-w-[1760px] flex-col gap-10">
       {/* ---------- Your learning ---------- */}
       <section aria-label="Your learning" className="grid gap-5 md:grid-cols-6 lg:grid-cols-12">
         <LearningHero
@@ -148,19 +140,7 @@ export default async function OverviewPage() {
 
         <RecentLearning className="md:col-span-6 lg:col-span-7" learning={learning} />
         <div className="grid content-start gap-5 md:col-span-6 md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-          <Panel title="Waiting on you">
-            <div className="flex items-start gap-3.5">
-              <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-full ${TONE.jade.tile}`}>
-                <CheckCircle2 size={19} />
-              </span>
-              <div>
-                <p className="font-medium">You&apos;re all caught up.</p>
-                <p className="mt-0.5 text-[13px] text-ink-2">
-                  Training feedback, PME evaluations and TNA approvals that need you will be listed here, most urgent first.
-                </p>
-              </div>
-            </div>
-          </Panel>
+          <WaitingOnYou waiting={waiting} today={today} />
           <Panel title="Your approver">
             {approver?.approverId && approver.approver ? (
               <div className="flex items-center gap-3">
@@ -343,12 +323,16 @@ function NextTraining({ className, learning, today }: { className: string; learn
         <h2 id="next-heading" className="display text-[15.5px] font-semibold">
           Next training
         </h2>
-        {next && <span className="tag bg-accent-soft text-accent-deep">{whenLabel(next.training, today)}</span>}
+        {next && <span className="tag bg-accent-soft text-accent-deep">{startsIn(next.training, today)}</span>}
       </div>
       {next ? (
         <>
           <TrainingCover training={next.training} size="lg" className="mt-4" />
-          <h3 className="mt-4 text-[17px] leading-snug font-semibold text-ink">{next.training.title}</h3>
+          <h3 className="mt-4 text-[17px] leading-snug font-semibold text-ink">
+            <Link href={`/my-training/${next.id}`} className="hover:text-accent hover:underline">
+              {next.training.title}
+            </Link>
+          </h3>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <CategoryTag training={next.training} />
             {next.training.platform && <span className="tag">{TRAINING_PLATFORM_LABELS[next.training.platform]}</span>}
@@ -384,14 +368,16 @@ function NextTraining({ className, learning, today }: { className: string; learn
               <div className="eyebrow mb-2">Also coming up</div>
               <ul className="flex flex-col">
                 {later.slice(0, 3).map((p) => (
-                  <li key={p.id} className="flex items-center gap-3 border-t border-rule py-2.5">
-                    <DateChip date={p.training.startDate} />
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium">{p.training.title}</div>
-                      <div className="text-xs text-ink-3">
-                        {whenLabel(p.training, today)} · {formatHours(p.hours)}
+                  <li key={p.id} className="border-t border-rule">
+                    <Link href={`/my-training/${p.id}`} className="group flex items-center gap-3 py-2.5">
+                      <DateChip date={p.training.startDate} />
+                      <div className="min-w-0">
+                        <div className="truncate text-[13px] font-medium group-hover:text-accent group-hover:underline">{p.training.title}</div>
+                        <div className="text-xs text-ink-3">
+                          {startsIn(p.training, today)} · {formatHours(p.hours)}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -409,43 +395,94 @@ function NextTraining({ className, learning, today }: { className: string; learn
   );
 }
 
-/** A small calendar leaf: month over day. */
-function DateChip({ date }: { date: Date }) {
+/** Things the person has to do, most overdue first. For now: feedback forms. */
+function WaitingOnYou({ waiting, today }: { waiting: MyTrainingRow[]; today: Date }) {
+  if (!waiting.length)
+    return (
+      <Panel title="Waiting on you">
+        <div className="flex items-start gap-3.5">
+          <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-full ${TONE.jade.tile}`}>
+            <CheckCircle2 size={19} />
+          </span>
+          <div>
+            <p className="font-medium">You&apos;re all caught up.</p>
+            <p className="mt-0.5 text-[13px] text-ink-2">
+              Training feedback, PME evaluations and TNA approvals that need you will be listed here, most urgent first.
+            </p>
+          </div>
+        </div>
+      </Panel>
+    );
   return (
-    <span aria-hidden className="flex w-11 shrink-0 flex-col items-center rounded-lg border border-rule py-1 leading-none">
-      <span className="text-[10px] font-semibold tracking-wide text-accent uppercase">{MONTHS[date.getUTCMonth()].slice(0, 3)}</span>
-      <span className="num mt-0.5 text-[15px] font-semibold text-ink">{date.getUTCDate()}</span>
-    </span>
+    <Panel
+      title="Waiting on you"
+      description="Feedback forms to fill in, the longest waiting first"
+      action={<Status tone="wait">{waiting.length} to do</Status>}
+      flush
+    >
+      <ul>
+        {waiting.slice(0, 4).map((r) => (
+          <li key={r.id} className="border-b border-rule last:border-b-0">
+            <Link href={`/my-training/${r.id}`} className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafb]">
+              <TrainingCover training={r.training} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13.5px] font-medium text-ink group-hover:text-accent group-hover:underline">{r.training.title}</div>
+                <div className="mt-0.5 text-xs text-ink-3">
+                  Ended {daysAgo(r.training.endDate, today)} · {r.kind === "OJT" ? "3 short answers" : "feedback form"}
+                </div>
+              </div>
+              <ArrowRight size={15} aria-hidden className="shrink-0 text-ink-3 group-hover:text-accent" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {waiting.length > 4 && (
+        <Link href="/my-training" className="link block border-t border-rule px-5 py-2.5 text-[13px] font-medium">
+          All {waiting.length} in My training
+        </Link>
+      )}
+    </Panel>
   );
 }
 
 const ATTENDANCE_STATUS = {
   COMPLETED: { tone: "ok", label: "Completed" },
-  PENDING: { tone: "wait", label: "Not recorded yet" },
+  PENDING: { tone: "wait", label: "Feedback due" },
   ABSENT: { tone: "na", label: "Absent" },
 } as const;
 
 function RecentLearning({ className, learning }: { className: string; learning: MyLearning }) {
   return (
-    <Panel className={className} title="Recent learning" description="Trainings you were on that have been held">
+    <Panel
+      className={className}
+      title="Recent learning"
+      description="Trainings you were on that have been held"
+      action={
+        <Link href="/my-training" className="link inline-flex items-center gap-1 font-medium">
+          My training <ArrowRight size={13} aria-hidden />
+        </Link>
+      }
+    >
       {learning.recent.length ? (
         <div className="flex h-full flex-col gap-3">
           <ul className="-my-1 flex flex-col">
             {learning.recent.map((p) => {
               const s = ATTENDANCE_STATUS[p.attendance];
               return (
-                <li key={p.id} className="flex items-center gap-3 border-b border-rule py-3 last:border-b-0">
-                  <TrainingCover training={p.training} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-medium">{p.training.title}</div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-xs text-ink-3">
-                      <span className="num">{formatDate(p.training.startDate)}</span>
-                      <Status tone={s.tone}>{s.label}</Status>
+                <li key={p.id} className="border-b border-rule last:border-b-0">
+                  <Link href={`/my-training/${p.id}`} className="group flex items-center gap-3 py-3">
+                    <TrainingCover training={p.training} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-medium group-hover:text-accent group-hover:underline">{p.training.title}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-xs text-ink-3">
+                        <span className="num">{formatDate(p.training.startDate)}</span>
+                        <Status tone={s.tone}>{s.label}</Status>
+                      </div>
                     </div>
-                  </div>
-                  <span className={`num shrink-0 text-[13px] font-medium ${p.counts ? "text-ink" : "text-ink-3"}`}>
-                    {p.counts ? formatHours(p.hours) : "–"}
-                  </span>
+                    <span className={`num shrink-0 text-[13px] font-medium ${p.counts ? "text-ink" : "text-ink-3"}`}>
+                      {p.counts ? formatHours(p.hours) : "–"}
+                    </span>
+                  </Link>
                 </li>
               );
             })}
@@ -536,7 +573,7 @@ function TrainingAtPhn({ training, today }: { training: TrainingOverview; today:
                       </div>
                     </div>
                     <div className="hidden shrink-0 text-right sm:block">
-                      <div className="text-[13px] font-medium text-accent-deep">{whenLabel(t, today)}</div>
+                      <div className="text-[13px] font-medium text-accent-deep">{startsIn(t, today)}</div>
                       <div className="mt-0.5 text-xs text-ink-3">{t.participantCount ? plural(t.participantCount, "participant") : "No participants yet"}</div>
                     </div>
                   </Link>

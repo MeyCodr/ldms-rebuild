@@ -190,11 +190,12 @@ function Preview({
         </label>
       )}
 
-      <div className="max-h-[60vh] overflow-auto rounded-md border border-rule bg-surface">
+      <div className="max-h-[calc(60vh/var(--app-zoom))] overflow-auto rounded-md border border-rule bg-surface">
         <table className="table">
           <thead>
             <tr>
-              <th className="w-14">Row</th>
+              <th className="w-px text-right whitespace-nowrap">No.</th>
+              <th className="w-px whitespace-nowrap" title="The row in your Excel file">Excel row</th>
               <th className="w-28">Staff no.</th>
               <th>Name</th>
               <th className="hidden md:table-cell">Department</th>
@@ -202,8 +203,9 @@ function Preview({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r, i) => (
               <tr key={r.row}>
+                <td className="num muted text-right">{i + 1}</td>
                 <td className="num muted">{r.row}</td>
                 <td className="num">{r.staffNo}</td>
                 <td>{r.name}</td>

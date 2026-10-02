@@ -287,6 +287,7 @@ export function StaffTransferTable({
                   className="accent-primary"
                 />
               </th>
+              <th className="w-px text-right whitespace-nowrap">No.</th>
               <th className="w-24">Staff no.</th>
               <th>Name</th>
               <th className="hidden sm:table-cell">Section</th>
@@ -294,11 +295,12 @@ export function StaffTransferTable({
             </tr>
           </thead>
           <tbody>
-            {staff.map((s) => (
+            {staff.map((s, i) => (
               <tr key={s.id} className={selected.has(s.id) ? "[&>td]:bg-accent-soft" : ""}>
                 <td className="pl-5">
                   <input type="checkbox" aria-label={`Select ${s.name}`} checked={selected.has(s.id)} onChange={() => toggle(s.id)} className="accent-primary" />
                 </td>
+                <td className="num muted text-right">{i + 1}</td>
                 <td className="num">{s.staffNo}</td>
                 <td>
                   <Link href={`/staff/${s.id}`} className="link">

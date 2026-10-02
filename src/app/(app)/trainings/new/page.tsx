@@ -12,7 +12,7 @@ export default async function NewTrainingPage() {
   const trainers = await internalTrainerOptions();
 
   return (
-    <div className="mx-auto max-w-[1280px]">
+    <div className="mx-auto max-w-[1700px]">
       <PageHeader module="training" context={{ href: "/trainings", label: "Trainings" }} title="Add training" />
       <div className="mt-5">
         <TrainingForm

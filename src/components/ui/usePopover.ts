@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { pageZoom } from "@/lib/zoom";
 
 export type PopoverPosition = { left: number; top?: number; bottom?: number; maxHeight: number };
 
@@ -18,11 +19,14 @@ export function usePopover({ open, onClose, width, minHeight = 240 }: { open: bo
   const place = useCallback(() => {
     const r = anchor.current?.getBoundingClientRect();
     if (!r) return;
+    // Worked out in screen pixels, then set in page pixels (÷ zoom; see pageZoom).
+    const z = pageZoom();
     const below = window.innerHeight - r.bottom - 8;
     const above = r.top - 8;
-    const up = below < minHeight && above > below;
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - Math.min(width, window.innerWidth - 16) - 8));
-    setPos(up ? { left, bottom: window.innerHeight - r.top + 4, maxHeight: above } : { left, top: r.bottom + 4, maxHeight: below });
+    const up = below < minHeight * z && above > below;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - Math.min(width * z, window.innerWidth - 16) - 8));
+    const p = up ? { left, bottom: window.innerHeight - r.top + 4, maxHeight: above } : { left, top: r.bottom + 4, maxHeight: below };
+    setPos({ left: p.left / z, top: p.top === undefined ? undefined : p.top / z, bottom: p.bottom === undefined ? undefined : p.bottom / z, maxHeight: p.maxHeight / z });
   }, [width, minHeight]);
 
   useLayoutEffect(() => {
@@ -47,7 +51,7 @@ export function usePopover({ open, onClose, width, minHeight = 240 }: { open: bo
   }, [open, onClose]);
 
   const style: React.CSSProperties | undefined = pos
-    ? { left: pos.left, top: pos.top, bottom: pos.bottom, width: `min(${width}px, calc(100vw - 16px))`, maxHeight: pos.maxHeight }
+    ? { left: pos.left, top: pos.top, bottom: pos.bottom, width: `min(${width}px, calc(100vw / var(--app-zoom) - 16px))`, maxHeight: pos.maxHeight }
     : undefined;
 
   return { anchor, panel, style: open ? style : undefined };

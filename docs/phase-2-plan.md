@@ -209,7 +209,7 @@ Also add the back-relations on `Staff` (`participants Participant[]`) and `Depar
 | Resigned staff | Can't be added as participants; their history stays. |
 
 Feedback form definitions live in one file, `src/lib/forms/feedback.ts`: `FEEDBACK_V1` (16 questions) and
-`OJT_SELF_V1` (3 answers), each with the question text, answer type (1–5 scale, yes/no, text) and a Zod schema. Store
+`OJT_V1` (3 answers, used for all OJT), each with the question text, answer type (1–5 scale, yes/no, text) and a Zod schema. Store
 `feedbackVersion` with every answer set so wording can change later.
 
 ## 7. Permissions and navigation
@@ -242,10 +242,19 @@ Each module lists screens, services/actions, and when it is done.
 
 Built to match the old system's Add Training form, following the user's review. What exists now:
 
-- `/trainings`: list with `page-fit` table. Filters: search (title, trainer, venue), type, year, status. Columns: dates,
-  training (title + trainer and venue), type (Public / In-house shown as "Public"), hours, participants (completed /
-  total), status (Upcoming / In progress / Held / Cancelled). Sortable by dates (default, newest first), title, type and
-  participants. Excel export with the same filters and sort, columns in the form's order.
+- **Training code** (added 2 Oct 2026, migration `20261002090000_training_code`): every training gets one automatically
+  when it is added and it never changes: `TR` (`OJT` for OJT; departmental trainings use `TR`), the day it was added
+  in Malaysia time (YYYYMMDD), then 6 random digits, e.g. `TR20261002909393`. Column `Training.trainingCode` (unique);
+  existing trainings got one from their `createdAt`. Rule `trainingCode` in `src/server/rules/training.ts`,
+  `newTrainingCode` in the training service (also used for self-recorded OJT). Shown on the list and the training page,
+  and searchable. (`Training.code` is separate: the provider's course code.)
+- `/trainings`: list with `page-fit` table. Filters: search (code, title, trainer, venue), type, status, start date
+  (starts on or after) and end date (ends on or before). Columns: no., training code, dates (no times), training (title
+  only), type (Public / In-house shown as "Public"), total days (session days, or start to end), hours (per person),
+  participants (completed / total), total man hours (hours × completed participants; 0 when cancelled), status
+  (Upcoming / In progress / Held / Cancelled). Sortable by dates (default, newest first), title, type and participants.
+  Excel export with the same filters and sort: training code, the form's fields in its order, then total days, hours,
+  participants, completed, total man hours and status.
 - `/trainings/new`, `/trainings/[id]/edit`: **Type** (Public / In-house or OJT), then the old form's fields in its order:
   Title, Venue, Cost (RM), HRDC (Yes/No), Platform (Physical / Online), Function (Business / Digital / Leadership /
   Personal effectiveness), Start/End date, Start/End time, Program (External public program / Internal training by
@@ -286,16 +295,41 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   `20260930090000_participant_attendance_reason` (renames `absentReason` → `attendanceReason`, which now holds the
   reason for absent or for completed-on-their-behalf). The seed adds demo participants when the table is empty.
 
-### Module 3: My Training
+### Module 3: My Training (built 01 Oct 2026, awaiting review)
 
-- `/my-training`: three sections: *Needs your feedback* (PENDING, form open), *Upcoming*, *History* (with total
-  completed hours for the year, using `trainingHours`). Filter by year.
-- `/my-training/[participantId]`: training details + the feedback form (FEEDBACK_V1). Submitting sets COMPLETED.
-  Only the participant themselves can open it.
-- `/my-training/ojt/new` and edit: record own OJT (title, date, times, trainer/mentor, the 3 answers).
-- Overview → "Waiting on you": list pending feedback forms, most overdue first (replace the "all caught up" message
-  when there are items).
-- **Done when**: a staff member can find, fill and submit their form; totals match `trainingHours`.
+- `/my-training` (sidebar **My work → My training**, with a count of forms waiting): one `page-fit` table of every
+  training the person is on, newest first, like `/trainings`. Filters: search (title, trainer, venue), status
+  (Feedback due / Coming up / Completed / Absent / Cancelled), start date (starts on or after) and end
+  date (ends on or before). Columns: no., training (title only), start date, end date (dates only), type (Public /
+  In-house or OJT), venue, training hours (completed count; "–" when absent or cancelled), status, and a **Give
+  feedback** / **Give answers** button when a form is open. The header shows this year's completed hours and
+  links the forms waiting to the *Feedback due* filter. **Record OJT** button.
+- `/my-training/[participantId]`: the training's facts, the form, and *Your record* (attendance, hours, when the
+  answers were given, who recorded an OJT). Only the participant can open it; anyone else gets 404.
+- **Which form**: OJT trainings use `OJT_V1` (one form for all OJT, so it isn't called `OJT_SELF_V1`), every other
+  training `FEEDBACK_V1` (16 questions, ids `q1`–`q16` for the phase 5 import), both in `src/lib/forms/feedback.ts`.
+  `OJT_V1` is the old system's OJT evaluation (confirmed 1 Oct 2026): *what you have learned* (text), then knowledge /
+  skill *before* and *after* training on the old 1–5 rating scale (5 Excellent ≥ 90% … 1 Poor below 50%), with the
+  Malay wording. `FEEDBACK_V1` is still placeholder wording marked `TODO(L&D)` with `draft: true`, which shows a
+  "Draft questions" notice; set `draft: false` once L&D confirms the wording.
+- **Rules** (`src/server/rules/myTraining.ts`, tests `tests/rules/myTraining.test.ts`): the form opens on the last day
+  while PENDING; sending it sets COMPLETED. Course feedback can't be changed once sent; OJT answers can be updated any
+  time. Closed (with the reason shown) when cancelled, absent, not ended yet, or completed by L&D without a form.
+- **Own OJT** (`/my-training/ojt/new`, `/my-training/[participantId]/edit`): the old system's OJT form. Section A:
+  title, training type (OJT, Coaching / Coachee, Mentor / Mentee: new column `Training.ojtMethod`, migration
+  `20261001075424_ojt_method`), start and end date, start and end time, venue, external/internal trainer (stored as
+  the program: internal training by an external / internal trainer). Section B: `OJT_V1`. All required; saved as a
+  one-person OJT training, COMPLETED, source SELF; it must have ended by today. Its page shows the
+  answers read-only with one **Edit** button, which opens the whole form (details and answers, saved together), and
+  **Delete**, while no one else is on it. **OJT from a clerk or L&D**: an **Edit answers** button opens Section B only;
+  the details (which may be shared with others) can't be changed and it can't be deleted. An OJT still waiting for
+  answers shows the form on its page, since sending it completes the OJT.
+- Overview: *Waiting on you* lists the forms; Next training and Recent learning link to the person's own pages.
+- Audit: sending feedback is a `Participant` entry on the training (shows in its History); recording, editing and
+  deleting own OJT are `Training` entries. Answers themselves are not copied into the audit log.
+- Service `src/server/services/myTraining.ts`, validation `src/lib/validation/myTraining.ts`, e2e
+  `tests/e2e/my-training.spec.ts` (with `tests/e2e/db.ts`, a test-only clean-up for the training a test gave feedback
+  on, which the app rightly never deletes). The seed now gives seeded feedback dates demo answers.
 
 ### Module 4: OJT for clerks
 

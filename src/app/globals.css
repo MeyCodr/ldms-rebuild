@@ -90,6 +90,23 @@
 
 :root {
   color-scheme: light;
+  /*
+    Desktop is drawn at 75%: everything (text, controls, spacing, icons) scales
+    together, for a calmer, less crowded screen. Phones and tablets stay at
+    100% so text stays readable. Under zoom, viewport units shrink too, so a
+    full-screen height is written calc(100dvh / var(--app-zoom)); popovers
+    convert screen pixels with pageZoom() (src/lib/zoom.ts).
+  */
+  --app-zoom: 1;
+}
+@media (min-width: 1024px) {
+  :root {
+    --app-zoom: 0.75;
+  }
+}
+
+html {
+  zoom: var(--app-zoom);
 }
 
 html,
@@ -462,8 +479,16 @@ body {
 }
 @media (min-width: 1024px) {
   .page-fit {
-    height: calc(100dvh - 52px);
+    height: calc(100dvh / var(--app-zoom) - 52px);
   }
+}
+
+/* A full screen's height under the page zoom (100dvh alone would fill only 75% on desktop). */
+.h-full-screen {
+  height: calc(100dvh / var(--app-zoom));
+}
+.min-h-full-screen {
+  min-height: calc(100dvh / var(--app-zoom));
 }
 .page-fit > .table-scroll {
   flex: 1 1 auto; /* fill the remaining height, even with few rows */

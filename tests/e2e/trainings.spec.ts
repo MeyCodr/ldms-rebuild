@@ -75,6 +75,9 @@ test("admin creates, edits, cancels, restores and deletes a training", async ({ 
 
   await expect(page.getByRole("status").filter({ hasText: "Training added." })).toBeVisible();
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+  // A training code is given automatically: TR, today's date, 6 random digits.
+  const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10).replaceAll("-", "");
+  await expect(page.getByTitle("Training code")).toHaveText(new RegExp(`^TR${today}\\d{6}$`));
   await expect(page.getByText("12 h in total")).toBeVisible();
   await expect(page.getByText("RM 1,250.50")).toBeVisible();
   await expect(page.getByText("Internal training by external trainer")).toBeVisible();
@@ -119,15 +122,22 @@ test("admin creates, edits, cancels, restores and deletes a training", async ({ 
   await expect(page.getByText("No trainings match these filters.")).toBeVisible();
 });
 
-test("the list filters by type and year and exports to Excel", async ({ page }, testInfo) => {
+test("the list filters by type and dates and exports to Excel", async ({ page }, testInfo) => {
   await signIn(page, "10001");
   await page.goto("trainings");
   await choose(page, "Type", "OJT");
-  await choose(page, "Year", "2026");
+  // 2026 only.
+  await page.getByLabel("Start date").fill("01/01/2026");
+  await page.getByLabel("End date").fill("31/12/2026");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page).toHaveURL(/type=OJT/);
   await expect(page.getByRole("link", { name: "Die Maintenance Basics" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Spot Welding Parameter Setting" })).toHaveCount(0); // 2025
+  // Its code, 3 days, 9 h each, and 8 completed × 9 h = 72 man hours.
+  const listed = page.getByRole("row", { name: /Die Maintenance Basics/ });
+  await expect(listed.getByRole("cell").nth(1)).toHaveText(/^OJT\d{14}$/);
+  await expect(listed.getByRole("cell").nth(5)).toHaveText("3");
+  await expect(listed.getByRole("cell").nth(8)).toHaveText("72 h");
 
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Export to Excel" }).click();
@@ -136,15 +146,55 @@ test("the list filters by type and year and exports to Excel", async ({ page }, 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(file);
   const ws = wb.getWorksheet("Trainings")!;
-  expect(ws.getRow(1).getCell(2).value).toBe("Title");
-  const titles = ws.getColumn(2).values.slice(2);
+  expect(ws.getRow(1).getCell(1).value).toBe("Training Code");
+  expect(ws.getRow(1).getCell(3).value).toBe("Title");
+  const titles = ws.getColumn(3).values.slice(2);
   expect(titles).toContain("Die Maintenance Basics");
   expect(titles.every((t) => t !== "Spot Welding Parameter Setting")).toBe(true);
   // Die Maintenance Basics: 3 days × 3 h.
-  const row = ws.getRows(2, ws.rowCount - 1)!.find((r) => r.getCell(2).value === "Die Maintenance Basics")!;
-  expect(ws.getRow(1).getCell(14).value).toBe("Hours");
-  expect(row.getCell(14).value).toBe(9);
-  expect(row.getCell(12).value).toBe("Internal training by internal trainer");
+  const row = ws.getRows(2, ws.rowCount - 1)!.find((r) => r.getCell(3).value === "Die Maintenance Basics")!;
+  expect(String(row.getCell(1).value)).toMatch(/^OJT\d{14}$/);
+  expect(ws.getRow(1).getCell(15).value).toBe("Total Days");
+  expect(row.getCell(15).value).toBe(3);
+  expect(ws.getRow(1).getCell(16).value).toBe("Hours");
+  expect(row.getCell(16).value).toBe(9);
+  expect(ws.getRow(1).getCell(19).value).toBe("Total Man Hours");
+  expect(row.getCell(19).value).toBe(72);
+  expect(row.getCell(13).value).toBe("Internal training by internal trainer");
+});
+
+test("the list filters by start and end date", async ({ page }) => {
+  await signIn(page, "10001");
+  await page.goto("trainings");
+  // February to March 2026: starts on or after the start date, ends on or before the end date.
+  await page.getByLabel("Start date").fill("01/02/2026");
+  await page.getByLabel("End date").fill("31/03/2026");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/from=2026-02-01&to=2026-03-31/);
+  await expect(page.getByRole("link", { name: "Die Maintenance Basics" })).toBeVisible(); // 10–12 Feb
+  await expect(page.getByRole("link", { name: "Excel for Production Reporting" })).toBeVisible(); // 4–6 Mar
+  await expect(page.getByRole("link", { name: "IATF 16949 Awareness" })).toHaveCount(0); // 21 Jan
+  await expect(page.getByRole("link", { name: "Chemical Handling and SDS" })).toHaveCount(0); // 8 Sep
+  await expect(page.getByLabel("Start date")).toHaveValue("01/02/2026");
+  // The export uses the same dates.
+  await expect(page.getByRole("link", { name: "Export to Excel" })).toHaveAttribute("href", /from=2026-02-01&to=2026-03-31/);
+
+  // Ending by 11 Feb leaves out a training that runs to the 12th. (Applying reloaded the page: let it settle first.)
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("End date").fill("11/02/2026");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/to=2026-02-11/);
+  await expect(page.getByRole("link", { name: "Die Maintenance Basics" })).toHaveCount(0);
+
+  // Clear resets every filter, including one typed in but not applied yet.
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Search").fill("Forklift");
+  await page.getByRole("link", { name: "Clear", exact: true }).click();
+  await expect(page).toHaveURL(/\/trainings$/);
+  await expect(page.getByLabel("Search")).toHaveValue("");
+  await expect(page.getByLabel("Start date")).toHaveValue("");
+  await expect(page.getByLabel("End date")).toHaveValue("");
+  await expect(page.getByRole("link", { name: "Die Maintenance Basics" })).toBeVisible();
 });
 
 test("clerks and plain staff can't open trainings", async ({ page }) => {
@@ -158,31 +208,31 @@ test("clerks and plain staff can't open trainings", async ({ page }) => {
 
 test("column headers sort the list, and the sort survives filters and export", async ({ page }, testInfo) => {
   await signIn(page, "10001");
-  await page.goto("trainings?year=2025");
-  const titles = () => page.locator("tbody tr td:nth-child(2) a").allTextContents();
+  await page.goto("trainings?from=2025-01-01&to=2025-12-31");
+  const titles = () => page.locator("tbody tr td:nth-child(4) a").allTextContents();
 
   // Default: newest first.
   await expect(page.getByRole("columnheader", { name: /Dates/ })).toHaveAttribute("aria-sort", "descending");
   expect((await titles())[0]).toBe("Spot Welding Parameter Setting");
 
   // Training: A–Z, then Z–A.
-  await page.getByRole("columnheader", { name: /Training/ }).getByRole("link").click();
+  await page.getByRole("columnheader", { name: /^Training(?! code)/ }).getByRole("link").click();
   await expect(page).toHaveURL(/sort=title/);
-  await expect(page.getByRole("columnheader", { name: /Training/ })).toHaveAttribute("aria-sort", "ascending");
+  await expect(page.getByRole("columnheader", { name: /^Training(?! code)/ })).toHaveAttribute("aria-sort", "ascending");
   const az = await titles();
   expect(az).toEqual([...az].sort((a, b) => a.localeCompare(b)));
-  await page.getByRole("columnheader", { name: /Training/ }).getByRole("link").click();
-  await expect(page.getByRole("columnheader", { name: /Training/ })).toHaveAttribute("aria-sort", "descending");
+  await page.getByRole("columnheader", { name: /^Training(?! code)/ }).getByRole("link").click();
+  await expect(page.getByRole("columnheader", { name: /^Training(?! code)/ })).toHaveAttribute("aria-sort", "descending");
   expect(await titles()).toEqual([...az].reverse());
 
   // Applying a filter keeps the sort.
   await page.getByLabel("Search").fill("Safety");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page).toHaveURL(/sort=title&dir=desc/);
-  await expect(page.getByRole("columnheader", { name: /Training/ })).toHaveAttribute("aria-sort", "descending");
+  await expect(page.getByRole("columnheader", { name: /^Training(?! code)/ })).toHaveAttribute("aria-sort", "descending");
 
   // Dates ascending: oldest first; the export follows the same order.
-  await page.goto("trainings?year=2025&sort=date&dir=asc");
+  await page.goto("trainings?from=2025-01-01&to=2025-12-31&sort=date&dir=asc");
   expect((await titles())[0]).toBe("ISO 9001:2015 Internal Auditor");
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Export to Excel" }).click();
@@ -190,7 +240,7 @@ test("column headers sort the list, and the sort survives filters and export", a
   await (await download).saveAs(file);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(file);
-  expect(wb.getWorksheet("Trainings")!.getRow(2).getCell(2).value).toBe("ISO 9001:2015 Internal Auditor");
+  expect(wb.getWorksheet("Trainings")!.getRow(2).getCell(3).value).toBe("ISO 9001:2015 Internal Auditor");
 
   // Type and participants headers sort too.
   await page.getByRole("columnheader", { name: /Type/ }).getByRole("link").click();

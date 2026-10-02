@@ -25,13 +25,31 @@ test("phone: training list, record and form fit the screen", async ({ page }) =>
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+test("phone: My training and its forms fit the screen", async ({ page }) => {
+  await signIn(page, "10231");
+  for (const path of ["my-training", "my-training/ojt/new"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, path).toBeLessThanOrEqual(0);
+  }
+  // A training with its feedback form.
+  await page.goto("my-training");
+  await page.getByRole("table", { name: "My trainings" }).locator("tbody tr").first().getByRole("link").first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
 test("phone: long dropdown options wrap instead of being cut off", async ({ page }) => {
   await signIn(page, "10001");
   await page.goto("trainings/new");
   await page.getByLabel("Program", { exact: true }).click();
   const options = page.getByRole("listbox").getByRole("option");
   await expect(options.nth(2)).toHaveText("Internal training by internal trainer");
-  const clipped = await options.evaluateAll((els) => els.filter((el) => [...el.querySelectorAll("span")].some((s) => s.scrollWidth > s.clientWidth + 1)).length);
+  const clipped = await options.evaluateAll(
+    (els) => els.filter((el) => [...el.querySelectorAll("span")].some((s) => s.scrollWidth > s.clientWidth + 1)).length,
+  );
   expect(clipped).toBe(0);
   const box = await page.getByRole("listbox").boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);

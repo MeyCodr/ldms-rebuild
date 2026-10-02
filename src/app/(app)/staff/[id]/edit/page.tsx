@@ -20,7 +20,7 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
   if (!canManageStaffRecord(user, staff)) forbidden();
 
   return (
-    <div className="mx-auto max-w-[1280px]">
+    <div className="mx-auto max-w-[1700px]">
       <PageHeader module="staff" context={{ href: `/staff/${id}`, label: staff.name }} title="Edit staff record" />
       {staff.hodOf.length > 0 && (
         <div className="notice notice-wait mt-4 max-w-[720px]">

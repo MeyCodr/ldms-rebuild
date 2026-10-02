@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { Progress } from "@/components/ui/Progress";
 import { Select } from "@/components/ui/Select";
-import { formatDateRange, formatHours, formatTime, nowInMalaysia, plural } from "@/lib/format";
+import { formatDateRange, formatHours, nowInMalaysia, plural } from "@/lib/format";
 import { TRAINING_TYPE_LABELS, TRAINING_TYPE_SHORT_LABELS, TRAINING_TYPES } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { trainingPhase } from "@/server/rules/training";
@@ -11,7 +12,6 @@ import {
   listTrainings,
   TRAINING_PAGE_SIZE,
   TRAINING_SORT_DEFAULT_DIR,
-  trainingYears,
   type TrainingFilters,
   type TrainingSort,
 } from "@/server/services/training";
@@ -27,11 +27,11 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
   const sp = await searchParams;
   const f = parseTrainingFilters(sp);
   const today = nowInMalaysia();
-  const [{ rows, total, page, pages }, years] = await Promise.all([listTrainings(user, f), trainingYears(today.getUTCFullYear())]);
-  const filtered = !!(f.q || f.type || f.year || f.status !== "ALL");
+  const { rows, total, page, pages } = await listTrainings(user, f);
+  const filtered = !!(f.q || f.type || f.from || f.to || f.status !== "ALL");
 
   return (
-    <div className="page-fit mx-auto max-w-[1280px]">
+    <div className="page-fit mx-auto max-w-[1700px]">
       <PageHeader
         module="training"
         context="Training"
@@ -63,14 +63,14 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
       )}
 
       <form method="get" className="card flex flex-wrap items-end gap-2 p-3" role="search" aria-label="Filter trainings">
-        <div className="w-full sm:w-72">
-          <label htmlFor="q" className="sr-only">
+        <div className="w-full sm:w-60">
+          <label htmlFor="q" className="label">
             Search
           </label>
-          <input id="q" name="q" defaultValue={f.q} className="input" placeholder="Title, trainer or venue" type="search" />
+          <input id="q" name="q" defaultValue={f.q} className="input" placeholder="Code, title, trainer or venue" type="search" />
         </div>
-        <div className="w-[calc(50%-4px)] sm:w-40">
-          <label htmlFor="type" className="sr-only">
+        <div className="w-[calc(50%-4px)] sm:w-36">
+          <label htmlFor="type" className="label">
             Type
           </label>
           <Select
@@ -80,19 +80,8 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
             options={[{ value: "", label: "All types" }, ...TRAINING_TYPES.map((t) => ({ value: t, label: TRAINING_TYPE_LABELS[t] }))]}
           />
         </div>
-        <div className="w-[calc(50%-4px)] sm:w-32">
-          <label htmlFor="year" className="sr-only">
-            Year
-          </label>
-          <Select
-            id="year"
-            name="year"
-            defaultValue={f.year ? String(f.year) : ""}
-            options={[{ value: "", label: "All years" }, ...years.map((y) => ({ value: String(y), label: String(y) }))]}
-          />
-        </div>
-        <div className="w-[calc(50%-4px)] sm:w-40">
-          <label htmlFor="status" className="sr-only">
+        <div className="w-[calc(50%-4px)] sm:w-36">
+          <label htmlFor="status" className="label">
             Status
           </label>
           <Select
@@ -106,22 +95,24 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
             ]}
           />
         </div>
+        <DateRangeFilter from={f.from} to={f.to} />
         {f.sort !== "date" && <input type="hidden" name="sort" value={f.sort} />}
         {f.dir !== TRAINING_SORT_DEFAULT_DIR[f.sort ?? "date"] && <input type="hidden" name="dir" value={f.dir} />}
         <button type="submit" className="btn">
           Apply
         </button>
-        {filtered && (
-          <Link href="/trainings" className="btn btn-ghost">
-            Clear
-          </Link>
-        )}
+        {/* A full page load, so every field resets, including ones typed in but not applied yet. Keeps the sort. */}
+        <a href={withBasePath(`/trainings${filtersToQuery({ sort: f.sort, dir: f.dir })}`)} className="btn">
+          Clear
+        </a>
       </form>
 
       <div className="table-scroll card mt-4">
         <table className="table">
           <thead>
             <tr>
+              <th className="w-px text-right whitespace-nowrap">No.</th>
+              <th className="hidden w-px whitespace-nowrap md:table-cell">Training code</th>
               <SortTh f={f} col="date" className="w-28 sm:w-44">
                 Dates
               </SortTh>
@@ -131,7 +122,10 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
               <SortTh f={f} col="type" className="hidden w-28 md:table-cell">
                 Type
               </SortTh>
-              <th className="hidden w-20 text-right sm:table-cell">Hours</th>
+              <th className="hidden w-px text-right whitespace-nowrap sm:table-cell">Total days</th>
+              <th className="hidden w-20 text-right sm:table-cell" title="Hours per participant">
+                Hours
+              </th>
               <SortTh
                 f={f}
                 col="participants"
@@ -140,17 +134,19 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
               >
                 Participants
               </SortTh>
+              <th className="hidden w-px text-right whitespace-nowrap md:table-cell" title="Hours × participants who completed it">
+                Total man hours
+              </th>
               <th className="w-24 sm:w-28">Status</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => (
+            {rows.map((t, i) => (
               <tr key={t.id}>
+                <td className="num muted text-right">{(page - 1) * TRAINING_PAGE_SIZE + i + 1}</td>
+                <td className="num hidden whitespace-nowrap md:table-cell">{t.trainingCode}</td>
                 <td>
                   <div className="num sm:whitespace-nowrap">{formatDateRange(t.startDate, t.endDate)}</div>
-                  <div className="num muted text-xs">
-                    {t.sessions.length ? plural(t.sessions.length, "session") : `${formatTime(t.startTime)}–${formatTime(t.endTime)}`}
-                  </div>
                 </td>
                 <td>
                   <Link
@@ -159,17 +155,15 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                   >
                     {t.title}
                   </Link>
-                  <div className="muted mt-0.5 text-xs">
-                    {[t.trainerName, t.venue].filter(Boolean).join(" · ")}
-                    <span className="md:hidden">
-                      {(t.trainerName || t.venue) && " · "}
-                      {TRAINING_TYPE_SHORT_LABELS[t.type]}
-                    </span>
+                  {/* The code and type have their own columns from tablet width; on phones they sit under the title. */}
+                  <div className="muted mt-0.5 text-xs md:hidden">
+                    <span className="num">{t.trainingCode}</span> · {TRAINING_TYPE_SHORT_LABELS[t.type]}
                   </div>
                 </td>
                 <td className="hidden md:table-cell">
                   <span className="tag">{TRAINING_TYPE_SHORT_LABELS[t.type]}</span>
                 </td>
+                <td className="num hidden text-right sm:table-cell">{t.days ?? <span className="muted">–</span>}</td>
                 <td className="num hidden text-right sm:table-cell">{formatHours(t.hours)}</td>
                 <td className="num hidden text-right md:table-cell">
                   {t.participantCount ? (
@@ -188,6 +182,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                     <span className="muted">none</span>
                   )}
                 </td>
+                <td className={`num hidden text-right whitespace-nowrap md:table-cell ${t.manHours ? "" : "muted"}`}>{formatHours(t.manHours)}</td>
                 <td>
                   <PhaseStatus phase={trainingPhase(t, today)} />
                 </td>

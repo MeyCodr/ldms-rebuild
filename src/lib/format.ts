@@ -57,6 +57,24 @@ export function formatDateRange(start: Date, end: Date): string {
   return `${sd} – ${formatDate(end)}`;
 }
 
+const dayOf = (d: Date) => Math.floor(d.getTime() / 86_400_000);
+
+/** For a training still to come: "Today", "Tomorrow", "In 12 days", or "Day 2 of 3" while it runs. */
+export function startsIn(t: { startDate: Date; endDate: Date }, today: Date): string {
+  const now = dayOf(today);
+  const start = dayOf(t.startDate);
+  const end = dayOf(t.endDate);
+  if (now >= start && now <= end) return end > start ? `Day ${now - start + 1} of ${end - start + 1}` : "Today";
+  const days = start - now;
+  return days === 1 ? "Tomorrow" : `In ${days} days`;
+}
+
+/** For something that has passed: "today", "yesterday", "5 days ago". */
+export function daysAgo(d: Date, today: Date): string {
+  const days = dayOf(today) - dayOf(d);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+}
+
 /** RM 1,250.00 */
 export function formatMoney(amount: { toString(): string } | null | undefined): string {
   if (amount === null || amount === undefined) return "";

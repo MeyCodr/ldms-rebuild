@@ -30,7 +30,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
       : "Staff in the departments you approve for";
 
   return (
-    <div className="mx-auto max-w-[1280px]">
+    <div className="mx-auto max-w-[1700px]">
       <PageHeader module="staff"
         context="Records"
         title="Staff"
@@ -134,6 +134,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         <table className="table">
           <thead>
             <tr>
+              <th className="w-px text-right whitespace-nowrap">No.</th>
               <SortTh f={f} col="staffNo" className="w-28">
                 Staff no.
               </SortTh>
@@ -151,8 +152,9 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((s) => (
+            {rows.map((s, i) => (
               <tr key={s.id}>
+                <td className="num muted pt-3 text-right">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="num pt-3">{s.staffNo}</td>
                 <td>
                   <div className="flex items-center gap-2.5">

@@ -23,6 +23,7 @@ export const MODULE_TONE = {
   organization: "plum",
   audit: "slate",
   account: "marigold",
+  learning: "jade", // My training: the person's own learning
   // later phases
   training: "marigold",
   pme: "coral",

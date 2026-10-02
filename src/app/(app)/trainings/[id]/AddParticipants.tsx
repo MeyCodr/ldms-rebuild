@@ -171,7 +171,7 @@ function AddForm({ trainingId }: { trainingId: number }) {
             )}
           </span>
         </div>
-        <ul aria-label="Staff" className="max-h-[min(340px,45dvh)] overflow-y-auto">
+        <ul aria-label="Staff" className="max-h-[min(340px,calc(45dvh/var(--app-zoom)))] overflow-y-auto">
           {!data && (
             <li aria-busy="true" className="flex flex-col gap-3 px-3 py-3">
               <span className="sr-only">Loading staff</span>

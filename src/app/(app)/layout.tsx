@@ -4,7 +4,9 @@ import { Sidebar, type NavGroup } from "@/components/shell/Sidebar";
 import { SIDEBAR_COOKIE } from "@/components/shell/sidebarCookie";
 import { signOut } from "@/server/auth";
 import { db } from "@/server/db";
+import { nowInMalaysia } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
+import { feedbackWaiting } from "@/server/services/myTraining";
 import { can, ROLE_LABELS } from "@/server/permissions";
 import { requireUser } from "@/server/session";
 
@@ -26,6 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Navigation is grouped by what people do, and only lists screens the user
   // can open. Modules appear here as each phase ships.
   const groups: NavGroup[] = [{ items: [{ href: "/", label: "Overview", module: "overview" }] }];
+  // Everyone has their own training; the count is feedback forms waiting for them.
+  const waiting = (await feedbackWaiting(user, nowInMalaysia())).length;
+  groups.push({ label: "My work", items: [{ href: "/my-training", label: "My training", module: "learning", count: waiting }] });
   if (can(user, "training.view")) groups.push({ label: "Training", items: [{ href: "/trainings", label: "Trainings", module: "training" }] });
   const records: NavGroup["items"] = [];
   if (can(user, "staff.view")) records.push({ href: "/staff", label: "Staff", module: "staff" });
@@ -44,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-full-screen lg:flex">
       <Sidebar
         groups={groups}
         user={{ name: user.name, staffNo: user.staffNo, departmentName: user.departmentName, roleLabel: extra.join(" · "), tone: divisionTone(user.divisionId) }}

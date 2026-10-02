@@ -207,7 +207,8 @@ export function ParticipantsPanel({
                         <input type="checkbox" aria-label="Select all shown" checked={allVisibleChecked} onChange={toggleVisible} className="accent-primary" />
                       </th>
                     )}
-                    <th className={`w-24 ${editable ? "" : "pl-5"}`}>Staff no.</th>
+                    <th className={`w-px text-right whitespace-nowrap ${editable ? "" : "pl-5"}`}>No.</th>
+                    <th className="w-24">Staff no.</th>
                     <th>Name</th>
                     <th className="hidden md:table-cell">Department</th>
                     <th>Attendance</th>
@@ -221,7 +222,7 @@ export function ParticipantsPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((r) => (
+                  {visible.map((r, i) => (
                     <tr key={r.id} className={selected.has(r.id) ? "[&>td]:bg-accent-soft" : ""}>
                       {editable && (
                         <td className="pl-5">
@@ -234,7 +235,8 @@ export function ParticipantsPanel({
                           />
                         </td>
                       )}
-                      <td className={`num ${editable ? "" : "pl-5"}`}>{r.staff.staffNo}</td>
+                      <td className={`num muted text-right ${editable ? "" : "pl-5"}`}>{i + 1}</td>
+                      <td className="num">{r.staff.staffNo}</td>
                       <td>
                         {canViewStaff ? (
                           <Link href={`/staff/${r.staff.id}`} className="link">

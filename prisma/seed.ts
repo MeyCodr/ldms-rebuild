@@ -5,7 +5,8 @@
 
 import { PrismaClient, type Designation, type Prisma, type RoleCode, type TrainingFunction, type TrainingPlatform, type TrainingProgram } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
+import { trainingCode } from "../src/server/rules/training";
 
 const db = new PrismaClient();
 
@@ -129,6 +130,44 @@ async function main() {
 
   if ((await db.participant.count()) > 0) console.log("Participant table is not empty, skipping demo participants.");
   else await seedParticipants();
+  await answerDemoFeedback();
+}
+
+// Demo answers for seeded feedback: participants with a feedback date but no
+// answers (as the participant seed made them before My Training existed) get
+// a plausible set, so a submitted form can be seen. So do seeded OJT answers
+// in the draft shape used before the old OJT form's wording was confirmed on
+// 1 Oct 2026 (a written a2 instead of a rating). Rows with answers in the
+// current shape are left alone, so this can run on every seed.
+async function answerDemoFeedback() {
+  seed = 20261001;
+  const submitted = await db.participant.findMany({
+    where: { submittedAt: { not: null } },
+    select: { id: true, feedback: true, training: { select: { type: true } } },
+  });
+  const rows = submitted.filter((r) => {
+    if (r.feedback === null) return true;
+    const a2 = (r.feedback as Record<string, unknown>).a2;
+    return r.training.type === "OJT" && typeof a2 !== "number";
+  });
+  const COMMENTS = ["The hands-on part", "Real examples from our line", "Clear checklists to take back", null];
+  const IMPROVE = ["More time for practice", "Smaller groups", null, null];
+  const LEARNED = ["The steps and the safety checks for the task", "Setting the machine up on my own", "Reading the work instruction and checking the first piece"];
+  for (const r of rows) {
+    const score = () => 3 + Math.floor(rand() * 3); // 3–5
+    const before = 1 + Math.floor(rand() * 3); // 1–3
+    const answers =
+      r.training.type === "OJT"
+        ? { a1: pick(LEARNED), a2: before, a3: Math.min(5, before + 1 + Math.floor(rand() * 2)) }
+        : {
+            ...Object.fromEntries(Array.from({ length: 13 }, (_, i) => [`q${i + 1}`, score()])),
+            q14: rand() < 0.85 ? "YES" : "NO",
+            q15: pick(COMMENTS),
+            q16: pick(IMPROVE),
+          };
+    await db.participant.update({ where: { id: r.id }, data: { feedback: answers, feedbackVersion: 1 } });
+  }
+  if (rows.length) console.log(`Added demo answers to ${rows.length} seeded feedback forms.`);
 }
 
 async function seedStaff() {
@@ -288,7 +327,7 @@ async function seedTrainings() {
   const dept = async (short: string) => (await db.department.findFirst({ where: { shortName: short } }))?.id ?? null;
   const [hra, stp, wld, mtn, qa] = await Promise.all(["HRA", "STP", "WLD", "MTN", "QA"].map(dept));
 
-  type Spec = Omit<Prisma.TrainingCreateInput, "startDate" | "endDate" | "startTime" | "endTime" | "department" | "sessions"> & {
+  type Spec = Omit<Prisma.TrainingCreateInput, "startDate" | "endDate" | "startTime" | "endTime" | "department" | "sessions" | "trainingCode"> & {
     dates: [string, string];
     times: [string, string];
     departmentId?: number | null;
@@ -313,6 +352,7 @@ async function seedTrainings() {
     await db.training.create({
       data: {
         ...rest,
+        trainingCode: trainingCode(rest.type, new Date(Date.now() + 8 * 3600_000), randomInt(1_000_000)),
         startDate: day(dates[0]),
         endDate: day(dates[1]),
         startTime: time(times[0]),

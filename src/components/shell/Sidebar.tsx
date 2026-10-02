@@ -172,7 +172,7 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
       {/* Desktop: labels by default, collapsible to an icon rail */}
       <aside
         data-collapsed={collapsed}
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-rule bg-surface transition-[width] duration-200 lg:flex ${collapsed ? "w-[72px]" : "w-[252px]"}`}
+        className={`sticky top-0 hidden h-full-screen shrink-0 flex-col border-r border-rule bg-surface transition-[width] duration-200 lg:flex ${collapsed ? "w-[72px]" : "w-[252px]"}`}
       >
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 pt-4 pb-1">

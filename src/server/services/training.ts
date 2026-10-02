@@ -1,12 +1,13 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import type { Prisma, TrainingStatus, TrainingType } from "@prisma/client";
 import { db } from "../db";
 import { UserError } from "../errors";
 import type { SessionUser } from "../permissions";
-import { canBeInternalTrainer, INTERNAL_TRAINER_DESIGNATIONS, trainingDeleteBlock, trainingHours } from "../rules/training";
+import { canBeInternalTrainer, INTERNAL_TRAINER_DESIGNATIONS, manHours, trainingCode, trainingDays, trainingDeleteBlock, trainingHours } from "../rules/training";
 import type { TrainingInput } from "@/lib/validation/training";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
-import { formatDateRange, formatTime } from "@/lib/format";
+import { formatDateRange, formatTime, nowInMalaysia } from "@/lib/format";
 import { diffFields, recordAudit } from "./audit";
 import { ensure } from "./org";
 
@@ -15,7 +16,10 @@ import { ensure } from "./org";
 export type TrainingFilters = {
   q?: string;
   type?: TrainingType;
-  year?: number;
+  /** YYYY-MM-DD: trainings starting on or after this day. */
+  from?: string;
+  /** YYYY-MM-DD: trainings ending on or before this day. */
+  to?: string;
   status?: TrainingStatus | "ALL";
   sort?: TrainingSort;
   dir?: "asc" | "desc";
@@ -57,10 +61,11 @@ function trainingWhere(f: TrainingFilters): Prisma.TrainingWhereInput {
   const and: Prisma.TrainingWhereInput[] = [];
   if (f.type) and.push({ type: f.type });
   if (f.status && f.status !== "ALL") and.push({ status: f.status });
-  if (f.year) and.push({ startDate: { gte: new Date(Date.UTC(f.year, 0, 1)), lt: new Date(Date.UTC(f.year + 1, 0, 1)) } });
+  if (f.from) and.push({ startDate: { gte: new Date(`${f.from}T00:00:00Z`) } });
+  if (f.to) and.push({ endDate: { lte: new Date(`${f.to}T00:00:00Z`) } });
   if (f.q) {
     const q = f.q.trim();
-    and.push({ OR: [{ title: { contains: q } }, { trainerName: { contains: q } }, { venue: { contains: q } }] });
+    and.push({ OR: [{ trainingCode: { contains: q } }, { title: { contains: q } }, { trainerName: { contains: q } }, { venue: { contains: q } }] });
   }
   return { AND: and };
 }
@@ -68,6 +73,7 @@ function trainingWhere(f: TrainingFilters): Prisma.TrainingWhereInput {
 const listSelect = {
   id: true,
   type: true,
+  trainingCode: true,
   title: true,
   code: true,
   program: true,
@@ -101,12 +107,18 @@ async function withTotals(rows: ListRow[]) {
       })
     : [];
   const done = new Map(completed.map((c) => [c.trainingId, c._count._all]));
-  return rows.map((r) => ({
-    ...r,
-    hours: trainingHours(r),
-    participantCount: r._count.participants,
-    completedCount: done.get(r.id) ?? 0,
-  }));
+  return rows.map((r) => {
+    const hours = trainingHours(r);
+    const completedCount = done.get(r.id) ?? 0;
+    return {
+      ...r,
+      hours,
+      days: trainingDays(r),
+      participantCount: r._count.participants,
+      completedCount,
+      manHours: manHours({ hours, completedCount, status: r.status }),
+    };
+  });
 }
 
 export async function listTrainings(user: SessionUser, f: TrainingFilters) {
@@ -134,16 +146,6 @@ export async function listTrainingsForExport(user: SessionUser, f: TrainingFilte
     select: listSelect,
   });
   return withTotals(rows);
-}
-
-/** Years to offer in the year filter: every year with a training, plus this year. */
-export async function trainingYears(thisYear: number): Promise<number[]> {
-  const { _min, _max } = await db.training.aggregate({ _min: { startDate: true }, _max: { startDate: true } });
-  const first = Math.min(_min.startDate?.getUTCFullYear() ?? thisYear, thisYear);
-  const last = Math.max(_max.startDate?.getUTCFullYear() ?? thisYear, thisYear);
-  const years: number[] = [];
-  for (let y = last; y >= first; y--) years.push(y);
-  return years;
 }
 
 // ---------- One training ----------
@@ -273,11 +275,24 @@ async function internalTrainerName(tx: Prisma.TransactionClient, trainerStaffId:
   return staff.name;
 }
 
+/**
+ * A training code no training has yet (see trainingCode in the rules). With 6
+ * random digits a clash is rare; a few tries are plenty, and the unique index
+ * is the backstop.
+ */
+export async function newTrainingCode(tx: Prisma.TransactionClient, type: TrainingType): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = trainingCode(type, nowInMalaysia(), randomInt(1_000_000));
+    if (!(await tx.training.findUnique({ where: { trainingCode: code }, select: { id: true } }))) return code;
+  }
+  throw new Error("Could not find a free training code");
+}
+
 export async function createTraining(user: SessionUser, input: TrainingInput) {
   ensure(user, "training.manage");
   return db.$transaction(async (tx) => {
     const trainerName = input.trainerStaffId ? await internalTrainerName(tx, input.trainerStaffId) : input.trainerName;
-    const training = await tx.training.create({ data: { ...input, trainerName, createdById: user.id } });
+    const training = await tx.training.create({ data: { ...input, trainingCode: await newTrainingCode(tx, input.type), trainerName, createdById: user.id } });
     await recordAudit(tx, {
       actorId: user.id,
       action: "CREATE",

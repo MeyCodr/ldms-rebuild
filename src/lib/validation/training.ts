@@ -44,6 +44,26 @@ export const TRAINING_PLATFORM_LABELS: Record<(typeof TRAINING_PLATFORMS)[number
   ONLINE: "Online",
 };
 
+/** How an OJT is given: "Training Type" on the old system's OJT form. */
+export const OJT_METHODS = ["OJT", "COACHING", "MENTORING"] as const;
+export const OJT_METHOD_LABELS: Record<(typeof OJT_METHODS)[number], string> = {
+  OJT: "OJT",
+  COACHING: "Coaching / Coachee",
+  MENTORING: "Mentor / Mentee",
+};
+
+/**
+ * An OJT's trainer is external or internal. It is stored as the training's
+ * program, since OJT is always internal training: by an external trainer or by
+ * an internal one.
+ */
+export const OJT_TRAINERS = ["EXTERNAL", "INTERNAL"] as const;
+export type OjtTrainer = (typeof OJT_TRAINERS)[number];
+export const OJT_TRAINER_LABELS: Record<OjtTrainer, string> = { EXTERNAL: "External", INTERNAL: "Internal" };
+export const OJT_TRAINER_PROGRAM = { EXTERNAL: "INTERNAL_EXTERNAL_TRAINER", INTERNAL: "INTERNAL_INTERNAL_TRAINER" } as const;
+export const ojtTrainerOf = (program: string | null | undefined): OjtTrainer | null =>
+  program === "INTERNAL_EXTERNAL_TRAINER" ? "EXTERNAL" : program === "INTERNAL_INTERNAL_TRAINER" ? "INTERNAL" : null;
+
 /** Program, function and platform are required on the form, except for OJT. */
 export const needsClassification = (type: string) => type !== "OJT";
 

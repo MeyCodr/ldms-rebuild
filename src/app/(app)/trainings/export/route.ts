@@ -19,8 +19,9 @@ export async function GET(request: Request) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "LDMS";
   const ws = wb.addWorksheet("Trainings", { views: [{ state: "frozen", ySplit: 1 }] });
-  // The fields on the training form, in its order, then the figures LDMS works out.
+  // The training code, the fields on the training form in its order, then the figures LDMS works out.
   ws.columns = [
+    { header: "Training Code", key: "code", width: 19 },
     { header: "Type", key: "type", width: 18 },
     { header: "Title", key: "title", width: 44 },
     { header: "Venue", key: "venue", width: 24 },
@@ -34,15 +35,18 @@ export async function GET(request: Request) {
     { header: "End Time", key: "endTime", width: 11 },
     { header: "Program", key: "program", width: 36 },
     { header: "Trainer", key: "trainer", width: 28 },
+    { header: "Total Days", key: "days", width: 10 },
     { header: "Hours", key: "hours", width: 9, style: { numFmt: "0.##" } },
     { header: "Participants", key: "participants", width: 13 },
     { header: "Completed", key: "completed", width: 11 },
+    { header: "Total Man Hours", key: "manHours", width: 16, style: { numFmt: "0.##" } },
     { header: "Status", key: "status", width: 11 },
   ];
   ws.getRow(1).font = { bold: true };
-  ws.autoFilter = { from: "A1", to: "Q1" };
+  ws.autoFilter = { from: "A1", to: "T1" };
   for (const t of rows) {
     ws.addRow({
+      code: t.trainingCode,
       type: TRAINING_TYPE_LABELS[t.type],
       title: t.title,
       venue: t.venue ?? "",
@@ -56,9 +60,11 @@ export async function GET(request: Request) {
       endTime: formatTime(t.endTime),
       program: t.program ? TRAINING_PROGRAM_LABELS[t.program] : "",
       trainer: t.trainerName ?? "",
+      days: t.days,
       hours: t.hours,
       participants: t.participantCount,
       completed: t.completedCount,
+      manHours: t.manHours,
       status: t.status === "CANCELLED" ? "Cancelled" : "Scheduled",
     });
   }
