@@ -373,12 +373,17 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
 
 ### Module 5: Certificates
 
-- Upload on a participant row (admin) or on My Training (the staff member, for their own record).
+- **Per training, not per participant** (decided 5 Oct 2026: providers send one certificate file for the whole
+  class). Move `certificateFile` / `certificateName` / `certificateAt` from `Participant` to `Training` (all empty
+  today). One file per training; upload, replace and remove on the training page (L&D), all audited. Clerks for OJT
+  they look after; staff for OJT they recorded themselves.
 - Store under `uploads/certificates/<year>/<random id>.<ext>` (add `uploads/` to `.gitignore`); keep the original name in
-  `certificateName`. Check type by file signature (PDF/JPG/PNG), max 5 MB. Replace and remove, both audited.
-- Download route `/certificates/[participantId]` that checks: the owner, admin, or someone who can view that staff
-  member. `Content-Disposition: attachment`, never served from `public/`.
-- **Done when**: upload, replace, remove and download work, and a staff member can't fetch someone else's certificate.
+  `certificateName`. Check type by file signature (PDF/JPG/PNG), max 5 MB.
+- Download route `/certificates/[trainingId]` that checks: L&D, a participant marked **Completed** (from My training),
+  a clerk for OJT they look after. `Content-Disposition: attachment`, never served from `public/`.
+- The participants table's per-person Certificate column goes; the training page shows the certificate once.
+- **Done when**: upload, replace, remove and download work, and someone not completed on the training (or not on it)
+  can't fetch its certificate.
 
 ### Module 6: Reports and staff training history
 
