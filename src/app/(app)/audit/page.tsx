@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { AuditAction, Prisma } from "@prisma/client";
 import { PageHeader } from "@/components/PageHeader";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { Select } from "@/components/ui/Select";
 import { formatDateTime } from "@/lib/format";
 import { db } from "@/server/db";
@@ -49,7 +50,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
   const filterQuery = new URLSearchParams({ ...(entity && { entity }), ...(action && { action }), ...(q && { q }) });
 
   return (
-    <div className="page-fit mx-auto max-w-[1700px]">
+    <div className="page-fit">
       <PageHeader module="audit" context="Administration" title="Audit log" meta={<span>Every change to trainings, the org chart and staff records, newest first.</span>} />
 
       <form method="get" className="flex flex-wrap items-end gap-2 card p-3" role="search" aria-label="Filter audit log">
@@ -96,7 +97,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
               const href = recordHref(r.entity, r.entityId);
               const changes = r.changes && typeof r.changes === "object" && !Array.isArray(r.changes) ? (r.changes as Record<string, [unknown, unknown]>) : null;
               return (
-                <tr key={String(r.id)}>
+                <ClickableRow key={String(r.id)} href={href}>
                   <td className="num whitespace-nowrap">{formatDateTime(r.createdAt)}</td>
                   <td>{r.actor ? <Link href={`/staff/${r.actor.id}`} className="link">{r.actor.name}</Link> : <span className="muted">System</span>}</td>
                   <td>{ACTION_LABEL[r.action]}</td>
@@ -118,7 +119,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
                       </div>
                     )}
                   </td>
-                </tr>
+                </ClickableRow>
               );
             })}
           </tbody>

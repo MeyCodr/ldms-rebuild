@@ -7,7 +7,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | --- | --- | --- |
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
-| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: modules 1 (Trainings) and 2 (Participants) done, visual redesign done; module 3 (My Training) built, in review; see `docs/phase-2-plan.md` |
+| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: modules 1–3 (Trainings, Participants, My Training) done, visual redesign done; module 4 (OJT for clerks) built, in review; see `docs/phase-2-plan.md` |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | |
 | 4 | Reporting, exports, daily jobs | |
 | 5 | Migration rehearsal and cutover | |
@@ -100,11 +100,13 @@ would send a 200 before a page can answer 403 or 404.
 `globals.css`), for a calmer, less crowded screen; phones and tablets stay at 100% so text stays readable. Sizes are
 still written at full size; the zoom scales them. Two things need care under zoom: a full-screen height is
 `calc(100dvh / var(--app-zoom))` (`.h-full-screen`, `.min-h-full-screen`, `.page-fit`), and anything placed with
-`getBoundingClientRect()` divides by `pageZoom()` (`src/lib/zoom.ts`), as `Select` and `usePopover` do. Page width caps
-(`max-w-[1700px]` etc.) are set so pages keep their on-screen width.
+`getBoundingClientRect()` divides by `pageZoom()` (`src/lib/zoom.ts`), as `Select` and `usePopover` do. Pages have no
+width cap: they and their tables fill the screen, however wide. Forms, notices and the import steps keep a readable width.
 
 **Tables.** Every table starts with a **No.** column (muted, right-aligned, shrunk to fit), counting on across pages;
-the audit log is the only table without one.
+the audit log is the only table without one. A row that has a record opens it when clicked anywhere (`ClickableRow`), and keeps a real link
+in one cell (title or name) for keyboard users; tick boxes, buttons and links inside the row still do their own thing.
+Import previews have no record yet, so their rows don't open anything.
 
 The mark is four ascending steps (`src/components/brand.tsx`). Titles use Bricolage Grotesque, body IBM Plex Sans with
 tabular figures for numbers in columns. Corners: 8px controls, 12px cards, 16px hero. No gradients, glows or glass; one

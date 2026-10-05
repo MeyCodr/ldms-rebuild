@@ -1,4 +1,4 @@
-import { BookOpen, BookOpenCheck, Building2, ClipboardCheck, GraduationCap, History, LayoutDashboard, Target, UserRound, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, BookOpenCheck, Building2, ClipboardCheck, GraduationCap, History, LayoutDashboard, Target, UserRound, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { ModuleKey } from "@/lib/tones";
 
 export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
@@ -9,6 +9,7 @@ export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
   account: UserRound,
   learning: BookOpenCheck,
   training: GraduationCap,
+  ojt: Wrench,
   pme: ClipboardCheck,
   tna: BookOpen,
   skills: Target,

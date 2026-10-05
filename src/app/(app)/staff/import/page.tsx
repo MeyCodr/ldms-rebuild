@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Import staff" };
 export default async function ImportStaffPage() {
   const user = await requirePermission("staff.import");
   return (
-    <div className="mx-auto max-w-[1580px]">
+    <div>
       <PageHeader module="staff" context={{ href: "/staff", label: "Staff" }} title="Import staff from Excel" />
       <div className="mt-5">
         <ImportFlow contractOnly={!isAdmin(user)} />

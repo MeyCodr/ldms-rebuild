@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FileDown, FileUp, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { Select } from "@/components/ui/Select";
 import { formatDateRange, formatHours, nowInMalaysia, plural } from "@/lib/format";
@@ -24,7 +26,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
   const filtered = !!(f.q || f.type || f.from || f.to || f.status !== "ALL");
 
   return (
-    <div className="page-fit mx-auto max-w-[1700px]">
+    <div className="page-fit">
       <PageHeader
         module="training"
         context="Training"
@@ -38,11 +40,16 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
         actions={
           <>
             <a href={withBasePath(`/trainings/export${filtersToQuery(f, { page: undefined })}`)} className="btn">
-              Export to Excel
+              <FileDown size={15} aria-hidden /> Export to Excel
             </a>
+            {can(user, "training.manage") && can(user, "ojt.manage") && (
+              <Link href="/trainings/import" className="btn">
+                <FileUp size={15} aria-hidden /> Import from Excel
+              </Link>
+            )}
             {can(user, "training.manage") && (
               <Link href="/trainings/new" className="btn btn-primary">
-                Add training
+                <Plus size={15} aria-hidden /> Add training
               </Link>
             )}
           </>
@@ -135,7 +142,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
           </thead>
           <tbody>
             {rows.map((t, i) => (
-              <tr key={t.id}>
+              <ClickableRow key={t.id} href={`/trainings/${t.id}`}>
                 <td className="num muted text-right">{(page - 1) * TRAINING_PAGE_SIZE + i + 1}</td>
                 <td className="num hidden whitespace-nowrap md:table-cell">{t.trainingCode}</td>
                 <td>
@@ -171,7 +178,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                 <td>
                   <PhaseStatus phase={trainingPhase(t, today)} />
                 </td>
-              </tr>
+              </ClickableRow>
             ))}
           </tbody>
         </table>

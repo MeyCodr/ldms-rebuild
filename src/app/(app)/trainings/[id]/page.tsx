@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Check, Clock, MapPin, MonitorSmartphone, Presentation, UserRound } from "lucide-react";
+import { CalendarDays, Check, Clock, MapPin, MonitorSmartphone, Pencil, Presentation, UserRound } from "lucide-react";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
@@ -54,7 +54,7 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
       : [];
 
   return (
-    <div className="mx-auto max-w-[1660px]">
+    <div>
       <PageHeader
         module="training"
         context={{ href: "/trainings", label: "Trainings" }}
@@ -73,7 +73,7 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
           manage && (
             <>
               <Link href={`/trainings/${id}/edit`} className="btn">
-                Edit
+                <Pencil size={14} aria-hidden /> Edit
               </Link>
               <CancelTrainingDialog id={id} title={t.title} participantCount={t.participantCount} hidden={cancelled} />
               <RestoreTrainingDialog id={id} title={t.title} hidden={!cancelled} />

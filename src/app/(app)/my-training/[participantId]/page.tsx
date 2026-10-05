@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Hourglass, Lock, MapPin, UserRound } from "lucide-react";
+import { CalendarDays, Clock, Hourglass, Lock, MapPin, Pencil, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { AnswerList, Fact, Row } from "@/components/RecordParts";
 import { Panel } from "@/components/Panel";
 import { Status } from "@/components/ui/Status";
-import { answerLabel, CURRENT_FORM, formVersion, type Answers } from "@/lib/forms/feedback";
+import { CURRENT_FORM, formVersion, type Answers } from "@/lib/forms/feedback";
 import { formatDate, formatDateRange, formatDateTime, formatHours, formatTime, nowInMalaysia, plural } from "@/lib/format";
 import { OJT_METHOD_LABELS, OJT_TRAINER_LABELS, ojtTrainerOf, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { ojtDeleteBlock, ojtDetailsBlock } from "@/server/rules/myTraining";
@@ -49,7 +50,7 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
   const editLabel = detailsBlock ? "Edit answers" : "Edit";
 
   return (
-    <div className="mx-auto max-w-[1660px]">
+    <div>
       <PageHeader
         module="learning"
         context={{ href: "/my-training", label: "My training" }}
@@ -67,7 +68,7 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
             <>
               {editable && (
                 <Link href={`/my-training/${r.id}/edit`} className="btn">
-                  {editLabel}
+                  <Pencil size={14} aria-hidden /> {editLabel}
                 </Link>
               )}
               {ownOjt && <DeleteOjtDialog participantId={r.id} title={t.title} blocked={ojtDeleteBlock(r, r.others)} />}
@@ -198,50 +199,4 @@ function FormBody({ r, editLabel }: { r: MyTrainingRow; editLabel: string }) {
 
   // Waiting for the person: sending the form completes the training.
   return <AnswersForm participantId={r.id} form={CURRENT_FORM[r.kind]} initial={answers} submitLabel={r.kind === "OJT" ? "Send answers" : "Send feedback"} />;
-}
-
-function AnswerList({ form, answers }: { form: NonNullable<ReturnType<typeof formVersion>>; answers: Answers }) {
-  return (
-    <div className="flex flex-col gap-6">
-      {form.sections.map((section) => (
-        <section key={section.title}>
-          <h3 className="ruled-heading">{section.title}</h3>
-          <dl className="mt-1">
-            {section.questions.map((q) => {
-              const a = answerLabel(q, answers[q.id]);
-              return (
-                <div key={q.id} className="grid gap-x-6 gap-y-0.5 border-b border-rule py-2.5 text-[13.5px] last:border-b-0 sm:grid-cols-[1fr_200px]">
-                  <dt className="text-ink-2">{q.text}</dt>
-                  <dd className={a ? "font-medium" : "text-ink-3"}>{a ?? "No answer"}</dd>
-                </div>
-              );
-            })}
-          </dl>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function Fact({ icon: Icon, label, children }: { icon: typeof Clock; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 gap-3">
-      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sunken text-ink-2">
-        <Icon size={16} strokeWidth={1.9} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-xs text-ink-3">{label}</dt>
-        <dd className="mt-0.5 text-[13.5px] break-words">{children}</dd>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[110px_1fr] gap-3 border-b border-rule py-2.5 last:border-b-0">
-      <dt className="text-ink-3">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
-    </div>
-  );
 }

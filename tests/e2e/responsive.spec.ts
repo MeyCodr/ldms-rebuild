@@ -25,6 +25,16 @@ test("phone: training list, record and form fit the screen", async ({ page }) =>
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+test("phone: a clerk's OJT list, entry form and import fit the screen", async ({ page }) => {
+  await signIn(page, "10003");
+  for (const path of ["ojt", "ojt/new", "ojt/import"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, path).toBeLessThanOrEqual(0);
+  }
+});
+
 test("phone: My training and its forms fit the screen", async ({ page }) => {
   await signIn(page, "10231");
   for (const path of ["my-training", "my-training/ojt/new"]) {

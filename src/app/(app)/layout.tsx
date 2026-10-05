@@ -31,7 +31,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Everyone has their own training; the count is feedback forms waiting for them.
   const waiting = (await feedbackWaiting(user, nowInMalaysia())).length;
   groups.push({ label: "My work", items: [{ href: "/my-training", label: "My training", module: "learning", count: waiting }] });
-  if (can(user, "training.view")) groups.push({ label: "Training", items: [{ href: "/trainings", label: "Trainings", module: "training" }] });
+  const training: NavGroup["items"] = [];
+  if (can(user, "training.view")) training.push({ href: "/trainings", label: "Trainings", module: "training" });
+  if (can(user, "ojt.manage")) training.push({ href: "/ojt", label: "OJT", module: "ojt" });
+  if (training.length) groups.push({ label: "Training", items: training });
   const records: NavGroup["items"] = [];
   if (can(user, "staff.view")) records.push({ href: "/staff", label: "Staff", module: "staff" });
   if (can(user, "org.view")) records.push({ href: "/organization", label: "Organization", module: "organization" });

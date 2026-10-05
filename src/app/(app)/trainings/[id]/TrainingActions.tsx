@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Ban, RotateCcw, Trash2 } from "lucide-react";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import type { ActionState } from "@/lib/action-state";
@@ -51,7 +51,12 @@ function Confirm({
 
 export function CancelTrainingDialog({ id, title, participantCount, hidden }: { id: number; title: string; participantCount: number; hidden: boolean }) {
   return (
-    <DialogButton hideTrigger={hidden} label="Cancel training" title={`Cancel ${title}`}>
+    <DialogButton hideTrigger={hidden} label={
+        <>
+          <Ban size={14} aria-hidden /> Cancel training
+        </>
+      }
+      title={`Cancel ${title}`}>
       <Confirm action={cancelTrainingAction.bind(null, id)} submitLabel="Cancel training" pendingLabel="Cancelling…" variant="danger">
         The training and its participant list are kept for the record, but its hours stop counting toward anyone&apos;s total.
         {participantCount > 0 && " Participants are not notified."} You can restore it later if this was a mistake.
@@ -62,7 +67,12 @@ export function CancelTrainingDialog({ id, title, participantCount, hidden }: { 
 
 export function RestoreTrainingDialog({ id, title, hidden }: { id: number; title: string; hidden: boolean }) {
   return (
-    <DialogButton hideTrigger={hidden} label="Restore" title={`Restore ${title}`}>
+    <DialogButton hideTrigger={hidden} label={
+        <>
+          <RotateCcw size={14} aria-hidden /> Restore
+        </>
+      }
+      title={`Restore ${title}`}>
       <Confirm action={restoreTrainingAction.bind(null, id)} submitLabel="Restore" pendingLabel="Restoring…">
         The training goes back on the schedule, and completed attendance counts toward hours again.
       </Confirm>

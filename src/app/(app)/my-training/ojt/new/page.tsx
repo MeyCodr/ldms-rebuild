@@ -11,7 +11,7 @@ export default async function RecordOjtPage() {
   await requireUser();
   const today = toDateInput(nowInMalaysia());
   return (
-    <div className="mx-auto max-w-[1660px]">
+    <div>
       <PageHeader
         module="learning"
         context={{ href: "/my-training", label: "My training" }}

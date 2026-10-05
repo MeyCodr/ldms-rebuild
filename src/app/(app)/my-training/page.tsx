@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
 import { Select } from "@/components/ui/Select";
 import { Status } from "@/components/ui/Status";
@@ -49,7 +50,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
   const yearHours = sumHours(rows.filter((r) => r.counts && r.training.startDate.getUTCFullYear() === thisYear));
 
   return (
-    <div className="page-fit mx-auto max-w-[1700px]">
+    <div className="page-fit">
       <PageHeader
         module="learning"
         context="My work"
@@ -135,7 +136,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
               const t = r.training;
               const s = myStatus(r);
               return (
-                <tr key={r.id}>
+                <ClickableRow key={r.id} href={`/my-training/${r.id}`}>
                   <td className="num muted text-right">{i + 1}</td>
                   <td>
                     <Link
@@ -167,7 +168,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
                       )}
                     </td>
                   )}
-                </tr>
+                </ClickableRow>
               );
             })}
           </tbody>

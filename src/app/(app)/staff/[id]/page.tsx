@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { RoleCode } from "@prisma/client";
+import { Pencil } from "lucide-react";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { PageHeader } from "@/components/PageHeader";
 import { HistoryPanel } from "@/components/HistoryPanel";
@@ -40,7 +41,7 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
   const heads = [...staff.hodOf.map((d) => `HOD of ${d.name}`), ...staff.headOf.map((d) => `head of ${d.name}`)];
 
   return (
-    <div className="mx-auto max-w-[1580px]">
+    <div>
       <PageHeader module="staff"
         context={{ href: "/staff", label: "Staff" }}
         title={staff.name}
@@ -56,7 +57,7 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
           manage && (
             <>
               <Link href={`/staff/${id}/edit`} className="btn">
-                Edit
+                <Pencil size={14} aria-hidden /> Edit
               </Link>
               <ResetPasswordDialog id={id} name={staff.name} staffNo={staff.staffNo} />
               {/* Both stay mounted so a dialog's result is still shown after the status flips. */}

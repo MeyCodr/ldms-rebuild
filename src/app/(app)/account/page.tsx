@@ -9,7 +9,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   const user = await requireUser({ allowPendingPasswordChange: true });
   const { changed } = await searchParams;
   return (
-    <div className="mx-auto max-w-[1580px]">
+    <div>
       <PageHeader
         module="account"
         title="Account"

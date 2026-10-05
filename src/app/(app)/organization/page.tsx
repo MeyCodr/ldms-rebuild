@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, Building2, ChevronRight, Network, UserRound, Users } from "lucide-react";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { PageHeader } from "@/components/PageHeader";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { Status } from "@/components/ui/Status";
 import { plural } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
@@ -34,7 +35,7 @@ export default async function OrganizationPage({ searchParams }: PageProps<"/org
   const needHod = departments.filter((d) => !d.hod || d.hod.status !== "ACTIVE");
 
   return (
-    <div className="mx-auto max-w-[1580px]">
+    <div>
       <PageHeader
         module="organization"
         context="Records"
@@ -239,7 +240,7 @@ function DivisionPanel({ division, manage, candidates }: { division: Tree[number
               {division.departments.map((d, i) => {
                 const hodActive = d.hod?.status === "ACTIVE";
                 return (
-                  <tr key={d.id}>
+                  <ClickableRow key={d.id} href={`/organization/departments/${d.id}`}>
                     <td className="num muted py-2.5 pl-5 text-right align-middle">{i + 1}</td>
                     <td className="py-2.5 align-middle">
                       <Link href={`/organization/departments/${d.id}`} className="link font-medium">
@@ -277,7 +278,7 @@ function DivisionPanel({ division, manage, candidates }: { division: Tree[number
                         <ArrowRight size={16} />
                       </Link>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 );
               })}
             </tbody>

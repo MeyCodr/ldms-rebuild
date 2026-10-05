@@ -97,7 +97,7 @@ export default async function OverviewPage() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-[1760px] flex-col gap-10">
+    <div className="flex flex-col gap-10">
       {/* ---------- Your learning ---------- */}
       <section aria-label="Your learning" className="grid gap-5 md:grid-cols-6 lg:grid-cols-12">
         <LearningHero

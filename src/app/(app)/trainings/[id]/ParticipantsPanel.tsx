@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { useMemo, useRef, useState } from "react";
 import { Check, Download, RotateCcw, Search, Trash2, Undo2, UserPlus, UserX } from "lucide-react";
 import type { Attendance } from "@prisma/client";
@@ -223,7 +224,7 @@ export function ParticipantsPanel({
                 </thead>
                 <tbody>
                   {visible.map((r, i) => (
-                    <tr key={r.id} className={selected.has(r.id) ? "[&>td]:bg-accent-soft" : ""}>
+                    <ClickableRow key={r.id} href={canViewStaff ? `/staff/${r.staff.id}` : null} className={selected.has(r.id) ? "[&>td]:bg-accent-soft" : ""}>
                       {editable && (
                         <td className="pl-5">
                           <input
@@ -282,7 +283,7 @@ export function ParticipantsPanel({
                           </div>
                         </td>
                       )}
-                    </tr>
+                    </ClickableRow>
                   ))}
                 </tbody>
               </table>

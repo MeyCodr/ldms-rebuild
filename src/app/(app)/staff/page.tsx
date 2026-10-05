@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FileDown, FileUp, Plus } from "lucide-react";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { PageHeader } from "@/components/PageHeader";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { Select } from "@/components/ui/Select";
 import { StaffStatus } from "@/components/ui/Status";
 import { formatDate, plural } from "@/lib/format";
@@ -30,7 +32,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
       : "Staff in the departments you approve for";
 
   return (
-    <div className="mx-auto max-w-[1700px]">
+    <div>
       <PageHeader module="staff"
         context="Records"
         title="Staff"
@@ -46,16 +48,16 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         actions={
           <>
             <a href={withBasePath(`/staff/export${filtersToQuery(f, { page: undefined })}`)} className="btn">
-              Export to Excel
+              <FileDown size={15} aria-hidden /> Export to Excel
             </a>
             {can(user, "staff.import") && (
               <Link href="/staff/import" className="btn">
-                Import
+                <FileUp size={15} aria-hidden /> Import
               </Link>
             )}
             {can(user, "staff.manage") && (
               <Link href="/staff/new" className="btn btn-primary">
-                Add staff
+                <Plus size={15} aria-hidden /> Add staff
               </Link>
             )}
           </>
@@ -153,7 +155,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           </thead>
           <tbody>
             {rows.map((s, i) => (
-              <tr key={s.id}>
+              <ClickableRow key={s.id} href={`/staff/${s.id}`}>
                 <td className="num muted pt-3 text-right">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="num pt-3">{s.staffNo}</td>
                 <td>
@@ -182,7 +184,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
                     {s.dateResigned && <div className="num muted text-xs">{formatDate(s.dateResigned)}</div>}
                   </td>
                 )}
-              </tr>
+              </ClickableRow>
             ))}
           </tbody>
         </table>

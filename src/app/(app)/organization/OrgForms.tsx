@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ClickableRow } from "@/components/ui/ClickableRow";
 import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
@@ -296,7 +297,7 @@ export function StaffTransferTable({
           </thead>
           <tbody>
             {staff.map((s, i) => (
-              <tr key={s.id} className={selected.has(s.id) ? "[&>td]:bg-accent-soft" : ""}>
+              <ClickableRow key={s.id} href={`/staff/${s.id}`} className={selected.has(s.id) ? "[&>td]:bg-accent-soft" : ""}>
                 <td className="pl-5">
                   <input type="checkbox" aria-label={`Select ${s.name}`} checked={selected.has(s.id)} onChange={() => toggle(s.id)} className="accent-primary" />
                 </td>
@@ -311,7 +312,7 @@ export function StaffTransferTable({
                 </td>
                 <td className="hidden sm:table-cell">{s.sectionId ? sectionName.get(s.sectionId) : <span className="muted">None</span>}</td>
                 <td className="hidden md:table-cell">{DESIGNATION_LABELS[s.designation as keyof typeof DESIGNATION_LABELS]}</td>
-              </tr>
+              </ClickableRow>
             ))}
           </tbody>
         </table>

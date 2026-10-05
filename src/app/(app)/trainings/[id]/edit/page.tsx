@@ -18,7 +18,7 @@ export default async function EditTrainingPage({ params }: PageProps<"/trainings
   const trainers = await internalTrainerOptions(t.trainerStaffId);
 
   return (
-    <div className="mx-auto max-w-[1700px]">
+    <div>
       <PageHeader module="training" context={{ href: `/trainings/${id}`, label: t.title }} title="Edit training" />
       {t.participantCount > 0 && (
         <div className="notice notice-wait mt-4 max-w-[760px]">

@@ -14,7 +14,7 @@ export default async function NewStaffPage() {
   const departments = await departmentOptions();
 
   return (
-    <div className="mx-auto max-w-[1700px]">
+    <div>
       <PageHeader module="staff" context={{ href: "/staff", label: "Staff" }} title="Add staff" />
       <div className="mt-5">
         <StaffForm

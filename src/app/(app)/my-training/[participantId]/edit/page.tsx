@@ -33,7 +33,7 @@ export default async function EditOjtPage({ params }: PageProps<"/my-training/[p
 
   if (r.access.mode !== "update")
     return (
-      <div className="mx-auto max-w-[1660px]">
+      <div>
         <PageHeader module="learning" context={back} title="Edit OJT" />
         <div className="flex max-w-[800px] flex-col items-start gap-3">
           <p className="notice notice-wait">
@@ -47,7 +47,7 @@ export default async function EditOjtPage({ params }: PageProps<"/my-training/[p
     );
 
   return (
-    <div className="mx-auto max-w-[1660px]">
+    <div>
       <PageHeader
         module="learning"
         context={back}

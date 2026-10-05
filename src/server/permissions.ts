@@ -16,7 +16,8 @@ export type Permission =
   | "staff.roles"
   | "audit.view"
   | "training.view"
-  | "training.manage";
+  | "training.manage"
+  | "ojt.manage";
 
 export type SessionUser = {
   id: number;
@@ -42,9 +43,10 @@ const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "audit.view",
     "training.view",
     "training.manage",
+    "ojt.manage",
   ],
-  MAIN_CLERK: ["staff.view", "staff.manage", "staff.import"],
-  CLERK: ["staff.view", "staff.manage", "staff.import"],
+  MAIN_CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],
+  CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],
 };
 
 export const ROLE_LABELS: Record<RoleCode, string> = {
@@ -55,8 +57,8 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<RoleCode, string> = {
   LD_ADMIN: "Full access: trainings, organization, all staff, imports, roles and the audit log.",
-  MAIN_CLERK: "Adds and updates contract staff. Will also handle OJT, TNA, PME and skill matrix for contract staff as those screens open.",
-  CLERK: "Adds and updates contract staff. Will also enter OJT once that screen opens.",
+  MAIN_CLERK: "Adds and updates contract staff and records their OJT. Will also handle TNA, PME and skill matrix for contract staff as those screens open.",
+  CLERK: "Adds and updates contract staff and records their OJT.",
 };
 
 export function isAdmin(user: SessionUser): boolean {
@@ -97,6 +99,16 @@ export function staffViewScope(user: SessionUser): Prisma.StaffWhereInput | null
   if (isHod(user)) or.push({ departmentId: { in: user.hodOfDepartmentIds } });
   if (isDivisionHead(user)) or.push({ department: { divisionId: { in: user.headOfDivisionIds } } });
   return or.length ? { OR: or } : null;
+}
+
+/**
+ * Whose OJT the user may see and record. Admin: everyone. Clerks: contract
+ * staff (who also need no extra access; see ojtStaffBlock). Null: no one.
+ */
+export function ojtStaffScope(user: SessionUser): Prisma.StaffWhereInput | null {
+  if (!can(user, "ojt.manage")) return null;
+  if (isAdmin(user)) return {};
+  return { designation: "CONTRACT" };
 }
 
 /** Designations the user may create or edit. Admin: all. Clerks: contract only. */

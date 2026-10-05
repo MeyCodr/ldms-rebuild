@@ -1,5 +1,6 @@
 "use client";
 
+import { KeyRound, RotateCcw, UserX } from "lucide-react";
 import { DateField } from "@/components/ui/DateField";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
@@ -23,7 +24,11 @@ export function ResignDialog({ id, name, hodNote, hidden }: { id: number; name: 
   return (
     <DialogButton
       hideTrigger={hidden}
-      label="Mark as resigned"
+      label={
+        <>
+          <UserX size={14} aria-hidden /> Mark as resigned
+        </>
+      }
       title={`Mark ${name} as resigned`}
       description="They will no longer be able to sign in, and will drop out of headcount and approver lists. Their training history is kept."
     >
@@ -55,7 +60,12 @@ function ResignForm({ id, hodNote }: { id: number; hodNote?: string }) {
 
 export function ReinstateDialog({ id, name, hidden }: { id: number; name: string; hidden?: boolean }) {
   return (
-    <DialogButton hideTrigger={hidden} label="Reinstate" title={`Reinstate ${name}`} description="Use this when a resignation was recorded by mistake, or the staff member has rejoined.">
+    <DialogButton hideTrigger={hidden} label={
+        <>
+          <RotateCcw size={14} aria-hidden /> Reinstate
+        </>
+      }
+      title={`Reinstate ${name}`} description="Use this when a resignation was recorded by mistake, or the staff member has rejoined.">
       <ReinstateForm id={id} />
     </DialogButton>
   );
@@ -80,7 +90,13 @@ function ReinstateForm({ id }: { id: number }) {
 
 export function ResetPasswordDialog({ id, name, staffNo }: { id: number; name: string; staffNo: string }) {
   return (
-    <DialogButton label="Reset password" title={`Reset password for ${name}`} description={`Staff no. ${staffNo}`}>
+    <DialogButton
+      label={
+        <>
+          <KeyRound size={14} aria-hidden /> Reset password
+        </>
+      }
+      title={`Reset password for ${name}`} description={`Staff no. ${staffNo}`}>
       <ResetPasswordForm id={id} />
     </DialogButton>
   );

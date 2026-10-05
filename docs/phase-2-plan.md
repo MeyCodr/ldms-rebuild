@@ -331,15 +331,45 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   `tests/e2e/my-training.spec.ts` (with `tests/e2e/db.ts`, a test-only clean-up for the training a test gave feedback
   on, which the app rightly never deletes). The seed now gives seeded feedback dates demo answers.
 
-### Module 4: OJT for clerks
+### Module 4: OJT for clerks (built 05 Oct 2026, awaiting review)
 
-- `/ojt`: OJT records list (clerks see contract staff only). Filters: department, date range, search.
-- Bulk entry: one OJT activity (title, date, times, trainer) + pick many staff → one Training (type OJT) with one
-  Participant per staff member, source CLERK, attendance COMPLETED.
-- `/ojt/import`: Excel import like the staff import. Columns suggestion: Staff No, OJT Title, Date, Start Time, End Time,
-  Trainer, Department (optional). Rows with the same title + date + times share one Training.
-- Template download route, preview with per-row errors, commit with "skip rows with errors".
-- **Done when**: a clerk can enter or import OJT for contract staff and is refused for others (row errors, not a crash).
+- Permission `ojt.manage` (L&D admin, main clerk, clerk); sidebar **Training → OJT** (module key `ojt`, olive).
+  OJT are trainings, so L&D also have **Import from Excel** on the Trainings page (`/trainings/import`: the same flow
+  and template as `/ojt/import`, ending on *View OJT trainings*). `/ojt` stays a page of its own (decided 5 Oct 2026):
+  clerks can't see Trainings and may only see contract staff, and L&D use it for OJT by person.
+  Whose OJT: `ojtStaffScope` (admin everyone, clerks contract staff) and `ojtStaffBlock` (clerks: contract staff
+  without extra access, as for staff records; nobody: resigned staff). Rules `src/server/rules/ojt.ts`, tests
+  `tests/rules/ojt.test.ts`; services `src/server/services/ojt.ts` and `ojtImport.ts`; e2e `tests/e2e/ojt.spec.ts`.
+- `/ojt`: one row per person per OJT, newest first: no., training code, staff no., name, department, OJT title, start
+  and end date, hours, status (Completed / Answers due / Absent / Cancelled), recorded by (Clerk / Excel import / L&D /
+  Staff member). Filters: search (title, code, staff no., name), department, start and end date, Clear. Clicking
+  anywhere on a row (`ClickableRow`; the title is the keyboard link) opens **`/ojt/[participantId]`**, the OJT record:
+  the OJT's facts, the person's answers (or why there are none), *Record* (staff, department, status, hours, recorded
+  by whom and when, answers given), and *On this OJT* (the others on it the user may see, each linking to their
+  record). Clerks only get records of their contract staff (anything else is 404); admins also get **Open training**. **Export to Excel** (`/ojt/export`) with the same filters: every
+  matching row with the OJT's details (section, training type, venue, times, trainer type and name, hours, status, when
+  the answers were given, recorded by).
+- `/ojt/new` **Record OJT**: the OJT form's Section A (title, training type, dates, times, venue, external/internal
+  trainer) plus the trainer's name, and a staff picker (`src/components/StaffPicker.tsx`, shared with Add participants).
+  Saves one OJT training with a participant per person, source CLERK (ADMIN for L&D). It must have ended by today.
+- **Edit and delete** (from the record page; `ojtChangeBlock`): clerks change OJT recorded by a clerk or imported,
+  while everyone on it is contract staff; L&D change any. Nobody changes, here, an OJT a staff member recorded for
+  themselves (they do, on My training). **Edit** (`/ojt/[participantId]/edit`) is the Record OJT form filled in: the
+  details apply to everyone on the OJT, and unticking someone takes them off it. Where the hours decided whether
+  someone is completed, a change of hours carries through (`ojtAttendanceAfterEdit`); answers given and attendance
+  set by hand stay. **Delete** removes the OJT for everyone on it. Both audited as `Training` UPDATE / DELETE, with
+  staff added, removed or deleted named.
+- `/ojt/import`: the clerks' own template (given 5 Oct 2026; the app builds the same file at `/ojt/import/template`,
+  so the original isn't kept in the repo): sheet "OJT Import", one row per participant, columns Title, Venue, Start/End Date
+  (YYYY-MM-DD), Start/End Time (HH:MM), Trainer Type (INTERNAL/EXTERNAL), Trainer Name, Participant Staff No, and
+  optional What Did You Learn / Skill Before / Skill After (1–5). Rows with the same title (exact case), venue, dates,
+  times and trainer are one OJT. Preview, then commit, **all or nothing** (the template's rule, replacing "skip rows
+  with errors"). Rows starting "(EXAMPLE)" and a person who already has the same OJT (title and dates) are errors, so
+  a file can't be imported twice. Source IMPORT.
+- **Completed or answers due** (template instructions, used for on-screen entry too): all three answers given →
+  COMPLETED with the answers stored as `OJT_V1`; an OJT of 4 hours or less → COMPLETED; otherwise PENDING, and the
+  person gives their answers on My Training (which completes it). Only some of the three answers → row error.
+- Audit: a `Training` CREATE entry per OJT naming everyone on it, plus one IMPORT entry per file.
 
 ### Module 5: Certificates
 

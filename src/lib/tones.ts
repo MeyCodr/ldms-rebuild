@@ -26,6 +26,7 @@ export const MODULE_TONE = {
   learning: "jade", // My training: the person's own learning
   // later phases
   training: "marigold",
+  ojt: "olive", // OJT that clerks and L&D record for staff
   pme: "coral",
   tna: "jade",
   skills: "olive",
