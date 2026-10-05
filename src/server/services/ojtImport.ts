@@ -238,6 +238,8 @@ export async function commitOjtImport(user: SessionUser, fileName: string, buffe
           data: {
             type: "OJT",
             trainingCode: await newTrainingCode(tx, "OJT"),
+            // The template has no training type column: an imported OJT is plain OJT (not coaching or mentoring).
+            ojtMethod: "OJT",
             title: first.title,
             venue: first.venue,
             startDate: new Date(`${first.startDate}T00:00:00Z`),
