@@ -2,19 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
-import { Progress } from "@/components/ui/Progress";
 import { Select } from "@/components/ui/Select";
 import { formatDateRange, formatHours, nowInMalaysia, plural } from "@/lib/format";
 import { TRAINING_TYPE_LABELS, TRAINING_TYPE_SHORT_LABELS, TRAINING_TYPES } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { trainingPhase } from "@/server/rules/training";
-import {
-  listTrainings,
-  TRAINING_PAGE_SIZE,
-  TRAINING_SORT_DEFAULT_DIR,
-  type TrainingFilters,
-  type TrainingSort,
-} from "@/server/services/training";
+import { listTrainings, TRAINING_PAGE_SIZE, TRAINING_SORT_DEFAULT_DIR, type TrainingFilters, type TrainingSort } from "@/server/services/training";
 import { requirePermission } from "@/server/session";
 import { filtersToQuery, parseTrainingFilters } from "./filters";
 import { PhaseStatus } from "./PhaseStatus";
@@ -167,17 +160,9 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                 <td className="num hidden text-right sm:table-cell">{formatHours(t.hours)}</td>
                 <td className="num hidden text-right md:table-cell">
                   {t.participantCount ? (
-                    <>
+                    <span title={`${t.completedCount} of ${t.participantCount} completed`}>
                       {t.completedCount} <span className="muted">/ {t.participantCount}</span>
-                      <Progress
-                        className="mt-2 ml-auto w-20"
-                        size="sm"
-                        tone="ok"
-                        value={t.completedCount}
-                        max={t.participantCount}
-                        label={`${t.completedCount} of ${t.participantCount} completed`}
-                      />
-                    </>
+                    </span>
                   ) : (
                     <span className="muted">none</span>
                   )}
