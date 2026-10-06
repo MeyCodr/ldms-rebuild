@@ -371,7 +371,7 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   person gives their answers on My Training (which completes it). Only some of the three answers → row error.
 - Audit: a `Training` CREATE entry per OJT naming everyone on it, plus one IMPORT entry per file.
 
-### Module 5: Certificates (built 05 Oct 2026, awaiting review)
+### Module 5: Certificates (done 06 Oct 2026, merged)
 
 - **Per training, not per participant** (decided 5 Oct 2026: providers send one certificate file for the whole
   class). `certificateFile` / `certificateName` / `certificateAt` moved from `Participant` to `Training`, plus
@@ -400,16 +400,37 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
 - **Done when**: upload, replace, remove and download work, and someone not completed on the training (or not on it)
   can't fetch its certificate.
 
-### Module 6: Reports and staff training history
+### Module 6: Reports and staff training history (done 06 Oct 2026, merged)
 
-- `/reports/training` (tabs or separate pages):
-  1. **Training attendance**: one training's participants with attendance, hours, certificate status.
-  2. **Staff hours**: per staff member for a year: trainings completed, total hours. Filter division/department.
-  3. **Department hours**: per department: headcount (`isActiveHeadcount`), total hours, average hours per head.
-  4. **Audit report**: trainings in a date range with participants, attendance, hours, certificate yes/no.
-- Every report exports to Excel. HODs see only their departments.
-- Staff record page: add a *Training* panel with that person's history and hours per year.
+- Permission `report.view`: L&D (role), HODs and division heads (derived, like `staff.view`). `reportStaffScope` /
+  `reportDepartmentScope`: L&D everyone; HODs their departments; division heads their divisions. **Clerks have no
+  reports.** Sidebar **Records → Reports** (module key `reports`, coral). Rules `src/server/rules/report.ts` (tests
+  `tests/rules/report.test.ts`), service `src/server/services/report.ts`, e2e `tests/e2e/reports.spec.ts`.
+- **How figures are counted** (decided 6 Oct 2026; one place, so screens, exports and the overview agree):
+  hours from `trainingHours`, only for attendance that `countsTowardHours`; a training belongs to the period it
+  **starts** in; a person's hours go to the department they are in **now**; a department's total is the sum of its
+  staff rows; its average divides by the manpower headcount (`isActiveHeadcount`: active, not a trainee). Trainees'
+  and leavers' hours count in the total but they aren't in the headcount.
+- **Period**: start and end date filters (as on the lists, not a year box), filled in with the current calendar year
+  when left empty (`reportPeriod`). Clear goes back to this year. The tabs keep the period.
+- `/reports` → four tabs, each a `page-fit` table with a pinned totals row (`.table tfoot`) and **Export to Excel**
+  (`/reports/export?report=…`, one route; title and period above the table, table from row 4, totals row last):
+  1. **Staff hours** (`/reports/staff-hours`): everyone still employed (0 h if none, so gaps show) plus leavers with
+     hours in the period (`inStaffReport`); trainings completed and total hours; most hours first. Filters: search,
+     division, department, *Show* (all / with training / no training yet).
+  2. **Department hours** (`/reports/department-hours`): headcount, staff trained (and % of headcount), trainings
+     completed, total hours, average per head. A row opens that department in Staff hours for the same period.
+  3. **Training attendance** (`/reports/attendance`): each training that started in the period: hours, participants,
+     completed / pending / absent, man hours, certificate, status. A row opens its participants
+     (`/reports/attendance/[trainingId]`), with the hours each got. A HOD sees trainings with at least one of their
+     staff, and counts and lists only their staff.
+  4. **Audit report** (`/reports/audit`): one line per person per training (100 a page; the export has all): dates,
+     code, training, type, staff, department, attendance, hours, certificate (*Yes* = the training has one and the
+     person completed it, since certificates are per training).
+- **Staff record**: a *Training* panel (`staff/[id]/TrainingPanel.tsx`, `staffTrainingHistory`): hours and trainings
+  for each year, then every training the person has been on, latest first. For whoever may open the record.
 - **Done when**: figures agree with the rule tests and with each other (staff totals add up to department totals).
+  Checked in the e2e test on a training of its own in an otherwise empty year.
 
 ## 9. Demo data (extend `prisma/seed.ts`)
 

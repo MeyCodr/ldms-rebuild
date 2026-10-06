@@ -17,7 +17,8 @@ export type Permission =
   | "audit.view"
   | "training.view"
   | "training.manage"
-  | "ojt.manage";
+  | "ojt.manage"
+  | "report.view";
 
 export type SessionUser = {
   id: number;
@@ -44,6 +45,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "training.view",
     "training.manage",
     "ojt.manage",
+    "report.view",
   ],
   MAIN_CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],
   CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],
@@ -56,7 +58,7 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<RoleCode, string> = {
-  LD_ADMIN: "Full access: trainings, organization, all staff, imports, roles and the audit log.",
+  LD_ADMIN: "Full access: trainings, reports, organization, all staff, imports, roles and the audit log.",
   MAIN_CLERK: "Adds and updates contract staff and records their OJT. Will also handle TNA, PME and skill matrix for contract staff as those screens open.",
   CLERK: "Adds and updates contract staff and records their OJT.",
 };
@@ -77,7 +79,11 @@ export function permissionsOf(user: SessionUser): Set<Permission> {
   const perms = new Set<Permission>();
   for (const role of user.roles) ROLE_PERMISSIONS[role].forEach((p) => perms.add(p));
   // HODs can look up the staff they approve for; division heads can view their division.
-  if (isHod(user) || isDivisionHead(user)) perms.add("staff.view");
+  // Both get the training reports, for those same staff (see reportStaffScope).
+  if (isHod(user) || isDivisionHead(user)) {
+    perms.add("staff.view");
+    perms.add("report.view");
+  }
   return perms;
 }
 
@@ -109,6 +115,30 @@ export function ojtStaffScope(user: SessionUser): Prisma.StaffWhereInput | null 
   if (!can(user, "ojt.manage")) return null;
   if (isAdmin(user)) return {};
   return { designation: "CONTRACT" };
+}
+
+/**
+ * Whose training the reports show the user. Admin: everyone. HODs: their
+ * departments. Division heads: their divisions. Null: no one (clerks have no
+ * reports, though they can see contract staff's records).
+ */
+export function reportStaffScope(user: SessionUser): Prisma.StaffWhereInput | null {
+  if (!can(user, "report.view")) return null;
+  if (isAdmin(user)) return {};
+  const or: Prisma.StaffWhereInput[] = [];
+  if (isHod(user)) or.push({ departmentId: { in: user.hodOfDepartmentIds } });
+  if (isDivisionHead(user)) or.push({ department: { divisionId: { in: user.headOfDivisionIds } } });
+  return or.length ? { OR: or } : null;
+}
+
+/** The departments those staff belong to: what the reports' department filter and the department report list. */
+export function reportDepartmentScope(user: SessionUser): Prisma.DepartmentWhereInput | null {
+  if (!can(user, "report.view")) return null;
+  if (isAdmin(user)) return {};
+  const or: Prisma.DepartmentWhereInput[] = [];
+  if (isHod(user)) or.push({ id: { in: user.hodOfDepartmentIds } });
+  if (isDivisionHead(user)) or.push({ divisionId: { in: user.headOfDivisionIds } });
+  return or.length ? { OR: or } : null;
 }
 
 /** Designations the user may create or edit. Admin: all. Clerks: contract only. */

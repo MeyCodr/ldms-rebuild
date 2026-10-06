@@ -9,15 +9,17 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { Panel } from "@/components/Panel";
 import { Sheet, SheetItem } from "@/components/Sheet";
 import { Status, StaffStatus } from "@/components/ui/Status";
-import { formatDate, formatDateTime, plural, yearsOfService } from "@/lib/format";
+import { formatDate, formatDateTime, nowInMalaysia, plural, yearsOfService } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can, canManageStaffRecord, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/server/permissions";
 import { approverReasonLabel, hasNoApproverByDesign } from "@/server/rules/approver";
 import { approverFor, approvesCount } from "@/server/services/approver";
+import { staffTrainingHistory } from "@/server/services/report";
 import { getStaffRecord, recordHistory } from "@/server/services/staff";
 import { requireUser } from "@/server/session";
 import { ReinstateDialog, ResetPasswordDialog, ResignDialog, RolesForm } from "./RecordActions";
+import { TrainingPanel } from "./TrainingPanel";
 
 export const metadata: Metadata = { title: "Staff record" };
 
@@ -31,10 +33,11 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
   if (!staff) notFound();
 
   const { saved } = await searchParams;
-  const [approver, approves, history] = await Promise.all([
+  const [approver, approves, history, training] = await Promise.all([
     staff.status === "ACTIVE" ? approverFor(id) : Promise.resolve(null),
     staff.status === "ACTIVE" ? approvesCount(id) : Promise.resolve(0),
     can(user, "staff.manage") || can(user, "audit.view") ? recordHistory(id) : Promise.resolve([]),
+    staffTrainingHistory(user, id, nowInMalaysia()),
   ]);
   const manage = canManageStaffRecord(user, staff);
   const active = staff.status === "ACTIVE";
@@ -134,6 +137,8 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
               {approves > 0 && <SheetItem label="Approves for">{plural(approves, "active staff member", "active staff")}</SheetItem>}
             </Sheet>
           )}
+
+          {training && <TrainingPanel history={training} openTrainings={can(user, "training.view")} />}
 
           <HistoryPanel entries={history} />
         </div>

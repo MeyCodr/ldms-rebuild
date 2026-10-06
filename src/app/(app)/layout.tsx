@@ -38,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const records: NavGroup["items"] = [];
   if (can(user, "staff.view")) records.push({ href: "/staff", label: "Staff", module: "staff" });
   if (can(user, "org.view")) records.push({ href: "/organization", label: "Organization", module: "organization" });
+  if (can(user, "report.view")) records.push({ href: "/reports", label: "Reports", module: "reports" });
   if (records.length) groups.push({ label: "Records", items: records });
   if (can(user, "audit.view")) groups.push({ label: "Administration", items: [{ href: "/audit", label: "Audit log", module: "audit" }] });
 
