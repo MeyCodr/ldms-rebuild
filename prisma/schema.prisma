@@ -1,7 +1,7 @@
 // LDMS v2 schema.
 // Phase 1: org chart, staff, roles, audit log and settings.
 // Phase 2: trainings, sessions and participants.
-// PME, TNA, TNI and skill-matrix models are added in later phases.
+// Phase 3: PME. TNA, TNI and skill-matrix models follow, module by module.
 
 generator client {
   provider = "prisma-client-js"
@@ -32,6 +32,7 @@ enum RoleCode {
   LD_ADMIN
   MAIN_CLERK
   CLERK
+  SKILL_EVALUATOR // may fill in skill matrices for their department (phase 3); replaces the old whitelist
 }
 
 enum AuditAction {
@@ -94,6 +95,8 @@ model Staff {
   status             StaffStatus   @default(ACTIVE)
   dateJoined         DateTime?     @db.Date
   dateResigned       DateTime?     @db.Date
+  jobGrade           Int?          @db.TinyInt // 1 to 5; TNA by job grade (phase 3). Null: none
+  fillsOwnTna        Boolean       @default(false) // a non-executive who fills in their own TNA (the old "office" user)
   departmentId       Int
   sectionId          Int?
   passwordHash       String?       @db.VarChar(255) // argon2id
@@ -112,6 +115,8 @@ model Staff {
   auditEntries       AuditLog[]
   participants       Participant[]
   trainerOf          Training[]    @relation("TrainingTrainer")
+  pmeEvaluated       Pme[]         @relation("PmeEvaluator")
+  pmeVerified        Pme[]         @relation("PmeVerifier")
 
   @@index([departmentId, status])
   @@index([designation, status])
@@ -275,9 +280,52 @@ model Participant {
   updatedAt        DateTime          @updatedAt
   training         Training          @relation(fields: [trainingId], references: [id])
   staff            Staff             @relation(fields: [staffId], references: [id])
-  // phase 3: pme Pme?
+  pme              Pme?
 
   @@unique([trainingId, staffId])
   @@index([staffId, attendance])
   @@index([attendance, trainingId])
+}
+
+// ---------- Phase 3: PME (Performance Monitoring Evaluation) ----------
+
+// PENDING covers both "still in the evaluation period" and "waiting for the
+// HOD": which one follows from periodEnd and today (rules/pme.ts).
+enum PmeStatus {
+  NOT_REQUIRED // short training (4 hours or less): no evaluation
+  PENDING // waiting for the HOD, who may evaluate once the period has ended
+  EVALUATED // the HOD has evaluated; waiting for the staff member
+  ACKNOWLEDGED // the staff member has acknowledged; waiting for L&D
+  VERIFIED // L&D has verified; locked
+}
+
+// One per person per training, made when their attendance becomes Completed
+// (rules/pme.ts: pmeRequirement). Who evaluates is not stored: it is the
+// person's approver today (rules/approver.ts), so moving a HOD moves the work.
+model Pme {
+  id             Int         @id @default(autoincrement())
+  participantId  Int         @unique
+  status         PmeStatus   @default(PENDING)
+  periodStart    DateTime    @db.Date // the day after the training ends
+  periodEnd      DateTime    @db.Date // three months later; the HOD evaluates after this day
+  answers        Json? // the four ratings, percentages and remarks; shape checked by the Zod schema for answersVersion
+  answersVersion Int?
+  ojtConducted   Boolean? // question 1: was OJT conducted after the training
+  averageMark    Decimal?    @db.Decimal(5, 2) // out of 100; set when verified
+  evaluatedById  Int?
+  evaluatedAt    DateTime?
+  staffComment   String?     @db.VarChar(500) // optional, given when acknowledging
+  acknowledgedAt DateTime?
+  verifiedById   Int?
+  verifiedAt     DateTime?
+  returnReason   String?     @db.VarChar(255) // why L&D sent it back to the HOD; cleared when evaluated again
+  returnedAt     DateTime?
+  legacyId       Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  participant    Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  evaluatedBy    Staff?      @relation("PmeEvaluator", fields: [evaluatedById], references: [id], onDelete: SetNull)
+  verifiedBy     Staff?      @relation("PmeVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([status, periodEnd])
 }

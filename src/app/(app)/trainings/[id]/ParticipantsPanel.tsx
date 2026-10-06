@@ -11,6 +11,7 @@ import { Status } from "@/components/ui/Status";
 import type { ActionState } from "@/lib/action-state";
 import { formatDate, plural } from "@/lib/format";
 import { ATTENDANCE_LABELS, PARTICIPANT_ACTION_LABELS } from "@/lib/validation/participant";
+import { PME_STAGE_LABELS, PME_STAGE_TONE, pmeStage } from "@/server/rules/pme";
 import { MAX_REASON, participantActionBlock, REASON_REQUIRED, type ParticipantAction, type TrainingState } from "@/server/rules/attendance";
 import type { ParticipantRow } from "@/server/services/participant";
 import { AddParticipantsDialog } from "./AddParticipants";
@@ -110,6 +111,9 @@ export function ParticipantsPanel({
     });
 
   const byId = new Map(rows.map((r) => [r.id, r]));
+  // The PME column only when someone on the list has one (executives and managers, once completed).
+  const anyPme = rows.some((r) => r.pme);
+  const now = new Date(today);
 
   return (
     <div className="flex flex-col gap-2">
@@ -200,7 +204,7 @@ export function ParticipantsPanel({
 
             <div className="overflow-x-auto">
               {/* On phones the table scrolls sideways rather than squeezing names. */}
-              <table className={`table ${editable ? "min-w-[680px]" : "min-w-[560px]"}`}>
+              <table className={`table ${editable ? (anyPme ? "min-w-[820px]" : "min-w-[680px]") : "min-w-[560px]"}`}>
                 <thead>
                   <tr>
                     {editable && (
@@ -214,6 +218,11 @@ export function ParticipantsPanel({
                     <th className="hidden md:table-cell">Department</th>
                     <th>Attendance</th>
                     <th className="hidden lg:table-cell">Feedback</th>
+                    {anyPme && (
+                      <th className="hidden sm:table-cell" title="Performance Monitoring Evaluation, by the person's HOD">
+                        PME
+                      </th>
+                    )}
                     {editable && (
                       <th className="pr-5 text-right">
                         <span className="sr-only">Actions</span>
@@ -263,6 +272,17 @@ export function ParticipantsPanel({
                           <span className="muted">{r.attendance === "PENDING" ? "Not yet" : "None"}</span>
                         )}
                       </td>
+                      {anyPme && (
+                        <td className="hidden whitespace-nowrap sm:table-cell">
+                          {r.pme ? (
+                            <Link href={`/pme/${r.pme.id}`} className="hover:underline">
+                              <Status tone={PME_STAGE_TONE[pmeStage(r.pme, now)]}>{PME_STAGE_LABELS[pmeStage(r.pme, now)]}</Status>
+                            </Link>
+                          ) : (
+                            <span className="muted">–</span>
+                          )}
+                        </td>
+                      )}
                       {editable && (
                         <td className="pr-5">
                           <div className="flex justify-end gap-1">
@@ -363,7 +383,7 @@ function ActionForm({
     const applying: ParticipantRow[] = [];
     const skipped: string[] = [];
     for (const r of rows) {
-      const why = participantActionBlock(action, { name: r.staff.name, attendance: r.attendance, hasFeedback: r.submittedAt !== null }, training, today);
+      const why = participantActionBlock(action, { name: r.staff.name, attendance: r.attendance, hasFeedback: r.submittedAt !== null, pme: r.pme }, training, today);
       if (why) skipped.push(why);
       else applying.push(r);
     }

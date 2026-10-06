@@ -10,6 +10,7 @@ import { countsTowardHours, trainingHours, trainingPhase } from "../rules/traini
 import { formAccess, formKind, ojtDateBlock, ojtDeleteBlock, ojtDetailsBlock } from "../rules/myTraining";
 import { diffFields, recordAudit } from "./audit";
 import { discardCertificateFile } from "./certificate";
+import { syncPmes } from "./pmeSync";
 import { newTrainingCode } from "./training";
 
 // My Training: everything here works on the signed-in person's own rows only,
@@ -129,6 +130,8 @@ export async function submitAnswers(user: SessionUser, participantId: number, ra
         summary: kind === "OJT" ? `${who} gave their OJT answers` : `${who} submitted feedback`,
         changes: { attendance: ["Pending", "Completed"] },
       });
+      // Completing a course starts the PME for executives and managers.
+      await syncPmes(tx, { id: p.id });
       return "submitted";
     }
 

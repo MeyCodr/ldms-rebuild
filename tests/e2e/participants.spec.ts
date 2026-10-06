@@ -180,6 +180,7 @@ test("the participant list exports to Excel", async ({ page }, testInfo) => {
     "Reason",
     "Feedback Given",
     "Hours",
+    "PME",
   ]);
   expect(ws.rowCount).toBeGreaterThan(3);
   // Only completed attendance carries hours (the training is 2 days × 8 h).

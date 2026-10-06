@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarClock, CalendarDays, CheckCircle2, Clock, GraduationCap, History, MapPin, UserRound } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Clock, GraduationCap, History, MapPin, UserRound } from "lucide-react";
 import { Avatar, DivisionMark } from "@/components/brand";
 import { ColumnChart, type ColumnPoint } from "@/components/charts/ColumnChart";
 import { DateChip } from "@/components/DateChip";
@@ -21,6 +21,7 @@ import { approverFor, approvesCount } from "@/server/services/approver";
 import { runDataChecks, type Check } from "@/server/services/checks";
 import { myLearning, trainingOverview, type MyLearning, type TrainingOverview } from "@/server/services/dashboard";
 import { feedbackWaiting, type MyTrainingRow } from "@/server/services/myTraining";
+import { pmeWaiting, type PmeWaiting } from "@/server/services/pme";
 import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -70,7 +71,8 @@ export default async function OverviewPage() {
   const isAdmin = can(user, "org.manage");
   const seesTraining = can(user, "training.view");
 
-  const [me, approver, approves, learning, waiting, training, checks, hodDepts, divisions] = await Promise.all([
+  const [me, approver, approves, learning, waiting, pme, training, checks, hodDepts, divisions] = await Promise.all([
+
     db.staff.findUniqueOrThrow({
       where: { id: user.id },
       include: { department: { include: { division: true } }, section: true },
@@ -79,6 +81,7 @@ export default async function OverviewPage() {
     approvesCount(user.id),
     myLearning(user, today),
     feedbackWaiting(user, today),
+    pmeWaiting(user, today),
     seesTraining ? trainingOverview(user, today) : Promise.resolve(null),
     isAdmin ? runDataChecks() : Promise.resolve(null),
     user.hodOfDepartmentIds.length
@@ -140,7 +143,7 @@ export default async function OverviewPage() {
 
         <RecentLearning className="md:col-span-6 lg:col-span-7" learning={learning} />
         <div className="grid content-start gap-5 md:col-span-6 md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-          <WaitingOnYou waiting={waiting} today={today} />
+          <WaitingOnYou waiting={waiting} pme={pme} today={today} />
           <Panel title="Your approver">
             {approver?.approverId && approver.approver ? (
               <div className="flex items-center gap-3">
@@ -395,9 +398,17 @@ function NextTraining({ className, learning, today }: { className: string; learn
   );
 }
 
-/** Things the person has to do, most overdue first. For now: feedback forms. */
-function WaitingOnYou({ waiting, today }: { waiting: MyTrainingRow[]; today: Date }) {
-  if (!waiting.length)
+/** Things the person has to do: PMEs (their own to acknowledge, their staff's to evaluate, L&D's to verify), then feedback forms, most overdue first. */
+function WaitingOnYou({ waiting, pme, today }: { waiting: MyTrainingRow[]; pme: PmeWaiting; today: Date }) {
+  const pmeLines = [
+    ...pme.toAcknowledge.map((p) => ({ href: `/pme/${p.id}`, title: p.training.title, sub: `PME to acknowledge · evaluated by ${p.evaluatedBy?.name ?? "your HOD"}` })),
+    ...(pme.toEvaluate.length
+      ? [{ href: "/approvals", title: `${plural(pme.toEvaluate.length, "PME")} to evaluate`, sub: "Your staff whose evaluation period has ended" }]
+      : []),
+    ...(pme.toVerify.length ? [{ href: "/approvals", title: `${plural(pme.toVerify.length, "PME")} to verify`, sub: "Evaluated and acknowledged" }] : []),
+  ];
+  const count = waiting.length + pme.toAcknowledge.length + pme.toEvaluate.length + pme.toVerify.length;
+  if (!count)
     return (
       <Panel title="Waiting on you">
         <div className="flex items-start gap-3.5">
@@ -407,7 +418,7 @@ function WaitingOnYou({ waiting, today }: { waiting: MyTrainingRow[]; today: Dat
           <div>
             <p className="font-medium">You&apos;re all caught up.</p>
             <p className="mt-0.5 text-[13px] text-ink-2">
-              Training feedback, PME evaluations and TNA approvals that need you will be listed here, most urgent first.
+              Training feedback and PMEs that need you are listed here, most urgent first.
             </p>
           </div>
         </div>
@@ -416,11 +427,25 @@ function WaitingOnYou({ waiting, today }: { waiting: MyTrainingRow[]; today: Dat
   return (
     <Panel
       title="Waiting on you"
-      description="Feedback forms to fill in, the longest waiting first"
-      action={<Status tone="wait">{waiting.length} to do</Status>}
+      description={pmeLines.length ? "PMEs and feedback forms, the longest waiting first" : "Feedback forms to fill in, the longest waiting first"}
+      action={<Status tone="wait">{count} to do</Status>}
       flush
     >
       <ul>
+        {pmeLines.map((l) => (
+          <li key={l.href + l.title} className="border-b border-rule last:border-b-0">
+            <Link href={l.href} className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafb]">
+              <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${TONE.coral.tile}`}>
+                <ClipboardCheck size={18} strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13.5px] font-medium text-ink group-hover:text-accent group-hover:underline">{l.title}</div>
+                <div className="mt-0.5 truncate text-xs text-ink-3">{l.sub}</div>
+              </div>
+              <ArrowRight size={15} aria-hidden className="shrink-0 text-ink-3 group-hover:text-accent" />
+            </Link>
+          </li>
+        ))}
         {waiting.slice(0, 4).map((r) => (
           <li key={r.id} className="border-b border-rule last:border-b-0">
             <Link href={`/my-training/${r.id}`} className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafb]">

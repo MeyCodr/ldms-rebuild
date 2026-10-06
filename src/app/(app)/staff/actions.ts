@@ -6,6 +6,7 @@ import type { RoleCode } from "@prisma/client";
 import type { ActionState } from "@/lib/action-state";
 import { passwordResetSchema, resignSchema, staffSchema } from "@/lib/validation/staff";
 import { parseForm, toErrorState } from "@/server/errors";
+import { ROLE_LABELS } from "@/server/permissions";
 import { requireUser } from "@/server/session";
 import { createStaff, reinstateStaff, resetPassword, resignStaff, setRoles, updateStaff } from "@/server/services/staff";
 
@@ -18,6 +19,8 @@ const fields = (fd: FormData) => ({
   departmentId: fd.get("departmentId") ?? "",
   sectionId: fd.get("sectionId") ?? "",
   dateJoined: fd.get("dateJoined") ?? "",
+  jobGrade: fd.get("jobGrade") ?? "",
+  fillsOwnTna: fd.get("fillsOwnTna") === "on",
 });
 
 export async function createStaffAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -79,7 +82,8 @@ export async function resetPasswordAction(id: number, _prev: ActionState, fd: Fo
   }
 }
 
-const ROLE_CODES: RoleCode[] = ["LD_ADMIN", "MAIN_CLERK", "CLERK"];
+// Every role there is: the same list the Access panel offers.
+const ROLE_CODES = Object.keys(ROLE_LABELS) as RoleCode[];
 
 export async function setRolesAction(id: number, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/PageHeader";
-import { manageableDesignations } from "@/server/permissions";
+import { isAdmin, manageableDesignations } from "@/server/permissions";
 import { departmentOptions } from "@/server/services/org";
 import { requirePermission } from "@/server/session";
 import { createStaffAction } from "../actions";
@@ -23,6 +23,7 @@ export default async function NewStaffPage() {
           designations={designations}
           submitLabel="Add staff"
           cancelHref="/staff"
+          canSetTna={isAdmin(user)}
           initial={{
             staffNo: "",
             name: "",
@@ -32,6 +33,8 @@ export default async function NewStaffPage() {
             departmentId: "",
             sectionId: "",
             dateJoined: "",
+            jobGrade: "",
+            fillsOwnTna: false,
           }}
         />
         <p className="mt-6 max-w-[720px] text-xs text-ink-3">

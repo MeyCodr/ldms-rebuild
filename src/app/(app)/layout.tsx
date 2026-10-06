@@ -7,7 +7,8 @@ import { db } from "@/server/db";
 import { nowInMalaysia } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
 import { feedbackWaiting } from "@/server/services/myTraining";
-import { can, ROLE_LABELS } from "@/server/permissions";
+import { pmeWaiting } from "@/server/services/pme";
+import { can, hasApprovals, ROLE_LABELS } from "@/server/permissions";
 import { requireUser } from "@/server/session";
 
 async function doSignOut() {
@@ -28,13 +29,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Navigation is grouped by what people do, and only lists screens the user
   // can open. Modules appear here as each phase ships.
   const groups: NavGroup[] = [{ items: [{ href: "/", label: "Overview", module: "overview" }] }];
-  // Everyone has their own training; the count is feedback forms waiting for them.
-  const waiting = (await feedbackWaiting(user, nowInMalaysia())).length;
-  groups.push({ label: "My work", items: [{ href: "/my-training", label: "My training", module: "learning", count: waiting }] });
+  // Everyone has their own training; the count is what is waiting for them there:
+  // feedback forms to fill in and PMEs to acknowledge.
+  const today = nowInMalaysia();
+  const [feedback, pme] = await Promise.all([feedbackWaiting(user, today), pmeWaiting(user, today)]);
+  groups.push({
+    label: "My work",
+    items: [{ href: "/my-training", label: "My training", module: "learning", count: feedback.length + pme.toAcknowledge.length }],
+  });
+  // Team: what HODs do for their staff, and L&D for everyone. The count is what is waiting on this person.
+  const team: NavGroup["items"] = [];
+  if (hasApprovals(user)) team.push({ href: "/approvals", label: "Approvals", module: "approvals", count: pme.toEvaluate.length + pme.toVerify.length });
+  if (can(user, "pme.view")) team.push({ href: "/pme", label: "PME", module: "pme" });
   const training: NavGroup["items"] = [];
   if (can(user, "training.view")) training.push({ href: "/trainings", label: "Trainings", module: "training" });
   if (can(user, "ojt.manage")) training.push({ href: "/ojt", label: "OJT", module: "ojt" });
   if (training.length) groups.push({ label: "Training", items: training });
+  if (team.length) groups.push({ label: "Team", items: team });
   const records: NavGroup["items"] = [];
   if (can(user, "staff.view")) records.push({ href: "/staff", label: "Staff", module: "staff" });
   if (can(user, "org.view")) records.push({ href: "/organization", label: "Organization", module: "organization" });

@@ -10,6 +10,9 @@ export const DESIGNATION_LABELS: Record<(typeof DESIGNATIONS)[number], string> =
   TRAINEE: "Trainee",
 };
 
+/** Job grades, as on the staff pass: 1 to 5. Used for TNA by job grade. */
+export const JOB_GRADES = [1, 2, 3, 4, 5] as const;
+
 const optionalDate = z
   .union([z.literal(""), z.iso.date("Enter a date as DD/MM/YYYY")])
   .transform((v) => (v ? new Date(`${v}T00:00:00Z`) : null));
@@ -39,6 +42,11 @@ export const staffSchema = z.object({
     .union([z.literal(""), z.coerce.number().int().positive()])
     .transform((v) => (v === "" ? null : v)),
   dateJoined: optionalDate,
+  jobGrade: z
+    .union([z.literal(""), z.coerce.number("Choose a grade from 1 to 5").int("Choose a grade from 1 to 5").min(1, "Choose a grade from 1 to 5").max(5, "Choose a grade from 1 to 5")])
+    .transform((v) => (v === "" ? null : v)),
+  /** A non-executive who fills in their own TNA. Only L&D can set it (the staff service keeps it otherwise). */
+  fillsOwnTna: z.boolean().default(false),
 });
 
 export type StaffInput = z.infer<typeof staffSchema>;

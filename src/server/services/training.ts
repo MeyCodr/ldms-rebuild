@@ -21,6 +21,7 @@ import { formatDateRange, formatTime, nowInMalaysia } from "@/lib/format";
 import { diffFields, recordAudit } from "./audit";
 import { discardCertificateFile } from "./certificate";
 import { ensure } from "./org";
+import { syncPmes } from "./pmeSync";
 
 // ---------- Listing ----------
 
@@ -340,6 +341,8 @@ export async function updateTraining(user: SessionUser, id: number, input: Train
       await tx.trainingSession.deleteMany({ where: { trainingId: id } });
     }
     const training = await tx.training.update({ where: { id }, data });
+    // New dates or hours move the PME periods of those not yet evaluated (and a short training needs none).
+    await syncPmes(tx, { trainingId: id });
     if (Object.keys(changes).length)
       await recordAudit(tx, { actorId: user.id, action: "UPDATE", entity: "Training", entityId: id, summary: `Updated training ${training.title}`, changes });
     return training;

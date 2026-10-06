@@ -2,12 +2,18 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { db } from "../db";
 import { UserError } from "../errors";
-import { canManageStaffRecord, manageableDesignations, type SessionUser } from "../permissions";
+import { canManageStaffRecord, hasExtraAccess, isAdmin, manageableDesignations, type SessionUser } from "../permissions";
 import { DESIGNATION_LABELS, DESIGNATIONS, staffSchema, type StaffInput } from "@/lib/validation/staff";
 import { diffFields, recordAudit } from "./audit";
 import { ensure } from "./org";
 
-export const IMPORT_COLUMNS = ["Staff No", "Name", "Email", "Position", "Designation", "Department", "Section", "Date Joined"] as const;
+export const IMPORT_COLUMNS = ["Staff No", "Name", "Email", "Position", "Designation", "Department", "Section", "Date Joined", "Job Grade", "Fills Own TNA"] as const;
+/**
+ * Added in phase 3. A file without one of these columns (an older template)
+ * leaves that value as it is on existing records, where a blank cell under any
+ * other heading clears it.
+ */
+const KEEP_WHEN_ABSENT = { jobGrade: "Job Grade", fillsOwnTna: "Fills Own TNA" } as const;
 const REQUIRED = ["Staff No", "Name", "Designation", "Department"];
 const MAX_ROWS = 2000;
 
@@ -60,7 +66,14 @@ function matchDesignation(s: string): string {
   return s;
 }
 
-type Parsed = { row: number; input?: StaffInput; raw: Record<string, string>; errors: string[] };
+type Parsed = { row: number; input?: StaffInput; raw: Record<string, string>; errors: string[]; has: { jobGrade: boolean; fillsOwnTna: boolean } };
+
+/** "Yes" / "No" (or Y, N, true, false, 1, 0); blank is No. Null when it is something else. */
+function yesNo(s: string): boolean | null {
+  const v = s.trim().toLowerCase();
+  if (["", "no", "n", "false", "0"].includes(v)) return false;
+  return ["yes", "y", "true", "1"].includes(v) ? true : null;
+}
 
 async function parseWorkbook(buffer: ArrayBuffer): Promise<Parsed[]> {
   const wb = new ExcelJS.Workbook();
@@ -85,6 +98,7 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<Parsed[]> {
     if (d.shortName) deptByKey.set(d.shortName.toLowerCase(), d);
   }
 
+  const has = { jobGrade: header.has(KEEP_WHEN_ABSENT.jobGrade.toLowerCase()), fillsOwnTna: header.has(KEEP_WHEN_ABSENT.fillsOwnTna.toLowerCase()) };
   const parsed: Parsed[] = [];
   const seen = new Map<string, number>();
   sheet.eachRow((r, rowNumber) => {
@@ -107,6 +121,8 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<Parsed[]> {
     }
     const date = normaliseDate(raw["Date Joined"]);
     if (date === null) errors.push(`Date Joined "${raw["Date Joined"]}" is not a date (use DD/MM/YYYY)`);
+    const ownTna = yesNo(raw["Fills Own TNA"]);
+    if (ownTna === null) errors.push(`Fills Own TNA "${raw["Fills Own TNA"]}" should be Yes or No`);
 
     const result = staffSchema.safeParse({
       staffNo: raw["Staff No"],
@@ -117,13 +133,15 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<Parsed[]> {
       departmentId: dept ? String(dept.id) : "",
       sectionId,
       dateJoined: date ?? "",
+      jobGrade: raw["Job Grade"],
+      fillsOwnTna: ownTna ?? false,
     });
     if (!result.success) {
       for (const issue of result.error.issues) {
         const field = String(issue.path[0]);
         if (field === "departmentId" && raw["Department"]) continue; // already reported above
         if (field === "dateJoined") continue; // reported above with the value typed
-        const label = { staffNo: "Staff No", name: "Name", email: "Email", designation: "Designation", departmentId: "Department", position: "Position" }[field] ?? field;
+        const label = { staffNo: "Staff No", name: "Name", email: "Email", designation: "Designation", departmentId: "Department", position: "Position", jobGrade: "Job Grade" }[field] ?? field;
         errors.push(`${label}: ${field === "designation" ? `"${raw["Designation"]}" is not one of ${Object.values(DESIGNATION_LABELS).join(", ")}` : issue.message}`);
       }
     }
@@ -132,7 +150,7 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<Parsed[]> {
       if (seen.has(staffNo)) errors.push(`Staff No ${staffNo} also appears on row ${seen.get(staffNo)}`);
       else seen.set(staffNo, rowNumber);
     }
-    parsed.push({ row: rowNumber, input: result.success ? result.data : undefined, raw, errors });
+    parsed.push({ row: rowNumber, input: result.success ? result.data : undefined, raw, errors, has });
   });
   if (!parsed.length) throw new UserError("The first sheet has no data rows under the headings.");
   return parsed;
@@ -146,7 +164,11 @@ const FIELD_LABELS: Record<string, string> = {
   departmentId: "department",
   sectionId: "section",
   dateJoined: "date joined",
+  jobGrade: "job grade",
+  fillsOwnTna: "fills own TNA",
 };
+
+const IMPORT_FIELDS: (keyof StaffInput & string)[] = ["name", "email", "position", "designation", "departmentId", "sectionId", "dateJoined", "jobGrade", "fillsOwnTna"];
 
 async function plan(user: SessionUser, buffer: ArrayBuffer) {
   const parsed = await parseWorkbook(buffer);
@@ -157,17 +179,25 @@ async function plan(user: SessionUser, buffer: ArrayBuffer) {
   });
   const byNo = new Map(existing.map((s) => [s.staffNo, s]));
 
-  return parsed.map((p) => {
-    const current = p.input ? byNo.get(p.input.staffNo) : undefined;
+  return parsed.map((raw) => {
+    const current = raw.input ? byNo.get(raw.input.staffNo) : undefined;
+    // What the row would save: a column the file doesn't have keeps the record's value, and
+    // who fills in their own TNA is L&D's to decide (a clerk's file can't change it).
+    const input = raw.input && {
+      ...raw.input,
+      jobGrade: raw.has.jobGrade ? raw.input.jobGrade : (current?.jobGrade ?? null),
+      fillsOwnTna: raw.has.fillsOwnTna && isAdmin(user) ? raw.input.fillsOwnTna : (current?.fillsOwnTna ?? false),
+    };
+    const p = { ...raw, input };
     const errors = [...p.errors];
     if (p.input && !allowed.includes(p.input.designation)) errors.push("Clerks can import contract staff only");
-    if (current && !canManageStaffRecord(user, current)) errors.push(`${current.staffNo} is an existing record you can't change (${current.roles.length || current.hodOf.length || current.headOf.length ? "they have extra access, so only an admin can" : `${DESIGNATION_LABELS[current.designation].toLowerCase()} staff`})`);
+    if (current && !canManageStaffRecord(user, current)) errors.push(`${current.staffNo} is an existing record you can't change (${hasExtraAccess(current) ? "they have extra access, so only an admin can" : `${DESIGNATION_LABELS[current.designation].toLowerCase()} staff`})`);
 
     let action: ImportRow["action"] = "create";
     let changes: string[] = [];
     if (errors.length || !p.input) action = "error";
     else if (current) {
-      const diff = diffFields(current, p.input, ["name", "email", "position", "designation", "departmentId", "sectionId", "dateJoined"]);
+      const diff = diffFields(current, p.input, IMPORT_FIELDS);
       changes = Object.keys(diff).map((k) => FIELD_LABELS[k] ?? k);
       action = changes.length ? "update" : "unchanged";
     }
@@ -215,7 +245,7 @@ export async function commitStaffImport(user: SessionUser, fileName: string, buf
           await recordAudit(tx, { actorId: user.id, action: "CREATE", entity: "Staff", entityId: s.id, summary: `Added ${s.name} (${s.staffNo}) by import of ${fileName}` });
           created++;
         } else if (p.current) {
-          const diff = diffFields(p.current, input, ["name", "email", "position", "designation", "departmentId", "sectionId", "dateJoined"]);
+          const diff = diffFields(p.current, input, IMPORT_FIELDS);
           await tx.staff.update({ where: { id: p.current.id }, data: input });
           if (p.current.departmentId !== input.departmentId)
             await tx.department.updateMany({ where: { hodId: p.current.id, id: { not: input.departmentId } }, data: { hodId: null } });
@@ -241,7 +271,7 @@ export async function buildImportTemplate(): Promise<Buffer> {
   const ws = wb.addWorksheet("Staff");
   ws.columns = IMPORT_COLUMNS.map((header) => ({ header, width: header === "Name" || header === "Department" ? 34 : 18 }));
   ws.getRow(1).font = { bold: true };
-  ws.addRow(["C2101", "Aung Ko Ko", "", "Production Operator", "Contract", "Stamping", "Press Line A", "01/10/2026"]);
+  ws.addRow(["C2101", "Aung Ko Ko", "", "Production Operator", "Contract", "Stamping", "Press Line A", "01/10/2026", 1, "No"]);
   const ref = wb.addWorksheet("Departments");
   ref.columns = [
     { header: "Department", width: 36 },
@@ -258,7 +288,10 @@ export async function buildImportTemplate(): Promise<Buffer> {
     `Designation: ${Object.values(DESIGNATION_LABELS).join(", ")}.`,
     "Department: the full name or the short name from the Departments sheet.",
     "Date Joined: DD/MM/YYYY.",
+    "Job Grade: 1 to 5, or blank for none. Staff who don't fill in their own TNA are covered by their grade's.",
+    "Fills Own TNA: Yes or No (blank is No). For office staff who aren't executives; executives and managers always do. Only the L&D unit can change it.",
     "A Staff No that already exists updates that record. Blank optional cells clear the value.",
+    "A file without the Job Grade or Fills Own TNA column leaves those as they are.",
   ].forEach((line) => notes.addRow([line]));
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

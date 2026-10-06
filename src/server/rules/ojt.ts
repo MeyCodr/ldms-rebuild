@@ -11,7 +11,7 @@
 import type { Attendance, Designation, ParticipantSource, StaffStatus } from "@prisma/client";
 import { MAX_ANSWER, type Answers } from "@/lib/forms/feedback";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
-import { isAdmin, type ManagedStaff, type SessionUser } from "../permissions";
+import { hasExtraAccess, isAdmin, type ManagedStaff, type SessionUser } from "../permissions";
 import { dailyMinutes, dayNumber, MAX_CONSECUTIVE_DAYS, trainingHours } from "./training";
 
 /** An OJT of this many hours or less is completed as soon as it is recorded. */
@@ -30,7 +30,7 @@ export function ojtStaffBlock(user: SessionUser, staff: OjtStaff): string | null
   if (isAdmin(user)) return null;
   if (staff.designation !== "CONTRACT")
     return `${who} is ${DESIGNATION_LABELS[staff.designation as Designation].toLowerCase()} staff: clerks record OJT for contract staff only`;
-  if (staff.roles.length || staff.hodOf.length || staff.headOf.length) return `${who} has extra access, so only an L&D admin can record their OJT`;
+  if (hasExtraAccess(staff)) return `${who} has extra access, so only an L&D admin can record their OJT`;
   return null;
 }
 

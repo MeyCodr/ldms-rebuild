@@ -8,9 +8,12 @@ import { Select } from "@/components/ui/Select";
 import { Status } from "@/components/ui/Status";
 import { formatDate, formatHours, nowInMalaysia, plural, toDateInput } from "@/lib/format";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
+import { PME_STAGE_TONE } from "@/server/rules/pme";
 import { myTrainings, type MyTrainingRow } from "@/server/services/myTraining";
+import { myPmes } from "@/server/services/pme";
 import { requireUser } from "@/server/session";
 import { withBasePath } from "@/lib/base-path";
+import { pmeStageLabel } from "../pme/labels";
 import { MY_STATUSES, myStatus, type MyStatusKey } from "./labels";
 
 export const metadata: Metadata = { title: "My training" };
@@ -23,7 +26,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
   const user = await requireUser();
   const today = nowInMalaysia();
   const sp = await searchParams;
-  const rows = await myTrainings(user, today);
+  const [rows, pmes] = await Promise.all([myTrainings(user, today), myPmes(user, today)]);
 
   // Filters: a search, a date range and a status. Every training the
   // person is on, newest first, is the starting point. The date range keeps
@@ -42,8 +45,13 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
       (!needle || [r.training.title, r.training.trainerName, r.training.venue].some((v) => v?.toLowerCase().includes(needle))),
   );
 
-  // The button column only when a listed training has a form waiting.
-  const anyDue = shown.some((r) => r.access.mode === "submit");
+  // A PME to acknowledge: their HOD has evaluated them for that training (executives and managers).
+  const toAcknowledge = (r: MyTrainingRow) => pmes.get(r.id)?.blocked.ACKNOWLEDGE === null;
+  // The button column only when a listed training has a form waiting, or a PME to acknowledge.
+  const anyDue = shown.some((r) => r.access.mode === "submit" || toAcknowledge(r));
+  // The PME column only for people who have any.
+  const anyPme = shown.some((r) => pmes.has(r.id));
+  const pmesDue = rows.filter(toAcknowledge);
 
   const thisYear = today.getUTCFullYear();
   const due = rows.filter((r) => r.access.mode === "submit").length;
@@ -63,6 +71,11 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
             {due > 0 && (
               <Link href="/my-training?status=due" className="hover:underline">
                 <Status tone="wait">{plural(due, "form")} to fill in</Status>
+              </Link>
+            )}
+            {pmesDue.length > 0 && (
+              <Link href={`/pme/${pmes.get(pmesDue[0].id)!.id}`} className="hover:underline">
+                <Status tone="wait">{plural(pmesDue.length, "PME")} to acknowledge</Status>
               </Link>
             )}
           </>
@@ -113,7 +126,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
       </form>
 
       <div className="table-scroll card mt-4">
-        <table className="table min-w-[820px]" aria-label="My trainings">
+        <table className={`table ${anyPme ? "min-w-[960px]" : "min-w-[820px]"}`} aria-label="My trainings">
           <thead>
             <tr>
               <th className="w-px text-right whitespace-nowrap">No.</th>
@@ -124,6 +137,11 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
               <th className="min-w-[140px]">Venue</th>
               <th className="w-px text-right whitespace-nowrap">Training hours</th>
               <th className="w-px whitespace-nowrap">Status</th>
+              {anyPme && (
+                <th className="w-px whitespace-nowrap" title="Performance Monitoring Evaluation: your HOD's evaluation, three months after the training">
+                  PME
+                </th>
+              )}
               {anyDue && (
                 <th className="hidden w-px lg:table-cell">
                   <span className="sr-only">Action</span>
@@ -135,6 +153,7 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
             {shown.map((r, i) => {
               const t = r.training;
               const s = myStatus(r);
+              const pme = pmes.get(r.id);
               return (
                 <ClickableRow key={r.id} href={`/my-training/${r.id}`}>
                   <td className="num muted text-right">{i + 1}</td>
@@ -159,8 +178,24 @@ export default async function MyTrainingPage({ searchParams }: PageProps<"/my-tr
                   <td className="whitespace-nowrap">
                     <Status tone={s.tone}>{s.label}</Status>
                   </td>
+                  {anyPme && (
+                    <td className="whitespace-nowrap">
+                      {pme ? (
+                        <Link href={`/pme/${pme.id}`} className="hover:underline">
+                          <Status tone={PME_STAGE_TONE[pme.stage]}>{pmeStageLabel(pme.stage, true)}</Status>
+                        </Link>
+                      ) : (
+                        <span className="muted">–</span>
+                      )}
+                    </td>
+                  )}
                   {anyDue && (
                     <td className="hidden text-right lg:table-cell">
+                      {s.key !== "due" && pme && toAcknowledge(r) && (
+                        <Link href={`/pme/${pme.id}`} className="btn btn-primary btn-sm whitespace-nowrap">
+                          Acknowledge PME <ArrowRight size={14} aria-hidden />
+                        </Link>
+                      )}
                       {s.key === "due" && (
                         <Link href={`/my-training/${r.id}`} className="btn btn-primary btn-sm whitespace-nowrap">
                           {r.kind === "OJT" ? "Give answers" : "Give feedback"} <ArrowRight size={14} aria-hidden />

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { UserError } from "../errors";
 import { isAdmin, reportDepartmentScope, reportStaffScope, staffViewScope, type SessionUser } from "../permissions";
 import { departmentTotals, grandTotal, hoursByYear, inStaffReport, reportPeriod, round2, staffTotals } from "../rules/report";
+import { pmeStage } from "../rules/pme";
 import { countsTowardHours, manHours, trainingHours, trainingPhase } from "../rules/training";
 import { ensure } from "./org";
 
@@ -217,6 +218,7 @@ export async function trainingAttendanceDetail(user: SessionUser, trainingId: nu
           attendance: true,
           attendanceReason: true,
           submittedAt: true,
+          pme: { select: { id: true, status: true, periodEnd: true } },
           staff: {
             select: { id: true, staffNo: true, name: true, designation: true, department: { select: { name: true } }, section: { select: { name: true } } },
           },
@@ -227,7 +229,12 @@ export async function trainingAttendanceDetail(user: SessionUser, trainingId: nu
   if (!training || (!isAdmin(user) && !training.participants.length)) return null;
   const { participants, certificateFile, ...t } = training;
   const hours = trainingHours(t) ?? 0;
-  const rows = participants.map((p) => ({ ...p, hours: countsTowardHours({ attendance: p.attendance, training: t }) ? hours : 0 }));
+  const rows = participants.map((p) => ({
+    ...p,
+    hours: countsTowardHours({ attendance: p.attendance, training: t }) ? hours : 0,
+    /** Where their PME stands, when they have one (executives and managers, once completed). */
+    pme: p.pme ? { id: p.pme.id, stage: pmeStage(p.pme, today) } : null,
+  }));
   return {
     training: { ...t, hours, phase: trainingPhase(t, today), hasCertificate: certificateFile !== null },
     rows,

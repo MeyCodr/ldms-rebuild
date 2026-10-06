@@ -7,6 +7,7 @@ import { PrismaClient, type Designation, type Prisma, type RoleCode, type Traini
 import { hash } from "@node-rs/argon2";
 import { createHash, randomInt } from "node:crypto";
 import { trainingCode } from "../src/server/rules/training";
+import { syncPmes } from "../src/server/services/pmeSync";
 
 const db = new PrismaClient();
 
@@ -131,6 +132,10 @@ async function main() {
   if ((await db.participant.count()) > 0) console.log("Participant table is not empty, skipping demo participants.");
   else await seedParticipants();
   await answerDemoFeedback();
+
+  // PMEs for the executives and managers who completed a training (phase 3). Adds only what is missing.
+  const pmes = await db.$transaction((tx) => syncPmes(tx, { training: { type: { not: "OJT" } } }), { timeout: 120_000 });
+  if (pmes.created) console.log(`Made ${pmes.created} PMEs.`);
 }
 
 // Demo answers for seeded feedback: participants with a feedback date but no

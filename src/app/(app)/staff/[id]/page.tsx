@@ -14,6 +14,7 @@ import { divisionTone } from "@/lib/tones";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can, canManageStaffRecord, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/server/permissions";
 import { approverReasonLabel, hasNoApproverByDesign } from "@/server/rules/approver";
+import { tnaKindLabel } from "@/server/rules/tna";
 import { approverFor, approvesCount } from "@/server/services/approver";
 import { staffTrainingHistory } from "@/server/services/report";
 import { getStaffRecord, recordHistory } from "@/server/services/staff";
@@ -101,6 +102,10 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
             <SheetItem label="Section">{staff.section?.name ?? <span className="text-ink-3">None</span>}</SheetItem>
             <SheetItem label="Position">{staff.position ?? <span className="text-ink-3">Not recorded</span>}</SheetItem>
             <SheetItem label="Designation">{DESIGNATION_LABELS[staff.designation]}</SheetItem>
+            <SheetItem label="Job grade">{staff.jobGrade ? <span className="num">{staff.jobGrade}</span> : <span className="text-ink-3">None</span>}</SheetItem>
+            <SheetItem label="TNA">
+              {tnaKindLabel({ ...staff, isHead: staff.hodOf.length > 0 || staff.headOf.length > 0 })}
+            </SheetItem>
             <SheetItem label="Date joined">
               {staff.dateJoined ? (
                 <>
@@ -140,7 +145,13 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
 
           {training && <TrainingPanel history={training} openTrainings={can(user, "training.view")} />}
 
-          <HistoryPanel entries={history} />
+          <HistoryPanel
+            entries={history}
+            fields={{
+              jobGrade: { label: "Job grade" },
+              fillsOwnTna: { label: "Fills in own TNA", format: (v) => (v === true || v === "true" ? "Yes" : "No") },
+            }}
+          />
         </div>
 
         <aside className="flex flex-col gap-5">

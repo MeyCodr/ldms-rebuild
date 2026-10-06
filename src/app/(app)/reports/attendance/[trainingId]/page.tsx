@@ -10,6 +10,7 @@ import { ATTENDANCE_LABELS } from "@/lib/validation/participant";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { can, isAdmin } from "@/server/permissions";
+import { PME_STAGE_LABELS, PME_STAGE_TONE } from "@/server/rules/pme";
 import { trainingAttendanceDetail } from "@/server/services/report";
 import { requirePermission } from "@/server/session";
 import { PhaseStatus } from "../../../trainings/PhaseStatus";
@@ -28,6 +29,8 @@ export default async function TrainingAttendanceDetailPage({ params, searchParam
   const { training: t, rows, total } = report;
   const f = parseReportFilters(await searchParams);
   const openStaff = can(user, "staff.view");
+  // The PME column only when someone listed has one.
+  const anyPme = rows.some((r) => r.pme);
 
   return (
     <div className="page-fit">
@@ -79,7 +82,7 @@ export default async function TrainingAttendanceDetailPage({ params, searchParam
       </div>
 
       <div className="table-scroll card mt-4">
-        <table className="table min-w-[760px]" aria-label="Participants">
+        <table className={`table ${anyPme ? "min-w-[900px]" : "min-w-[760px]"}`} aria-label="Participants">
           <thead>
             <tr>
               <th className="w-px text-right whitespace-nowrap">No.</th>
@@ -89,6 +92,11 @@ export default async function TrainingAttendanceDetailPage({ params, searchParam
               <th>Department</th>
               <th>Attendance</th>
               <th className="hidden w-px whitespace-nowrap lg:table-cell">Feedback given</th>
+              {anyPme && (
+                <th className="w-px whitespace-nowrap" title="Performance Monitoring Evaluation, by the person's HOD">
+                  PME
+                </th>
+              )}
               <th className="w-px text-right whitespace-nowrap" title="The training's hours, for those who completed it">
                 Hours
               </th>
@@ -118,6 +126,17 @@ export default async function TrainingAttendanceDetailPage({ params, searchParam
                   {r.attendanceReason && <div className="muted mt-0.5 max-w-[260px] text-xs break-words">{r.attendanceReason}</div>}
                 </td>
                 <td className="num hidden whitespace-nowrap lg:table-cell">{r.submittedAt ? formatDate(r.submittedAt) : <span className="muted">–</span>}</td>
+                {anyPme && (
+                  <td className="whitespace-nowrap">
+                    {r.pme ? (
+                      <Link href={`/pme/${r.pme.id}`} className="hover:underline">
+                        <Status tone={PME_STAGE_TONE[r.pme.stage]}>{PME_STAGE_LABELS[r.pme.stage]}</Status>
+                      </Link>
+                    ) : (
+                      <span className="muted">–</span>
+                    )}
+                  </td>
+                )}
                 <td className={`num text-right ${r.hours ? "font-medium" : "muted"}`}>{formatHours(r.hours)}</td>
               </ClickableRow>
             ))}
@@ -133,6 +152,7 @@ export default async function TrainingAttendanceDetailPage({ params, searchParam
                   {total.completed} of {plural(total.total, "participant")} completed
                 </td>
                 <td className="hidden lg:table-cell" />
+                {anyPme && <td />}
                 <td className="num text-right">{formatHours(total.hours)}</td>
               </tr>
             </tfoot>

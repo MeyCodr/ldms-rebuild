@@ -5,13 +5,14 @@
 //   PENDING → COMPLETED   the participant submits feedback, or an admin marks it (reason required)
 //   PENDING → ABSENT      admin, reason optional
 //   ABSENT → PENDING      admin ("undo absent")
-//   COMPLETED → PENDING   admin ("reopen")
+//   COMPLETED → PENDING   admin ("reopen"), unless the HOD has already evaluated their PME
 //   remove                only while PENDING and without feedback
 //
 // Nothing else. Nothing changes while the training is cancelled.
 
 import type { Attendance, StaffStatus, TrainingStatus } from "@prisma/client";
 import { formatDate } from "@/lib/format";
+import { pmeReopenBlock, type PmeProgress } from "./pme";
 import { dayNumber } from "./training";
 
 export const PARTICIPANT_ACTIONS = ["MARK_ABSENT", "UNDO_ABSENT", "MARK_COMPLETED", "REOPEN", "REMOVE"] as const;
@@ -22,6 +23,8 @@ export type ParticipantState = {
   name: string;
   attendance: Attendance;
   hasFeedback: boolean;
+  /** Their PME for this training, when they have one (phase 3). */
+  pme?: PmeProgress | null;
 };
 
 export type TrainingState = { status: TrainingStatus; startDate: Date; endDate: Date };
@@ -79,7 +82,8 @@ export function participantActionBlock(action: ParticipantAction, p: Participant
       if (!trainingHasEnded(t, today)) return notEndedYet(name, t, today);
       return null;
     case "REOPEN":
-      return attendance === "COMPLETED" ? null : `${name} has not completed this training, so there is nothing to reopen.`;
+      if (attendance !== "COMPLETED") return `${name} has not completed this training, so there is nothing to reopen.`;
+      return pmeReopenBlock(name, p.pme);
     case "REMOVE":
       if (attendance === "COMPLETED") return `${name} has completed this training, so they stay on record. Reopen it first if they were added by mistake.`;
       if (attendance === "ABSENT") return `${name} is marked absent, which stays on record. Undo absent first if they were added by mistake.`;

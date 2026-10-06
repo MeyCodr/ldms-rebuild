@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, Hourglass, Lock, MapPin, Pencil, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock, Hourglass, Lock, MapPin, Pencil, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { CertificatePanel } from "@/components/CertificatePanel";
 import { AnswerList, Fact, Row } from "@/components/RecordParts";
@@ -11,12 +11,15 @@ import { CURRENT_FORM, formVersion, type Answers } from "@/lib/forms/feedback";
 import { formatDate, formatDateRange, formatDateTime, formatHours, formatTime, nowInMalaysia, plural } from "@/lib/format";
 import { OJT_METHOD_LABELS, OJT_TRAINER_LABELS, ojtTrainerOf, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { ojtDeleteBlock, ojtDetailsBlock } from "@/server/rules/myTraining";
+import { PME_SHORT_HOURS, PME_STAGE_TONE } from "@/server/rules/pme";
 import { dayNumber } from "@/server/rules/training";
 import { certificateInfo } from "@/server/services/certificate";
 import { myParticipant, type MyTrainingRow } from "@/server/services/myTraining";
+import { myPmes } from "@/server/services/pme";
 import { requireUser } from "@/server/session";
 import { AnswersForm } from "../AnswersForm";
 import { DeleteOjtDialog } from "../DeleteOjtDialog";
+import { formatMark, pmeStageLabel } from "../../pme/labels";
 import { myStatus, ojtRecordedBy } from "../labels";
 
 export const metadata: Metadata = { title: "My training" };
@@ -38,7 +41,8 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
   // Only the person's own records: anyone else's id is simply not found.
   const r = await myParticipant(user, id, today);
   if (!r) notFound();
-  const certificate = await certificateInfo(user, r.training.id, today);
+  const [certificate, pmes] = await Promise.all([certificateInfo(user, r.training.id, today), myPmes(user, today)]);
+  const pme = pmes.get(r.id);
 
   const { saved } = await searchParams;
   const t = r.training;
@@ -143,6 +147,32 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
               </dl>
               {detailsBlock && r.kind === "OJT" && <p className="mt-4 rounded-lg bg-sunken px-3 py-2 text-xs text-ink-2">{detailsBlock}</p>}
             </Panel>
+            {pme && (
+              <Panel title="PME" description="Your HOD's evaluation of how you've applied this training">
+                <dl className="-my-1 flex flex-col text-[13.5px]">
+                  <Row label="Status">
+                    <Status tone={PME_STAGE_TONE[pme.stage]}>{pmeStageLabel(pme.stage, true)}</Status>
+                  </Row>
+                  {pme.status === "NOT_REQUIRED" ? (
+                    <Row label="Why">Trainings of {PME_SHORT_HOURS} hours or less need no evaluation.</Row>
+                  ) : (
+                    <Row label="Period">
+                      <span className="num">{formatDateRange(pme.periodStart, pme.periodEnd)}</span>
+                    </Row>
+                  )}
+                  {pme.mark && pme.status !== "PENDING" && (
+                    <Row label="Mark">
+                      <span className="num font-semibold">{formatMark(pme.mark.average)}</span> <span className="text-ink-3">out of 100</span>
+                    </Row>
+                  )}
+                </dl>
+                {pme.status !== "NOT_REQUIRED" && (
+                  <Link href={`/pme/${pme.id}`} className={`btn btn-sm mt-4 self-start ${pme.blocked.ACKNOWLEDGE === null ? "btn-primary" : ""}`}>
+                    {pme.blocked.ACKNOWLEDGE === null ? "Read and acknowledge" : "Open PME"} <ArrowRight size={14} aria-hidden />
+                  </Link>
+                )}
+              </Panel>
+            )}
             {certificate && (
               <CertificatePanel
                 info={certificate}

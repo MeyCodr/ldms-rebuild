@@ -4,6 +4,7 @@ import { hash, verify } from "@node-rs/argon2";
 import { db } from "../db";
 import { UserError } from "../errors";
 import {
+  isAdmin,
   canManageStaffRecord,
   manageableDesignations,
   staffViewScope,
@@ -95,6 +96,8 @@ const listSelect = {
   status: true,
   dateJoined: true,
   dateResigned: true,
+  jobGrade: true,
+  fillsOwnTna: true,
   department: { select: { id: true, name: true, shortName: true, divisionId: true } },
   section: { select: { name: true } },
 } satisfies Prisma.StaffSelect;
@@ -173,7 +176,8 @@ export async function createStaff(user: SessionUser, input: StaffInput) {
   checkDesignation(user, input.designation);
   return db.$transaction(async (tx) => {
     await checkSection(tx, input.departmentId, input.sectionId);
-    const staff = await tx.staff.create({ data: input });
+    // Who fills in their own TNA is L&D's to decide.
+    const staff = await tx.staff.create({ data: { ...input, fillsOwnTna: isAdmin(user) && input.fillsOwnTna } });
     await recordAudit(tx, {
       actorId: user.id,
       action: "CREATE",
@@ -185,7 +189,18 @@ export async function createStaff(user: SessionUser, input: StaffInput) {
   });
 }
 
-const EDITABLE: (keyof StaffInput & string)[] = ["staffNo", "name", "email", "position", "designation", "departmentId", "sectionId", "dateJoined"];
+const EDITABLE: (keyof StaffInput & string)[] = [
+  "staffNo",
+  "name",
+  "email",
+  "position",
+  "designation",
+  "departmentId",
+  "sectionId",
+  "dateJoined",
+  "jobGrade",
+  "fillsOwnTna",
+];
 
 export async function updateStaff(user: SessionUser, id: number, input: StaffInput) {
   ensure(user, "staff.manage");
@@ -195,8 +210,10 @@ export async function updateStaff(user: SessionUser, id: number, input: StaffInp
     checkDesignation(user, input.designation);
     await checkSection(tx, input.departmentId, input.sectionId);
 
-    const staff = await tx.staff.update({ where: { id }, data: input });
-    const changes = diffFields(before, input, EDITABLE);
+    // Who fills in their own TNA is L&D's to decide: a clerk's save leaves it as it was.
+    const data = isAdmin(user) ? input : { ...input, fillsOwnTna: before.fillsOwnTna };
+    const staff = await tx.staff.update({ where: { id }, data });
+    const changes = diffFields(before, data, EDITABLE);
     if (before.departmentId !== input.departmentId) {
       // Same rule as Organization → Transfer: a HOD who leaves stops being HOD.
       await tx.department.updateMany({ where: { hodId: id, id: { not: input.departmentId } }, data: { hodId: null } });

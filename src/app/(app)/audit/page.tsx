@@ -11,7 +11,7 @@ import { requirePermission } from "@/server/session";
 export const metadata: Metadata = { title: "Audit log" };
 
 const PAGE = 100;
-const ENTITIES = ["Staff", "Training", "Participant", "Department", "Division", "Section"] as const;
+const ENTITIES = ["Staff", "Training", "Participant", "Pme", "Department", "Division", "Section"] as const;
 const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "IMPORT"];
 const ACTION_LABEL: Record<AuditAction, string> = { CREATE: "Added", UPDATE: "Changed", DELETE: "Deleted", IMPORT: "Import" };
 
@@ -20,6 +20,7 @@ function recordHref(entity: string, id: string | null): string | null {
   if (entity === "Staff") return `/staff/${id}`;
   // Participant entries carry the training's id.
   if (entity === "Training" || entity === "Participant") return `/trainings/${id}`;
+  if (entity === "Pme") return `/pme/${id}`;
   if (entity === "Department") return `/organization/departments/${id}`;
   if (entity === "Division") return `/organization#division-${id}`;
   return null;
@@ -64,7 +65,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
           <label htmlFor="entity" className="sr-only">
             Record type
           </label>
-          <Select id="entity" name="entity" defaultValue={entity} options={[{ value: "", label: "All records" }, ...ENTITIES.map((e) => ({ value: e, label: e }))]} />
+          <Select id="entity" name="entity" defaultValue={entity} options={[{ value: "", label: "All records" }, ...ENTITIES.map((e) => ({ value: e, label: e === "Pme" ? "PME" : e }))]} />
         </div>
         <div className="w-[calc(50%-4px)] sm:w-36">
           <label htmlFor="action" className="sr-only">

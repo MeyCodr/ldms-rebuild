@@ -1,36 +1,10 @@
 import "server-only";
 import { db } from "../db";
 import { resolveApprover, type ApproverResult } from "../rules/approver";
+import { approverInput, approverStaffSelect } from "./pmeSync";
 
-const approverSelect = {
-  id: true,
-  _count: { select: { hodOf: true } },
-  department: {
-    select: {
-      hodId: true,
-      hod: { select: { status: true } },
-      division: { select: { headId: true } },
-    },
-  },
-} as const;
-
-type StaffForApprover = {
-  id: number;
-  _count: { hodOf: number };
-  department: { hodId: number | null; hod: { status: string } | null; division: { headId: number | null } };
-};
-
-function toInput(s: StaffForApprover) {
-  return {
-    staffId: s.id,
-    isHodAnywhere: s._count.hodOf > 0,
-    department: {
-      hodId: s.department.hodId,
-      hodActive: s.department.hod?.status === "ACTIVE",
-      division: { headId: s.department.division.headId },
-    },
-  };
-}
+const approverSelect = approverStaffSelect;
+const toInput = approverInput;
 
 export async function approverFor(staffId: number): Promise<(ApproverResult & { approver?: { id: number; name: string; staffNo: string } }) | null> {
   const staff = await db.staff.findUnique({ where: { id: staffId }, select: approverSelect });

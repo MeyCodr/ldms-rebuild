@@ -1,8 +1,9 @@
 import ExcelJS from "exceljs";
-import { formatDateRange } from "@/lib/format";
+import { formatDateRange, nowInMalaysia } from "@/lib/format";
 import { ATTENDANCE_LABELS } from "@/lib/validation/participant";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can } from "@/server/permissions";
+import { PME_STAGE_LABELS, pmeStage } from "@/server/rules/pme";
 import { participantsForExport } from "@/server/services/participant";
 import { getCurrentUser } from "@/server/session";
 
@@ -16,6 +17,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/training
   const data = Number.isInteger(id) ? await participantsForExport(user, id) : null;
   if (!data) return new Response("Not found", { status: 404 });
   const { training, rows } = data;
+  const today = nowInMalaysia();
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "LDMS";
@@ -35,12 +37,13 @@ export async function GET(_request: Request, { params }: RouteContext<"/training
     { header: "Reason", key: "reason", width: 34 },
     { header: "Feedback Given", key: "feedback", width: 15, style: { numFmt: "dd/mm/yyyy" } },
     { header: "Hours", key: "hours", width: 8, style: { numFmt: "0.##" } },
+    { header: "PME", key: "pme", width: 22 },
   ];
   ws.columns = columns.map(({ key, width, style }) => ({ key, width, style }));
   const header = ws.getRow(3);
   columns.forEach((c, i) => (header.getCell(i + 1).value = c.header));
   header.font = { bold: true };
-  ws.autoFilter = { from: "A3", to: "I3" };
+  ws.autoFilter = { from: "A3", to: "J3" };
   for (const p of rows) {
     ws.addRow({
       staffNo: p.staff.staffNo,
@@ -52,6 +55,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/training
       reason: p.attendanceReason ?? "",
       feedback: p.submittedAt,
       hours: p.hours,
+      pme: p.pme ? PME_STAGE_LABELS[pmeStage(p.pme, today)] : "",
     });
   }
 

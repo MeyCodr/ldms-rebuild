@@ -6,7 +6,7 @@ type Tx = Prisma.TransactionClient;
 export type AuditEntry = {
   actorId: number;
   action: AuditAction;
-  entity: "Staff" | "Division" | "Department" | "Section" | "StaffRole" | "Setting" | "Training" | "Participant";
+  entity: "Staff" | "Division" | "Department" | "Section" | "StaffRole" | "Setting" | "Training" | "Participant" | "Pme";
   entityId: number | string;
   summary: string;
   changes?: Record<string, [unknown, unknown]>;

@@ -15,6 +15,7 @@ import { ATTENDANCE_LABELS, PARTICIPANT_ACTION_LABELS } from "@/lib/validation/p
 import { nowInMalaysia, plural } from "@/lib/format";
 import { recordAudit } from "./audit";
 import { ensure } from "./org";
+import { syncPmes } from "./pmeSync";
 
 // Participant changes are audited with entity "Participant" and the training's
 // id, so the training page's history shows who changed whose attendance. Each
@@ -31,6 +32,8 @@ const participantSelect = {
   source: true,
   submittedAt: true,
   createdAt: true,
+  // Their PME for this training, when they have one (rules/pme.ts).
+  pme: { select: { id: true, status: true, periodEnd: true, returnedAt: true } },
   staff: {
     select: {
       id: true,
@@ -170,7 +173,15 @@ export async function applyParticipantAction(user: SessionUser, trainingId: numb
 
     const rows = await tx.participant.findMany({
       where: { trainingId, id: { in: input.participantIds } },
-      select: { id: true, attendance: true, attendanceReason: true, feedback: true, submittedAt: true, staff: { select: { name: true, staffNo: true } } },
+      select: {
+        id: true,
+        attendance: true,
+        attendanceReason: true,
+        feedback: true,
+        submittedAt: true,
+        staff: { select: { name: true, staffNo: true } },
+        pme: { select: { status: true, returnedAt: true } },
+      },
       orderBy: { staff: { name: "asc" } },
     });
     const skipped: string[] = [];
@@ -180,7 +191,7 @@ export async function applyParticipantAction(user: SessionUser, trainingId: numb
     const applying = rows.filter((p) => {
       const why = participantActionBlock(
         input.action,
-        { name: p.staff.name, attendance: p.attendance, hasFeedback: p.feedback !== null || p.submittedAt !== null },
+        { name: p.staff.name, attendance: p.attendance, hasFeedback: p.feedback !== null || p.submittedAt !== null, pme: p.pme },
         training,
         today,
       );
@@ -198,6 +209,8 @@ export async function applyParticipantAction(user: SessionUser, trainingId: numb
         // The reason belongs to the attendance it explains; going back to pending clears it.
         data: { attendance: after, attendanceReason: after === "PENDING" ? null : input.reason },
       });
+    // Completed: executives and managers get a PME. Reopened: one not yet evaluated is withdrawn.
+    if (after !== null) await syncPmes(tx, { id: { in: ids } });
 
     // One entry for the whole action. The reason is kept on the row for absent
     // and completed; for the other actions (reopen, undo absent, remove) it

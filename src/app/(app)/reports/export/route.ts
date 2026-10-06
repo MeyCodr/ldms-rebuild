@@ -4,6 +4,7 @@ import { ATTENDANCE_LABELS } from "@/lib/validation/participant";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
+import { PME_STAGE_LABELS } from "@/server/rules/pme";
 import { TRAINING_PHASE_LABELS } from "@/server/rules/training";
 import { auditReportForExport, departmentHoursReport, staffHoursReport, trainingAttendanceDetail, trainingAttendanceReport } from "@/server/services/report";
 import { getCurrentUser } from "@/server/session";
@@ -138,8 +139,10 @@ export async function GET(request: Request) {
         { header: "Reason", key: "reason", width: 34 },
         { header: "Feedback Given", key: "feedback", width: 15, numFmt: DATE },
         { header: "Hours", key: "hours", width: 8, numFmt: HOURS },
+        { header: "PME", key: "pme", width: 22 },
       ],
       rows.map((r) => ({
+        pme: r.pme ? PME_STAGE_LABELS[r.pme.stage] : "",
         staffNo: r.staff.staffNo,
         name: r.staff.name,
         designation: DESIGNATION_LABELS[r.staff.designation],

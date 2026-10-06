@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { toDateInput } from "@/lib/format";
-import { canManageStaffRecord, manageableDesignations } from "@/server/permissions";
+import { canManageStaffRecord, isAdmin, manageableDesignations } from "@/server/permissions";
 import { departmentOptions } from "@/server/services/org";
 import { getStaffRecord } from "@/server/services/staff";
 import { requirePermission } from "@/server/session";
@@ -34,6 +34,7 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
           designations={manageableDesignations(user)}
           submitLabel="Save changes"
           cancelHref={`/staff/${id}`}
+          canSetTna={isAdmin(user)}
           initial={{
             staffNo: staff.staffNo,
             name: staff.name,
@@ -43,6 +44,8 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
             departmentId: staff.departmentId,
             sectionId: staff.sectionId ?? "",
             dateJoined: toDateInput(staff.dateJoined),
+            jobGrade: staff.jobGrade ?? "",
+            fillsOwnTna: staff.fillsOwnTna,
           }}
         />
       </div>
