@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Check, Clock, MapPin, MonitorSmartphone, Pencil, Presentation, UserRound } from "lucide-react";
+import { CertificatePanel } from "@/components/CertificatePanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
@@ -12,6 +13,7 @@ import { formatDate, formatDateRange, formatDateTime, formatHours, formatMoney, 
 import { OJT_METHOD_LABELS, TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { dailyMinutes, dayNumber, trainingDeleteBlock, trainingHours, trainingPhase } from "@/server/rules/training";
+import { certificateInfo } from "@/server/services/certificate";
 import { listParticipants } from "@/server/services/participant";
 import { getTraining, trainingHistory } from "@/server/services/training";
 import { requirePermission } from "@/server/session";
@@ -39,8 +41,12 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
 
   const { saved } = await searchParams;
   const manage = can(user, "training.manage");
-  const [history, participants] = await Promise.all([manage || can(user, "audit.view") ? trainingHistory(id) : [], listParticipants(user, id)]);
   const today = nowInMalaysia();
+  const [history, participants, certificate] = await Promise.all([
+    manage || can(user, "audit.view") ? trainingHistory(id) : [],
+    listParticipants(user, id),
+    certificateInfo(user, id, today),
+  ]);
   const todayNo = Math.floor(today.getTime() / DAY_MS);
   const cancelled = t.status === "CANCELLED";
   const days = dayNumber(t.endDate)! - dayNumber(t.startDate)! + 1;
@@ -224,6 +230,8 @@ export default async function TrainingPage({ params, searchParams }: PageProps<"
             </div>
           </div>
         </div>
+
+        {certificate && <CertificatePanel info={certificate} wide />}
 
         <ParticipantsPanel
           trainingId={id}

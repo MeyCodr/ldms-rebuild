@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileDown, FileUp, Plus } from "lucide-react";
+import { FileCheck, FileDown, FileUp, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { ClickableRow } from "@/components/ui/ClickableRow";
 import { DateRangeFilter } from "@/components/ui/DateRangeFilter";
@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { formatDateRange, formatHours, nowInMalaysia, plural } from "@/lib/format";
 import { TRAINING_TYPE_LABELS, TRAINING_TYPE_SHORT_LABELS, TRAINING_TYPES } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
-import { trainingPhase } from "@/server/rules/training";
+import { TRAINING_PHASE_LABELS, TRAINING_PHASES, trainingPhase } from "@/server/rules/training";
 import { listTrainings, TRAINING_PAGE_SIZE, TRAINING_SORT_DEFAULT_DIR, type TrainingFilters, type TrainingSort } from "@/server/services/training";
 import { requirePermission } from "@/server/session";
 import { filtersToQuery, parseTrainingFilters } from "./filters";
@@ -88,11 +88,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
             id="status"
             name="status"
             defaultValue={f.status}
-            options={[
-              { value: "ALL", label: "All statuses" },
-              { value: "SCHEDULED", label: "Not cancelled" },
-              { value: "CANCELLED", label: "Cancelled" },
-            ]}
+            options={[{ value: "ALL", label: "All statuses" }, ...TRAINING_PHASES.map((p) => ({ value: p, label: TRAINING_PHASE_LABELS[p] }))]}
           />
         </div>
         <DateRangeFilter from={f.from} to={f.to} />
@@ -137,6 +133,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
               <th className="hidden w-px text-right whitespace-nowrap md:table-cell" title="Hours × participants who completed it">
                 Total man hours
               </th>
+              <th className="hidden w-px whitespace-nowrap lg:table-cell">Certificate</th>
               <th className="w-24 sm:w-28">Status</th>
             </tr>
           </thead>
@@ -175,6 +172,15 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
                   )}
                 </td>
                 <td className={`num hidden text-right whitespace-nowrap md:table-cell ${t.manHours ? "" : "muted"}`}>{formatHours(t.manHours)}</td>
+                <td className="hidden lg:table-cell">
+                  {t.hasCertificate ? (
+                    <span className="inline-flex items-center gap-1.5 text-ink-2">
+                      <FileCheck size={14} aria-hidden className="text-ok" /> Yes
+                    </span>
+                  ) : (
+                    <span className="muted">–</span>
+                  )}
+                </td>
                 <td>
                   <PhaseStatus phase={trainingPhase(t, today)} />
                 </td>

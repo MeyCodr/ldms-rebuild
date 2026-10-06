@@ -9,6 +9,7 @@ import { ojtDateBlock } from "../rules/myTraining";
 import { ojtAttendanceAfterEdit, ojtChangeBlock, ojtEntryAttendance, ojtStaffBlock } from "../rules/ojt";
 import { countsTowardHours, trainingHours } from "../rules/training";
 import { diffFields, recordAudit } from "./audit";
+import { discardCertificateFile } from "./certificate";
 import { ensure } from "./org";
 import { newTrainingCode } from "./training";
 
@@ -285,6 +286,7 @@ const changeSelect = {
   venue: true,
   program: true,
   trainerName: true,
+  certificateFile: true,
   sessions: { select: { date: true, startTime: true, endTime: true } },
   participants: {
     orderBy: { staff: { name: "asc" } },
@@ -478,7 +480,7 @@ export async function updateOjtEntry(user: SessionUser, participantId: number, d
 
 /** Deletes the OJT a record belongs to, for everyone on it. */
 export async function deleteOjtEntry(user: SessionUser, participantId: number) {
-  return db.$transaction(async (tx) => {
+  const certificate = await db.$transaction(async (tx) => {
     const found = await ojtWithPeople(tx, user, participantId);
     if (!found) throw new UserError("This OJT record no longer exists.");
     if (found.blocked) throw new UserError(found.blocked);
@@ -494,5 +496,7 @@ export async function deleteOjtEntry(user: SessionUser, participantId: number) {
       summary: `Deleted OJT ${training.title} (${formatDateRange(training.startDate, training.endDate)}) for ${people.length === 1 ? who(people[0]) : plural(people.length, "staff member")}`,
       changes: people.length === 1 ? undefined : { staff: [people.map(who).join(", "), null] },
     });
+    return training.certificateFile;
   });
+  await discardCertificateFile(certificate);
 }

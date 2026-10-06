@@ -32,7 +32,8 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
       : "Staff in the departments you approve for";
 
   return (
-    <div>
+    // The page fills the screen and the table scrolls inside it, as on Trainings.
+    <div className="page-fit">
       <PageHeader module="staff"
         context="Records"
         title="Staff"
@@ -132,7 +133,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
         </div>
       )}
 
-      <div className="mt-4 overflow-x-auto card">
+      <div className="table-scroll card mt-4">
         <table className="table">
           <thead>
             <tr>
@@ -205,7 +206,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
       </div>
 
       {total > PAGE_SIZE && (
-        <nav aria-label="Pages" className="mt-3 flex items-center justify-between text-[13px] text-ink-2">
+        <nav aria-label="Pages" className="mt-3 flex shrink-0 items-center justify-between text-[13px] text-ink-2">
           <span className="num">
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
           </span>

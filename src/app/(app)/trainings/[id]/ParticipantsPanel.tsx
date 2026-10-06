@@ -214,7 +214,6 @@ export function ParticipantsPanel({
                     <th className="hidden md:table-cell">Department</th>
                     <th>Attendance</th>
                     <th className="hidden lg:table-cell">Feedback</th>
-                    <th className="hidden lg:table-cell">Certificate</th>
                     {editable && (
                       <th className="pr-5 text-right">
                         <span className="sr-only">Actions</span>
@@ -264,7 +263,6 @@ export function ParticipantsPanel({
                           <span className="muted">{r.attendance === "PENDING" ? "Not yet" : "None"}</span>
                         )}
                       </td>
-                      <td className="hidden lg:table-cell">{r.certificateFile ? "Uploaded" : <span className="muted">None</span>}</td>
                       {editable && (
                         <td className="pr-5">
                           <div className="flex justify-end gap-1">

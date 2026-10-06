@@ -7,7 +7,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | --- | --- | --- |
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
-| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: modules 1–3 (Trainings, Participants, My Training) done, visual redesign done; module 4 (OJT for clerks) built, in review; see `docs/phase-2-plan.md` |
+| 2 | Training core: trainings, participants, attendance, OJT | **In progress**: modules 1–4 (Trainings, Participants, My Training, OJT for clerks) done, visual redesign done; module 5 (Certificates) built, in review; see `docs/phase-2-plan.md` |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | |
 | 4 | Reporting, exports, daily jobs | |
 | 5 | Migration rehearsal and cutover | |
@@ -128,12 +128,16 @@ Reviewed at the end of phase 1 (29 Sep 2026). Regression tests are in `tests/e2e
 - **Redirects**: `?from=` after sign-in only accepts paths on this site (`src/lib/safe-redirect.ts`).
 - **Headers**: `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy and a restrictive
   permissions policy on every response; `X-Powered-By` is off.
+- **Uploaded files** (certificates): kept outside `public/` in `uploads/certificates/<year>/` under random names,
+  type checked by content, and only served by `/certificates/[trainingId]` after a permission check.
 - **Dependencies**: `npm audit` is clean. `deepmerge-ts` and `uuid` are pinned to patched versions through `overrides`
   in `package.json`; remove them once Prisma and ExcelJS ship fixed versions.
 
 Still to do before go-live:
 
 - **HTTPS and HSTS** at the reverse proxy (Nginx/Apache) on the production server.
+- **Back up `uploads/` with the database.** Certificate files live there (the database only holds their names), so
+  backups and server moves need both. `UPLOAD_DIR` can point it at another disk.
 - **A full Content-Security-Policy** with nonces for Next.js's inline scripts.
 - **Lockout across processes and per IP**: the lockout is in memory and keyed by staff no. Move it to the database
   (or Redis) if the app ever runs more than one process, and add a per-IP limit against password spraying.

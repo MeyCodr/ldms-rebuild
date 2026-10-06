@@ -248,7 +248,7 @@ Built to match the old system's Add Training form, following the user's review. 
   existing trainings got one from their `createdAt`. Rule `trainingCode` in `src/server/rules/training.ts`,
   `newTrainingCode` in the training service (also used for self-recorded OJT). Shown on the list and the training page,
   and searchable. (`Training.code` is separate: the provider's course code.)
-- `/trainings`: list with `page-fit` table. Filters: search (code, title, trainer, venue), type, status, start date
+- `/trainings`: list with `page-fit` table. Filters: search (code, title, trainer, venue), type, status (the four the table shows; only Cancelled is stored, the rest come from the dates: `trainingPhaseWhere`), start date
   (starts on or after) and end date (ends on or before). Columns: no., training code, dates (no times), training (title
   only), type (Public / In-house shown as "Public"), total days (session days, or start to end), hours (per person),
   participants (completed / total), total man hours (hours × completed participants; 0 when cancelled), status
@@ -272,7 +272,7 @@ description, organising department and sessions. Editing leaves them unchanged, 
 with the form's dates and times. Decide at the phase 5 import whether the old data fills them; otherwise remove them.
 Phase 5 must also map the old values of HRDC, platform, function and program.
 
-### Module 2: Participants and attendance (built 30 Sep 2026, awaiting review)
+### Module 2: Participants and attendance (done 01 Oct 2026, merged)
 
 - `/trainings/[id]`: Details beside Schedule, then a full-width **Participants** panel, then History. The panel has
   counts that double as filters (All / Pending / Completed / Absent), a name or staff no. search, and a table: staff no.,
@@ -295,7 +295,7 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   `20260930090000_participant_attendance_reason` (renames `absentReason` → `attendanceReason`, which now holds the
   reason for absent or for completed-on-their-behalf). The seed adds demo participants when the table is empty.
 
-### Module 3: My Training (built 01 Oct 2026, awaiting review)
+### Module 3: My Training (done 02 Oct 2026, merged)
 
 - `/my-training` (sidebar **My work → My training**, with a count of forms waiting): one `page-fit` table of every
   training the person is on, newest first, like `/trainings`. Filters: search (title, trainer, venue), status
@@ -331,7 +331,7 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   `tests/e2e/my-training.spec.ts` (with `tests/e2e/db.ts`, a test-only clean-up for the training a test gave feedback
   on, which the app rightly never deletes). The seed now gives seeded feedback dates demo answers.
 
-### Module 4: OJT for clerks (built 05 Oct 2026, awaiting review)
+### Module 4: OJT for clerks (done 05 Oct 2026, merged)
 
 - Permission `ojt.manage` (L&D admin, main clerk, clerk); sidebar **Training → OJT** (module key `ojt`, olive).
   OJT are trainings, so L&D also have **Import from Excel** on the Trainings page (`/trainings/import`: the same flow
@@ -371,17 +371,32 @@ Phase 5 must also map the old values of HRDC, platform, function and program.
   person gives their answers on My Training (which completes it). Only some of the three answers → row error.
 - Audit: a `Training` CREATE entry per OJT naming everyone on it, plus one IMPORT entry per file.
 
-### Module 5: Certificates
+### Module 5: Certificates (built 05 Oct 2026, awaiting review)
 
 - **Per training, not per participant** (decided 5 Oct 2026: providers send one certificate file for the whole
-  class). Move `certificateFile` / `certificateName` / `certificateAt` from `Participant` to `Training` (all empty
-  today). One file per training; upload, replace and remove on the training page (L&D), all audited. Clerks for OJT
-  they look after; staff for OJT they recorded themselves.
-- Store under `uploads/certificates/<year>/<random id>.<ext>` (add `uploads/` to `.gitignore`); keep the original name in
-  `certificateName`. Check type by file signature (PDF/JPG/PNG), max 5 MB.
-- Download route `/certificates/[trainingId]` that checks: L&D, a participant marked **Completed** (from My training),
-  a clerk for OJT they look after. `Content-Disposition: attachment`, never served from `public/`.
-- The participants table's per-person Certificate column goes; the training page shows the certificate once.
+  class). `certificateFile` / `certificateName` / `certificateAt` moved from `Participant` to `Training`, plus
+  `certificateById` (migration `20261005070900_training_certificate`; the participant columns were all empty). One
+  file per training.
+- Rules `src/server/rules/certificate.ts` (tests `tests/rules/certificate.test.ts`), service
+  `src/server/services/certificate.ts`, actions `src/app/(app)/certificates/actions.ts`, e2e
+  `tests/e2e/certificates.spec.ts`.
+- **Who changes it** (`certificateManageBlock`): L&D, any training; a clerk, OJT they may change (`ojtChangeBlock`); a
+  staff member, an OJT they recorded for themselves. **Upload** also needs the training to have started and not be
+  cancelled (`certificateUploadBlock`). Upload, replace and remove are `Training` UPDATE audit entries (field
+  `certificate`, shown in the training's history).
+- **Files**: `uploads/certificates/<year>/<random id>.<ext>` (`UPLOAD_DIR` overrides `uploads/`; git-ignored), never
+  under `public/`. The type comes from the file's first bytes (PDF, JPG or PNG), at most 5 MB (checked in the page
+  first; server actions accept 6 MB). The original name is kept, cleaned, for the download. A replaced or removed
+  file is deleted, as is the file of a training or OJT that is deleted.
+- **Download** `/certificates/[trainingId]` (`certificateDownloadAllowed`): L&D; anyone on the training marked
+  Completed; a clerk for OJT of contract staff. Anyone else, and a training without one, gets 404.
+  `Content-Disposition: attachment`, `Cache-Control: private, no-store`.
+- **Screens**: one *Certificate* panel (`src/components/CertificatePanel.tsx`) on the training page (a full-width row),
+  the OJT record and My training (with why it can't be downloaded yet: not completed, or absent). The participants
+  table and its export lose their per-person Certificate column; the Trainings list and export gain one (Yes / –).
+- **Preview first** (asked 5 Oct 2026): the file, or *View certificate*, opens a preview (PDF in the browser's viewer,
+  fitted to the width; images as they are), fetched through the download route so the same check applies. Download,
+  Replace and Delete are in the preview, for those who may. Phones that can't show a PDF in a page are told to download it.
 - **Done when**: upload, replace, remove and download work, and someone not completed on the training (or not on it)
   can't fetch its certificate.
 

@@ -13,7 +13,9 @@ import {
   trainingDays,
   trainingDeleteBlock,
   trainingHours,
+  TRAINING_PHASES,
   trainingPhase,
+  trainingPhaseWhere,
 } from "@/server/rules/training";
 
 const d = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -338,5 +340,29 @@ describe("manHours", () => {
     expect(manHours({ hours: 9, completedCount: 0, status: "SCHEDULED" })).toBe(0);
     expect(manHours({ hours: 16, completedCount: 5, status: "CANCELLED" })).toBe(0);
     expect(manHours({ hours: null, completedCount: 5, status: "SCHEDULED" })).toBe(0);
+  });
+});
+
+describe("trainingPhaseWhere", () => {
+  // Applies the filter the way the database would, for the fields it uses.
+  type Bound = { gt?: Date; lt?: Date; gte?: Date; lte?: Date };
+  const within = (v: Date, b?: Bound) => !b || ((!b.gt || v > b.gt) && (!b.lt || v < b.lt) && (!b.gte || v >= b.gte) && (!b.lte || v <= b.lte));
+  const matches = (where: ReturnType<typeof trainingPhaseWhere>, t: { status: "SCHEDULED" | "CANCELLED"; startDate: Date; endDate: Date }) =>
+    where.status === t.status && within(t.startDate, where.startDate as Bound) && within(t.endDate, where.endDate as Bound);
+
+  const d = (s: string) => new Date(`${s}T00:00:00Z`);
+  const today = new Date("2026-10-05T14:30:00Z"); // afternoon, Malaysia time
+  const trainings = [
+    { status: "SCHEDULED" as const, startDate: d("2026-10-06"), endDate: d("2026-10-07") }, // starts tomorrow
+    { status: "SCHEDULED" as const, startDate: d("2026-10-05"), endDate: d("2026-10-05") }, // today only
+    { status: "SCHEDULED" as const, startDate: d("2026-10-03"), endDate: d("2026-10-05") }, // ends today
+    { status: "SCHEDULED" as const, startDate: d("2026-10-05"), endDate: d("2026-10-09") }, // starts today
+    { status: "SCHEDULED" as const, startDate: d("2026-10-01"), endDate: d("2026-10-04") }, // ended yesterday
+    { status: "CANCELLED" as const, startDate: d("2026-10-05"), endDate: d("2026-10-05") },
+  ];
+
+  it("finds exactly the trainings the list shows in that status, on the edge days too", () => {
+    for (const t of trainings)
+      for (const phase of TRAINING_PHASES) expect(matches(trainingPhaseWhere(phase, today), t)).toBe(trainingPhase(t, today) === phase);
   });
 });

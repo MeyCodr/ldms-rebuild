@@ -203,38 +203,43 @@ enum ParticipantSource {
 }
 
 model Training {
-  id             Int               @id @default(autoincrement())
-  type           TrainingType
-  title          String            @db.VarChar(200)
-  trainingCode   String            @unique @db.VarChar(20) // automatic: TR (OJT for OJT) + the day it was added (YYYYMMDD) + 6 random digits; never changes
-  code           String?           @db.VarChar(40) // the provider's course code, if any
-  provider       String?           @db.VarChar(160) // training provider / organiser
-  trainerName    String?           @db.VarChar(160) // free text, or a copy of the internal trainer's name
-  trainerStaffId Int? // set only for "internal training by internal trainer"
-  venue          String?           @db.VarChar(160)
-  program        TrainingProgram? // required on the form except for OJT; for OJT, the external/internal trainer
-  ojtMethod      OjtMethod? // OJT only: OJT, coaching or mentoring
-  function       TrainingFunction?
-  platform       TrainingPlatform?
-  category       String?           @db.VarChar(80)
-  hrdfClaimable  Boolean           @default(false) // "HRDC" on screen (HRD Corp, formerly HRDF)
-  cost           Decimal?          @db.Decimal(12, 2) // RM, whole course
-  description    String?           @db.Text
-  startDate      DateTime          @db.Date
-  endDate        DateTime          @db.Date
-  startTime      DateTime          @db.Time(0)
-  endTime        DateTime          @db.Time(0)
-  status         TrainingStatus    @default(SCHEDULED)
-  departmentId   Int? // organising department (DEPARTMENTAL, and OJT)
-  createdById    Int?
-  legacySource   String?           @db.VarChar(10) // "training" | "ojt": old IDs overlap between tables
-  legacyId       Int?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  department     Department?       @relation(fields: [departmentId], references: [id])
-  trainerStaff   Staff?            @relation("TrainingTrainer", fields: [trainerStaffId], references: [id], onDelete: SetNull)
-  sessions       TrainingSession[]
-  participants   Participant[]
+  id              Int               @id @default(autoincrement())
+  type            TrainingType
+  title           String            @db.VarChar(200)
+  trainingCode    String            @unique @db.VarChar(20) // automatic: TR (OJT for OJT) + the day it was added (YYYYMMDD) + 6 random digits; never changes
+  code            String?           @db.VarChar(40) // the provider's course code, if any
+  provider        String?           @db.VarChar(160) // training provider / organiser
+  trainerName     String?           @db.VarChar(160) // free text, or a copy of the internal trainer's name
+  trainerStaffId  Int? // set only for "internal training by internal trainer"
+  venue           String?           @db.VarChar(160)
+  program         TrainingProgram? // required on the form except for OJT; for OJT, the external/internal trainer
+  ojtMethod       OjtMethod? // OJT only: OJT, coaching or mentoring
+  function        TrainingFunction?
+  platform        TrainingPlatform?
+  category        String?           @db.VarChar(80)
+  hrdfClaimable   Boolean           @default(false) // "HRDC" on screen (HRD Corp, formerly HRDF)
+  cost            Decimal?          @db.Decimal(12, 2) // RM, whole course
+  description     String?           @db.Text
+  startDate       DateTime          @db.Date
+  endDate         DateTime          @db.Date
+  startTime       DateTime          @db.Time(0)
+  endTime         DateTime          @db.Time(0)
+  status          TrainingStatus    @default(SCHEDULED)
+  // The certificate: one file for the whole training, as providers send it (module 5).
+  certificateFile String?           @db.VarChar(255) // stored name under uploads/certificates, e.g. 2026/<random id>.pdf
+  certificateName String?           @db.VarChar(255) // original file name, for download
+  certificateAt   DateTime?
+  certificateById Int? // who uploaded it
+  departmentId    Int? // organising department (DEPARTMENTAL, and OJT)
+  createdById     Int?
+  legacySource    String?           @db.VarChar(10) // "training" | "ojt": old IDs overlap between tables
+  legacyId        Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  department      Department?       @relation(fields: [departmentId], references: [id])
+  trainerStaff    Staff?            @relation("TrainingTrainer", fields: [trainerStaffId], references: [id], onDelete: SetNull)
+  sessions        TrainingSession[]
+  participants    Participant[]
 
   @@unique([legacySource, legacyId])
   @@index([type, startDate]) // replaces the old *_archive tables
@@ -265,9 +270,6 @@ model Participant {
   feedback         Json? // answers, shape checked by the Zod schema for feedbackVersion
   feedbackVersion  Int?
   submittedAt      DateTime?
-  certificateFile  String?           @db.VarChar(255) // stored name under uploads/certificates
-  certificateName  String?           @db.VarChar(255) // original file name, for download
-  certificateAt    DateTime?
   legacyId         Int?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

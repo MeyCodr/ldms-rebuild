@@ -1,14 +1,25 @@
 import "server-only";
 import { randomInt } from "node:crypto";
-import type { Prisma, TrainingStatus, TrainingType } from "@prisma/client";
+import type { Prisma, TrainingType } from "@prisma/client";
 import { db } from "../db";
 import { UserError } from "../errors";
 import type { SessionUser } from "../permissions";
-import { canBeInternalTrainer, INTERNAL_TRAINER_DESIGNATIONS, manHours, trainingCode, trainingDays, trainingDeleteBlock, trainingHours } from "../rules/training";
+import {
+  canBeInternalTrainer,
+  INTERNAL_TRAINER_DESIGNATIONS,
+  manHours,
+  trainingCode,
+  trainingDays,
+  trainingDeleteBlock,
+  trainingHours,
+  type TrainingPhase,
+  trainingPhaseWhere,
+} from "../rules/training";
 import type { TrainingInput } from "@/lib/validation/training";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { formatDateRange, formatTime, nowInMalaysia } from "@/lib/format";
 import { diffFields, recordAudit } from "./audit";
+import { discardCertificateFile } from "./certificate";
 import { ensure } from "./org";
 
 // ---------- Listing ----------
@@ -20,7 +31,8 @@ export type TrainingFilters = {
   from?: string;
   /** YYYY-MM-DD: trainings ending on or before this day. */
   to?: string;
-  status?: TrainingStatus | "ALL";
+  /** Where it stands (see trainingPhase), or every training. */
+  status?: TrainingPhase | "ALL";
   sort?: TrainingSort;
   dir?: "asc" | "desc";
   page?: number;
@@ -60,7 +72,7 @@ export const TRAINING_PAGE_SIZE = 50;
 function trainingWhere(f: TrainingFilters): Prisma.TrainingWhereInput {
   const and: Prisma.TrainingWhereInput[] = [];
   if (f.type) and.push({ type: f.type });
-  if (f.status && f.status !== "ALL") and.push({ status: f.status });
+  if (f.status && f.status !== "ALL") and.push(trainingPhaseWhere(f.status, nowInMalaysia()));
   if (f.from) and.push({ startDate: { gte: new Date(`${f.from}T00:00:00Z`) } });
   if (f.to) and.push({ endDate: { lte: new Date(`${f.to}T00:00:00Z`) } });
   if (f.q) {
@@ -90,6 +102,7 @@ const listSelect = {
   startTime: true,
   endTime: true,
   status: true,
+  certificateFile: true,
   department: { select: { name: true } },
   sessions: { select: { date: true, startTime: true, endTime: true } },
   _count: { select: { participants: true } },
@@ -117,6 +130,7 @@ async function withTotals(rows: ListRow[]) {
       participantCount: r._count.participants,
       completedCount,
       manHours: manHours({ hours, completedCount, status: r.status }),
+      hasCertificate: r.certificateFile !== null,
     };
   });
 }
@@ -372,7 +386,7 @@ export async function restoreTraining(user: SessionUser, id: number) {
 
 export async function deleteTraining(user: SessionUser, id: number) {
   ensure(user, "training.manage");
-  return db.$transaction(async (tx) => {
+  const certificate = await db.$transaction(async (tx) => {
     const training = await tx.training.findUnique({ where: { id }, include: { _count: { select: { participants: true } } } });
     if (!training) throw new UserError("This training no longer exists.");
     const blocked = trainingDeleteBlock({ participantCount: training._count.participants });
@@ -385,5 +399,7 @@ export async function deleteTraining(user: SessionUser, id: number) {
       entityId: id,
       summary: `Deleted training ${training.title} (${formatDateRange(training.startDate, training.endDate)})`,
     });
+    return training.certificateFile;
   });
+  await discardCertificateFile(certificate);
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, Hourglass, Lock, MapPin, Pencil, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { CertificatePanel } from "@/components/CertificatePanel";
 import { AnswerList, Fact, Row } from "@/components/RecordParts";
 import { Panel } from "@/components/Panel";
 import { Status } from "@/components/ui/Status";
@@ -11,6 +12,7 @@ import { formatDate, formatDateRange, formatDateTime, formatHours, formatTime, n
 import { OJT_METHOD_LABELS, OJT_TRAINER_LABELS, ojtTrainerOf, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { ojtDeleteBlock, ojtDetailsBlock } from "@/server/rules/myTraining";
 import { dayNumber } from "@/server/rules/training";
+import { certificateInfo } from "@/server/services/certificate";
 import { myParticipant, type MyTrainingRow } from "@/server/services/myTraining";
 import { requireUser } from "@/server/session";
 import { AnswersForm } from "../AnswersForm";
@@ -36,6 +38,7 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
   // Only the person's own records: anyone else's id is simply not found.
   const r = await myParticipant(user, id, today);
   if (!r) notFound();
+  const certificate = await certificateInfo(user, r.training.id, today);
 
   const { saved } = await searchParams;
   const t = r.training;
@@ -115,30 +118,47 @@ export default async function MyTrainingItemPage({ params, searchParams }: PageP
             <FormBody r={r} editLabel={editLabel} />
           </Panel>
 
-          <Panel className="lg:col-span-4" title="Your record">
-            <dl className="-my-1 flex flex-col text-[13.5px]">
-              <Row label="Attendance">
-                <Status tone={s.tone}>{s.label}</Status>
-                {r.attendanceReason && <div className="mt-0.5 text-xs text-ink-3">{r.attendanceReason}</div>}
-              </Row>
-              <Row label="Hours">
-                {r.counts ? (
-                  <span className="num font-medium">{formatHours(r.hours)}</span>
-                ) : (
-                  <span className="text-ink-3">
-                    {t.status === "CANCELLED" ? "None: cancelled" : r.attendance === "ABSENT" ? "None: absent" : "Count once completed"}
-                  </span>
-                )}
-              </Row>
-              {r.submittedAt && (
-                <Row label={r.kind === "OJT" ? "Answers given" : "Feedback sent"}>
-                  <span className="num">{formatDateTime(r.submittedAt)}</span>
+          <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">
+            <Panel title="Your record">
+              <dl className="-my-1 flex flex-col text-[13.5px]">
+                <Row label="Attendance">
+                  <Status tone={s.tone}>{s.label}</Status>
+                  {r.attendanceReason && <div className="mt-0.5 text-xs text-ink-3">{r.attendanceReason}</div>}
                 </Row>
-              )}
-              {recordedBy && <Row label="Recorded by">{recordedBy[0].toUpperCase() + recordedBy.slice(1)}</Row>}
-            </dl>
-            {detailsBlock && r.kind === "OJT" && <p className="mt-4 rounded-lg bg-sunken px-3 py-2 text-xs text-ink-2">{detailsBlock}</p>}
-          </Panel>
+                <Row label="Hours">
+                  {r.counts ? (
+                    <span className="num font-medium">{formatHours(r.hours)}</span>
+                  ) : (
+                    <span className="text-ink-3">
+                      {t.status === "CANCELLED" ? "None: cancelled" : r.attendance === "ABSENT" ? "None: absent" : "Count once completed"}
+                    </span>
+                  )}
+                </Row>
+                {r.submittedAt && (
+                  <Row label={r.kind === "OJT" ? "Answers given" : "Feedback sent"}>
+                    <span className="num">{formatDateTime(r.submittedAt)}</span>
+                  </Row>
+                )}
+                {recordedBy && <Row label="Recorded by">{recordedBy[0].toUpperCase() + recordedBy.slice(1)}</Row>}
+              </dl>
+              {detailsBlock && r.kind === "OJT" && <p className="mt-4 rounded-lg bg-sunken px-3 py-2 text-xs text-ink-2">{detailsBlock}</p>}
+            </Panel>
+            {certificate && (
+              <CertificatePanel
+                info={certificate}
+                emptyText={
+                  t.status === "CANCELLED"
+                    ? "None: this training was cancelled."
+                    : "No certificate yet. The L&D unit uploads it when the trainer or provider sends it."
+                }
+                lockedText={
+                  r.attendance === "ABSENT"
+                    ? "The certificate is for those who completed the training."
+                    : "You can download it once you've completed the training."
+                }
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

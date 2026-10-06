@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 
 const CloseContext = createContext<() => void>(() => {});
 export const useCloseDialog = () => useContext(CloseContext);
@@ -32,6 +32,8 @@ export function DialogButton({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Named by its title, so screen readers announce what opened.
+  const titleId = useId();
   // Remount the body on every open so forms start fresh.
   const [openCount, setOpenCount] = useState(0);
   const open = () => {
@@ -48,6 +50,7 @@ export function DialogButton({
       </button>
       <dialog
         ref={ref}
+        aria-labelledby={titleId}
         className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
         style={{ width: `min(${width}px, calc(100vw / var(--app-zoom) - 32px))` }}
         onClose={onClose}
@@ -56,7 +59,9 @@ export function DialogButton({
         }}
       >
         <div className="border-b border-rule px-6 py-4">
-          <h2 className="display text-[16.5px] font-semibold">{title}</h2>
+          <h2 id={titleId} className="display text-[16.5px] font-semibold">
+            {title}
+          </h2>
           {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
         </div>
         <div key={openCount} className="px-6 py-5">
@@ -88,6 +93,7 @@ export function Dialog({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const [openCount, setOpenCount] = useState(0);
   const [wasOpen, setWasOpen] = useState(false);
   if (open !== wasOpen) {
@@ -105,6 +111,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className="m-auto rounded-xl border border-rule bg-surface p-0 text-ink shadow-[var(--shadow-float)]"
       style={{ width: `min(${width}px, calc(100vw / var(--app-zoom) - 32px))` }}
       onClose={onClose}
@@ -113,7 +120,9 @@ export function Dialog({
       }}
     >
       <div className="border-b border-rule px-6 py-4">
-        <h2 className="display text-[16.5px] font-semibold">{title}</h2>
+        <h2 id={titleId} className="display text-[16.5px] font-semibold">
+          {title}
+        </h2>
         {description && <div className="mt-1 text-[13px] text-ink-2">{description}</div>}
       </div>
       <div key={openCount} className="px-6 py-5">

@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import ExcelJS from "exceljs";
+import { createTestTraining, deleteTestTraining } from "./db";
 import { choose, signIn } from "./helpers";
 
 // The flow test creates its own training (already held, so it can be marked
@@ -132,13 +133,19 @@ test("admin adds participants, records every attendance change, and each is audi
 });
 
 test("participants of an upcoming training can't be marked completed yet", async ({ page }) => {
-  await signIn(page, "10001");
-  await page.goto("trainings?q=Lockout+Tagout");
-  await page.getByRole("link", { name: "Lockout Tagout (LOTO)" }).click();
-  await participants(page).getByRole("button", { name: /^Mark completed/ }).first().click();
-  await expect(dialog(page).getByText(/The training hasn't started yet, so .* can't be marked completed./)).toBeVisible();
-  await expect(dialog(page).getByRole("button", { name: "Mark completed" })).toHaveCount(0);
-  await closeDialog(page);
+  // Its own training, a month from now, so it stays upcoming whatever happens to the demo data.
+  const title = `Upcoming check ${suffix}`;
+  const id = await createTestTraining(title, [{ staffNo: "10231", attendance: "PENDING" }], new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
+  try {
+    await signIn(page, "10001");
+    await page.goto(`trainings/${id}`);
+    await participants(page).getByRole("button", { name: /^Mark completed/ }).first().click();
+    await expect(dialog(page).getByText(/The training hasn't started yet, so .* can't be marked completed./)).toBeVisible();
+    await expect(dialog(page).getByRole("button", { name: "Mark completed" })).toHaveCount(0);
+    await closeDialog(page);
+  } finally {
+    await deleteTestTraining(title);
+  }
 });
 
 test("a cancelled training's participants can't be changed", async ({ page }) => {
@@ -172,13 +179,12 @@ test("the participant list exports to Excel", async ({ page }, testInfo) => {
     "Attendance",
     "Reason",
     "Feedback Given",
-    "Certificate",
     "Hours",
   ]);
   expect(ws.rowCount).toBeGreaterThan(3);
   // Only completed attendance carries hours (the training is 2 days × 8 h).
   for (let r = 4; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
-    expect(row.getCell(10).value).toBe(row.getCell(6).value === "Completed" ? 16 : 0);
+    expect(row.getCell(9).value).toBe(row.getCell(6).value === "Completed" ? 16 : 0);
   }
 });

@@ -30,8 +30,6 @@ const participantSelect = {
   attendanceReason: true,
   source: true,
   submittedAt: true,
-  certificateFile: true,
-  certificateName: true,
   createdAt: true,
   staff: {
     select: {

@@ -9,6 +9,7 @@ import type { SessionUser } from "../permissions";
 import { countsTowardHours, trainingHours, trainingPhase } from "../rules/training";
 import { formAccess, formKind, ojtDateBlock, ojtDeleteBlock, ojtDetailsBlock } from "../rules/myTraining";
 import { diffFields, recordAudit } from "./audit";
+import { discardCertificateFile } from "./certificate";
 import { newTrainingCode } from "./training";
 
 // My Training: everything here works on the signed-in person's own rows only,
@@ -33,6 +34,7 @@ const trainingSelect = {
   startTime: true,
   endTime: true,
   status: true,
+  certificateFile: true,
   sessions: { select: { date: true, startTime: true, endTime: true } },
   _count: { select: { participants: true } },
 } satisfies Prisma.TrainingSelect;
@@ -45,7 +47,6 @@ const participantSelect = {
   feedback: true,
   feedbackVersion: true,
   submittedAt: true,
-  certificateFile: true,
   training: { select: trainingSelect },
 } satisfies Prisma.ParticipantSelect;
 
@@ -243,7 +244,7 @@ export async function updateOjt(user: SessionUser, participantId: number, input:
 
 /** Deletes an OJT the person recorded themselves, with its training record. */
 export async function deleteOjt(user: SessionUser, participantId: number) {
-  return db.$transaction(async (tx) => {
+  const certificate = await db.$transaction(async (tx) => {
     const p = await tx.participant.findFirst({ where: { id: participantId, staffId: user.id }, select: participantSelect });
     if (!p || p.training.type !== "OJT") throw notFound();
     const blocked = ojtDeleteBlock(p, p.training._count.participants - 1);
@@ -257,5 +258,7 @@ export async function deleteOjt(user: SessionUser, participantId: number) {
       entityId: p.training.id,
       summary: `${user.name} (${user.staffNo}) deleted their own OJT ${describeOjt(p.training)}`,
     });
+    return p.training.certificateFile;
   });
+  await discardCertificateFile(certificate);
 }

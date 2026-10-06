@@ -4,15 +4,17 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Clock, ExternalLink, MapPin, Pencil, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
+import { CertificatePanel } from "@/components/CertificatePanel";
 import { AnswerList, Fact, Row } from "@/components/RecordParts";
 import { Status } from "@/components/ui/Status";
 import { formVersion, type Answers } from "@/lib/forms/feedback";
-import { formatDate, formatDateRange, formatDateTime, formatHours, formatTime, plural } from "@/lib/format";
+import { formatDate, formatDateRange, formatDateTime, formatHours, formatTime, nowInMalaysia, plural } from "@/lib/format";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { OJT_METHOD_LABELS, OJT_TRAINER_LABELS, ojtTrainerOf } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
 import { SHORT_OJT_HOURS } from "@/server/rules/ojt";
 import { dayNumber } from "@/server/rules/training";
+import { certificateInfo } from "@/server/services/certificate";
 import { getOjtRecord, ojtRecordChangeBlock } from "@/server/services/ojt";
 import { requirePermission } from "@/server/session";
 import { ojtStatus, SOURCE_LABELS } from "../filters";
@@ -29,6 +31,7 @@ export default async function OjtRecordPage({ params, searchParams }: PageProps<
   if (!Number.isInteger(id)) notFound();
   const [r, blocked, sp] = await Promise.all([getOjtRecord(user, id), ojtRecordChangeBlock(user, id), searchParams]);
   if (!r) notFound();
+  const certificate = await certificateInfo(user, r.training.id, nowInMalaysia());
 
   const t = r.training;
   const s = ojtStatus(r);
@@ -120,52 +123,55 @@ export default async function OjtRecordPage({ params, searchParams }: PageProps<
             )}
           </Panel>
 
-          <Panel className="lg:col-span-4" title="Record">
-            <dl className="-my-1 flex flex-col text-[13.5px]">
-              <Row label="Staff">
-                {can(user, "staff.view") ? (
-                  <Link href={`/staff/${r.staff.id}`} className="link font-medium">
-                    {r.staff.name}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{r.staff.name}</span>
-                )}
-                <div className="num text-xs text-ink-3">
-                  {r.staff.staffNo} · {DESIGNATION_LABELS[r.staff.designation]}
-                </div>
-              </Row>
-              <Row label="Department">
-                {r.staff.department.name}
-                {r.staff.section && <div className="text-xs text-ink-3">{r.staff.section.name}</div>}
-              </Row>
-              <Row label="Status">
-                <Status tone={s.tone}>{s.label}</Status>
-                {r.attendanceReason && <div className="mt-0.5 text-xs text-ink-3">{r.attendanceReason}</div>}
-              </Row>
-              <Row label="Hours">{r.counts ? <span className="num font-medium">{formatHours(r.hours)}</span> : none("Count once completed")}</Row>
-              <Row label="Recorded by">
-                {SOURCE_LABELS[r.source]}
-                {r.recorder && (
-                  <div className="text-xs text-ink-3">
-                    {r.recorder.name} ({r.recorder.staffNo})
+          <div className="flex min-w-0 flex-col gap-5 lg:col-span-4">
+            <Panel title="Record">
+              <dl className="-my-1 flex flex-col text-[13.5px]">
+                <Row label="Staff">
+                  {can(user, "staff.view") ? (
+                    <Link href={`/staff/${r.staff.id}`} className="link font-medium">
+                      {r.staff.name}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">{r.staff.name}</span>
+                  )}
+                  <div className="num text-xs text-ink-3">
+                    {r.staff.staffNo} · {DESIGNATION_LABELS[r.staff.designation]}
                   </div>
+                </Row>
+                <Row label="Department">
+                  {r.staff.department.name}
+                  {r.staff.section && <div className="text-xs text-ink-3">{r.staff.section.name}</div>}
+                </Row>
+                <Row label="Status">
+                  <Status tone={s.tone}>{s.label}</Status>
+                  {r.attendanceReason && <div className="mt-0.5 text-xs text-ink-3">{r.attendanceReason}</div>}
+                </Row>
+                <Row label="Hours">{r.counts ? <span className="num font-medium">{formatHours(r.hours)}</span> : none("Count once completed")}</Row>
+                <Row label="Recorded by">
+                  {SOURCE_LABELS[r.source]}
+                  {r.recorder && (
+                    <div className="text-xs text-ink-3">
+                      {r.recorder.name} ({r.recorder.staffNo})
+                    </div>
+                  )}
+                </Row>
+                <Row label="Recorded on">
+                  <span className="num">{formatDateTime(r.createdAt)}</span>
+                </Row>
+                {r.submittedAt && (
+                  <Row label="Answers given">
+                    <span className="num">{formatDate(r.submittedAt)}</span>
+                  </Row>
                 )}
-              </Row>
-              <Row label="Recorded on">
-                <span className="num">{formatDateTime(r.createdAt)}</span>
-              </Row>
-              {r.submittedAt && (
-                <Row label="Answers given">
-                  <span className="num">{formatDate(r.submittedAt)}</span>
-                </Row>
-              )}
-              {blocked && (
-                <Row label="Changes">
-                  <span className="text-ink-2">{blocked}</span>
-                </Row>
-              )}
-            </dl>
-          </Panel>
+                {blocked && (
+                  <Row label="Changes">
+                    <span className="text-ink-2">{blocked}</span>
+                  </Row>
+                )}
+              </dl>
+            </Panel>
+            {certificate && <CertificatePanel info={certificate} />}
+          </div>
         </div>
 
         {r.others.length > 1 && (

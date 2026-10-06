@@ -1,5 +1,6 @@
 import type { TrainingType } from "@prisma/client";
 import { TRAINING_TYPES } from "@/lib/validation/training";
+import { TRAINING_PHASES, type TrainingPhase } from "@/server/rules/training";
 import { TRAINING_SORT_DEFAULT_DIR, TRAINING_SORTS, type TrainingFilters, type TrainingSort } from "@/server/services/training";
 
 type Search = Record<string, string | string[] | undefined>;
@@ -25,7 +26,7 @@ export function parseTrainingFilters(sp: Search): TrainingFilters {
     type: (TRAINING_TYPES as readonly string[]).includes(type) ? (type as TrainingType) : undefined,
     from: day(one(sp.from)),
     to: day(one(sp.to)),
-    status: status === "SCHEDULED" || status === "CANCELLED" ? status : "ALL",
+    status: (TRAINING_PHASES as readonly string[]).includes(status) ? (status as TrainingPhase) : "ALL",
     sort,
     dir: dir === "asc" || dir === "desc" ? dir : TRAINING_SORT_DEFAULT_DIR[sort],
     page: Number.isInteger(page) && page > 0 ? page : 1,

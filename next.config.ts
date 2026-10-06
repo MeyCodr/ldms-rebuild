@@ -20,8 +20,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // forbidden() renders src/app/forbidden.tsx when a permission check fails.
     authInterrupts: true,
-    // Staff Excel imports are posted through a server action.
-    serverActions: { bodySizeLimit: "5mb" },
+    // Excel imports and certificates (up to 5 MB, checked in the page first) are posted through server actions.
+    serverActions: { bodySizeLimit: "6mb" },
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

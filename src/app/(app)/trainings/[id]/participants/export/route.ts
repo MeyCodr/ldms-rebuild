@@ -34,14 +34,13 @@ export async function GET(_request: Request, { params }: RouteContext<"/training
     { header: "Attendance", key: "attendance", width: 12 },
     { header: "Reason", key: "reason", width: 34 },
     { header: "Feedback Given", key: "feedback", width: 15, style: { numFmt: "dd/mm/yyyy" } },
-    { header: "Certificate", key: "certificate", width: 12 },
     { header: "Hours", key: "hours", width: 8, style: { numFmt: "0.##" } },
   ];
   ws.columns = columns.map(({ key, width, style }) => ({ key, width, style }));
   const header = ws.getRow(3);
   columns.forEach((c, i) => (header.getCell(i + 1).value = c.header));
   header.font = { bold: true };
-  ws.autoFilter = { from: "A3", to: "J3" };
+  ws.autoFilter = { from: "A3", to: "I3" };
   for (const p of rows) {
     ws.addRow({
       staffNo: p.staff.staffNo,
@@ -52,7 +51,6 @@ export async function GET(_request: Request, { params }: RouteContext<"/training
       attendance: ATTENDANCE_LABELS[p.attendance],
       reason: p.attendanceReason ?? "",
       feedback: p.submittedAt,
-      certificate: p.certificateFile ? "Yes" : "No",
       hours: p.hours,
     });
   }

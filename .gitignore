@@ -48,3 +48,6 @@ next-env.d.ts
 
 # uploaded files (certificates, imports)
 /uploads/
+
+# uploaded files (certificates): kept on the server, never in git
+/uploads/

@@ -1,7 +1,8 @@
 import ExcelJS from "exceljs";
-import { formatTime } from "@/lib/format";
+import { formatTime, nowInMalaysia } from "@/lib/format";
 import { TRAINING_FUNCTION_LABELS, TRAINING_PLATFORM_LABELS, TRAINING_PROGRAM_LABELS, TRAINING_TYPE_LABELS } from "@/lib/validation/training";
 import { can } from "@/server/permissions";
+import { TRAINING_PHASE_LABELS, trainingPhase } from "@/server/rules/training";
 import { listTrainingsForExport } from "@/server/services/training";
 import { getCurrentUser } from "@/server/session";
 import { parseTrainingFilters } from "../filters";
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const filters = parseTrainingFilters(Object.fromEntries(url.searchParams));
   const rows = await listTrainingsForExport(user, filters);
+  const today = nowInMalaysia();
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "LDMS";
@@ -40,10 +42,11 @@ export async function GET(request: Request) {
     { header: "Participants", key: "participants", width: 13 },
     { header: "Completed", key: "completed", width: 11 },
     { header: "Total Man Hours", key: "manHours", width: 16, style: { numFmt: "0.##" } },
+    { header: "Certificate", key: "certificate", width: 12 },
     { header: "Status", key: "status", width: 11 },
   ];
   ws.getRow(1).font = { bold: true };
-  ws.autoFilter = { from: "A1", to: "T1" };
+  ws.autoFilter = { from: "A1", to: "U1" };
   for (const t of rows) {
     ws.addRow({
       code: t.trainingCode,
@@ -65,7 +68,8 @@ export async function GET(request: Request) {
       participants: t.participantCount,
       completed: t.completedCount,
       manHours: t.manHours,
-      status: t.status === "CANCELLED" ? "Cancelled" : "Scheduled",
+      certificate: t.hasCertificate ? "Yes" : "No",
+      status: TRAINING_PHASE_LABELS[trainingPhase(t, today)], // as on screen: Upcoming, In progress, Held or Cancelled
     });
   }
 

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import ExcelJS from "exceljs";
+import { createTestTraining, deleteTestTraining } from "./db";
 import { choose, signIn } from "./helpers";
 
 // Each run creates its own training with a unique title and deletes it at the end.
@@ -195,6 +196,60 @@ test("the list filters by start and end date", async ({ page }) => {
   await expect(page.getByLabel("Start date")).toHaveValue("");
   await expect(page.getByLabel("End date")).toHaveValue("");
   await expect(page.getByRole("link", { name: "Die Maintenance Basics" })).toBeVisible();
+});
+
+test("the status filter and the export use the statuses the table shows", async ({ page }, testInfo) => {
+  // Two of our own: one a month away, one held (1 Sep 2026), so the demo data can change freely.
+  const upcoming = `Status upcoming ${suffix}`;
+  const held = `Status held ${suffix}`;
+  await createTestTraining(upcoming, [], new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
+  await createTestTraining(held, []);
+  try {
+    await signIn(page, "10001");
+    await page.goto(`trainings?q=Status+`);
+    await page.waitForLoadState("networkidle");
+    const shows = (title: string) => page.getByRole("link", { name: title });
+
+    await choose(page, "Status", "Upcoming");
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page).toHaveURL(/status=UPCOMING/);
+    await expect(shows(upcoming)).toBeVisible();
+    await expect(shows(held)).toHaveCount(0);
+    await expect(page.getByRole("row", { name: new RegExp(upcoming) })).toContainText("Upcoming");
+
+    await page.waitForLoadState("networkidle");
+    await choose(page, "Status", "Held");
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page).toHaveURL(/status=HELD/);
+    await expect(shows(held)).toBeVisible();
+    await expect(shows(upcoming)).toHaveCount(0);
+
+    // Every status: the export says each one as the table does.
+    await page.goto(`trainings?q=Status+`);
+    const download = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Export to Excel" }).click();
+    const file = testInfo.outputPath("status.xlsx");
+    await (await download).saveAs(file);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(file);
+    const ws = wb.getWorksheet("Trainings")!;
+    const header = ws.getRow(1).values as string[];
+    const statusOf = (title: string) =>
+      ws
+        .getRows(2, ws.rowCount - 1)!
+        .find((r) => r.getCell(header.indexOf("Title")).value === title)!
+        .getCell(header.indexOf("Status")).value;
+    expect(statusOf(upcoming)).toBe("Upcoming");
+    expect(statusOf(held)).toBe("Held");
+
+    // Cancelled: a seeded cancelled training.
+    await page.goto("trainings?status=CANCELLED");
+    await expect(shows("Industrial Energy Management")).toBeVisible();
+    await expect(page.getByRole("row", { name: /Industrial Energy Management/ })).toContainText("Cancelled");
+  } finally {
+    await deleteTestTraining(upcoming);
+    await deleteTestTraining(held);
+  }
 });
 
 test("clerks and plain staff can't open trainings", async ({ page }) => {

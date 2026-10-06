@@ -6,7 +6,7 @@
 // a form ("08:30"). Dates come from Prisma (@db.Date → UTC midnight) or from a
 // form ("2026-04-03").
 
-import type { Attendance, Designation, StaffStatus, TrainingStatus, TrainingType } from "@prisma/client";
+import type { Attendance, Designation, Prisma, StaffStatus, TrainingStatus, TrainingType } from "@prisma/client";
 
 export type TimeValue = Date | string;
 export type DateValue = Date | string;
@@ -151,7 +151,13 @@ export function sessionSpan<S extends { date: Date; startTime: Date; endTime: Da
   return { startDate: dates[0], endDate: dates[dates.length - 1], startTime: starts[0], endTime: ends[ends.length - 1] };
 }
 
-export type TrainingPhase = "UPCOMING" | "IN_PROGRESS" | "HELD" | "CANCELLED";
+/**
+ * Where a training stands. Only "cancelled" is stored (Training.status); the
+ * rest follows from its dates, so nobody has to mark a training as held.
+ */
+export const TRAINING_PHASES = ["UPCOMING", "IN_PROGRESS", "HELD", "CANCELLED"] as const;
+export type TrainingPhase = (typeof TRAINING_PHASES)[number];
+export const TRAINING_PHASE_LABELS: Record<TrainingPhase, string> = { UPCOMING: "Upcoming", IN_PROGRESS: "In progress", HELD: "Held", CANCELLED: "Cancelled" };
 
 /** Where a training stands on a given day (today in Malaysia time). */
 export function trainingPhase(t: { status: TrainingStatus; startDate: Date; endDate: Date }, today: Date): TrainingPhase {
@@ -160,6 +166,15 @@ export function trainingPhase(t: { status: TrainingStatus; startDate: Date; endD
   if (day < dayNumber(t.startDate)!) return "UPCOMING";
   if (day > dayNumber(t.endDate)!) return "HELD";
   return "IN_PROGRESS";
+}
+
+/** The trainings in a phase on a given day, as a database filter: the same lines trainingPhase draws. */
+export function trainingPhaseWhere(phase: TrainingPhase, today: Date): Prisma.TrainingWhereInput {
+  if (phase === "CANCELLED") return { status: "CANCELLED" };
+  const day = new Date(Math.floor(today.getTime() / DAY_MS) * DAY_MS);
+  if (phase === "UPCOMING") return { status: "SCHEDULED", startDate: { gt: day } };
+  if (phase === "HELD") return { status: "SCHEDULED", endDate: { lt: day } };
+  return { status: "SCHEDULED", startDate: { lte: day }, endDate: { gte: day } };
 }
 
 /** Why a training can't be deleted, or null when it can. */
