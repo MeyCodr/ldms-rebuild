@@ -8,6 +8,10 @@ import { nowInMalaysia } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
 import { feedbackWaiting } from "@/server/services/myTraining";
 import { pmeWaiting } from "@/server/services/pme";
+import { skillWaiting } from "@/server/services/skill";
+import { seesSkillMatrices } from "@/server/rules/skill";
+import { seesTeamTnas } from "@/server/rules/tna";
+import { tnaWaiting } from "@/server/services/tna";
 import { can, hasApprovals, ROLE_LABELS } from "@/server/permissions";
 import { requireUser } from "@/server/session";
 
@@ -32,15 +36,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Everyone has their own training; the count is what is waiting for them there:
   // feedback forms to fill in and PMEs to acknowledge.
   const today = nowInMalaysia();
-  const [feedback, pme] = await Promise.all([feedbackWaiting(user, today), pmeWaiting(user, today)]);
-  groups.push({
-    label: "My work",
-    items: [{ href: "/my-training", label: "My training", module: "learning", count: feedback.length + pme.toAcknowledge.length }],
-  });
+  const [feedback, pme, skill, tna] = await Promise.all([feedbackWaiting(user, today), pmeWaiting(user, today), skillWaiting(user, today), tnaWaiting(user, today)]);
+  const mine: NavGroup["items"] = [{ href: "/my-training", label: "My training", module: "learning", count: feedback.length + pme.toAcknowledge.length }];
+  // My TNA: for those who fill in their own. The count: theirs was sent back.
+  if (tna.fillsOwn) mine.push({ href: "/my-tna", label: "My TNA", module: "tna", count: tna.ownReturned ? 1 : 0 });
+  groups.push({ label: "My work", items: mine });
   // Team: what HODs do for their staff, and L&D for everyone. The count is what is waiting on this person.
   const team: NavGroup["items"] = [];
-  if (hasApprovals(user)) team.push({ href: "/approvals", label: "Approvals", module: "approvals", count: pme.toEvaluate.length + pme.toVerify.length });
+  if (hasApprovals(user)) team.push({ href: "/approvals", label: "Approvals", module: "approvals", count: pme.toEvaluate.length + pme.toVerify.length + skill.toApprove.length + tna.toApprove.length });
   if (can(user, "pme.view")) team.push({ href: "/pme", label: "PME", module: "pme" });
+  // The count: matrices this person filled in that the HOD sent back.
+  if (seesSkillMatrices(user)) team.push({ href: "/skill-matrix", label: "Skill matrix", module: "skills", count: skill.returned });
+  // The count: job-grade TNAs the main clerk filled in that the HOD sent back.
+  if (seesTeamTnas(user)) team.push({ href: "/tna", label: "TNA", module: "tna", count: tna.gradesReturned });
   const training: NavGroup["items"] = [];
   if (can(user, "training.view")) training.push({ href: "/trainings", label: "Trainings", module: "training" });
   if (can(user, "ojt.manage")) training.push({ href: "/ojt", label: "OJT", module: "ojt" });

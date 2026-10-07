@@ -50,6 +50,7 @@ describe("the Skill matrix evaluator role", () => {
     roles,
     hodOfDepartmentIds: [],
     headOfDivisionIds: [],
+    designation: "NON_EXECUTIVE",
     mustChangePassword: false,
   });
   const leader: ManagedStaff = { designation: "CONTRACT", roles: [{ role: "SKILL_EVALUATOR" }], hodOf: [], headOf: [] };

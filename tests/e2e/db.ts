@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { hash } from "@node-rs/argon2";
-import { type Attendance, PrismaClient } from "@prisma/client";
+import { type Attendance, PrismaClient, type RoleCode, type SkillStatus, type TnaStatus } from "@prisma/client";
 import { syncPmes } from "../../src/server/services/pmeSync";
 
 /** Where the app keeps certificates (src/server/services/certificate.ts). */
@@ -101,6 +101,133 @@ export async function giveDemoPassword(staffNo: string, password: string) {
         await again.$disconnect();
       }
     };
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only: gives a staff member a role for the run. Returns a function that takes it away again (if they didn't have it). */
+export async function giveRole(staffNo: string, role: RoleCode) {
+  const db = new PrismaClient();
+  try {
+    const staff = await db.staff.findUniqueOrThrow({ where: { staffNo }, select: { id: true, roles: { select: { role: true } } } });
+    const had = staff.roles.some((r) => r.role === role);
+    if (!had) await db.staffRole.create({ data: { staffId: staff.id, role } });
+    return async () => {
+      if (had) return;
+      const again = new PrismaClient();
+      try {
+        await again.staffRole.deleteMany({ where: { staffId: staff.id, role } });
+      } finally {
+        await again.$disconnect();
+      }
+    };
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/**
+ * Test-only: a skill matrix put straight into a quarter (the app only lets
+ * the open quarter be filled in), with one rated topic in each section.
+ * Returns its id.
+ */
+export async function createTestSkillMatrix(staffNo: string, quarter: { year: number; quarter: number }, status: SkillStatus, evaluatorStaffNo: string) {
+  const db = new PrismaClient();
+  try {
+    const [staff, evaluator] = await Promise.all([
+      db.staff.findUniqueOrThrow({ where: { staffNo }, select: { id: true } }),
+      db.staff.findUniqueOrThrow({ where: { staffNo: evaluatorStaffNo }, select: { id: true } }),
+    ]);
+    const m = await db.skillEvaluation.create({
+      data: {
+        staffId: staff.id,
+        ...quarter,
+        status,
+        createdById: evaluator.id,
+        submittedAt: status === "DRAFT" ? null : new Date(),
+        topics: {
+          create: (["KNOWLEDGE", "SKILL", "ABILITY"] as const).map((section, i) => ({
+            section,
+            name: `Test ${section.toLowerCase()} topic`,
+            sortOrder: i,
+            items: { create: [{ text: "Does it without help", rating: 4, sortOrder: 0 }] },
+          })),
+        },
+      },
+    });
+    return m.id;
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only clean-up: every skill matrix of these staff, in any quarter. */
+export async function deleteTestSkillMatrices(staffNos: string[]) {
+  const db = new PrismaClient();
+  try {
+    await db.skillEvaluation.deleteMany({ where: { staff: { staffNo: { in: staffNos } } } }); // topics and lines cascade
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/**
+ * Test-only: gives staff a job grade for the run, so their department has a
+ * job grade's TNA to fill in. Returns a function that puts each one's back.
+ */
+export async function setJobGrade(staffNos: string[], jobGrade: number) {
+  const db = new PrismaClient();
+  try {
+    const before = await db.staff.findMany({ where: { staffNo: { in: staffNos } }, select: { id: true, jobGrade: true } });
+    await db.staff.updateMany({ where: { id: { in: before.map((s) => s.id) } }, data: { jobGrade } });
+    return async () => {
+      const again = new PrismaClient();
+      try {
+        for (const s of before) await again.staff.update({ where: { id: s.id }, data: { jobGrade: s.jobGrade } });
+      } finally {
+        await again.$disconnect();
+      }
+    };
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/**
+ * Test-only: a person's TNA put straight into a year (the app only lets this
+ * year's be filled in), with one complete typed-in row under Special project.
+ * Returns its id.
+ */
+export async function createTestTna(staffNo: string, year: number, status: TnaStatus, training = "Test kaizen project") {
+  const db = new PrismaClient();
+  try {
+    const staff = await db.staff.findUniqueOrThrow({ where: { staffNo }, select: { id: true } });
+    const t = await db.tna.create({
+      data: {
+        year,
+        staffId: staff.id,
+        status,
+        createdById: staff.id,
+        submittedById: status === "DRAFT" ? null : staff.id,
+        submittedAt: status === "DRAFT" ? null : new Date(),
+        items: {
+          create: [{ section: "SPECIAL_PROJECT", sortOrder: 0, problem: "Changeovers take too long", trainingName: training, targetSkill: 4, currentSkill: 2, method: "COACHING", month: 6 }],
+        },
+      },
+    });
+    return t.id;
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only clean-up: every TNA of these staff and of this department's job grades, in any year, and training options by name. */
+export async function deleteTestTnas(staffNos: string[], departmentName: string, optionNames: string[] = []) {
+  const db = new PrismaClient();
+  try {
+    await db.tna.deleteMany({ where: { OR: [{ staff: { staffNo: { in: staffNos } } }, { department: { name: departmentName } }] } }); // rows cascade
+    if (optionNames.length) await db.tnaTrainingOption.deleteMany({ where: { name: { in: optionNames } } });
   } finally {
     await db.$disconnect();
   }

@@ -365,27 +365,102 @@ Each is reviewed before the next starts. Order is by how much each is used and w
   refused, the form's bands, the mark, who sees what); `tests/e2e/pme.spec.ts` (the whole path with a send-back;
   the period lock, short trainings, withdrawal on reopen, and a clerk, the person themselves and another HOD kept out).
 
-### Module 2: Skill matrix
-- Evaluator: list of the department's staff with their status for the **open quarter** (the one just ended, named in
-  the header with the day it closes); the form (three sections, topics, lines); save as draft, submit; duplicate to
-  other staff.
-- **Earlier quarters**: a quarter picker. A closed quarter is view-only and says why; its matrices keep a
-  **Duplicate** button that copies into the open quarter, for the same person or for others.
-- HOD: approve one or all pending; send back with a reason.
-- Matrix chart for a department and quarter, with Excel export.
-- History of earlier quarters on the staff record.
-- **Still to decide**: a matrix submitted in time but not yet approved when its quarter closes. Suggested: the HOD
-  can still approve it, but can no longer send it back; drafts never submitted stay as they are, view-only.
-- **Done when**: a quarter's cycle works end to end, one matrix per person per quarter is enforced, a closed quarter
-  refuses a new matrix, an edit and a submit, a closed quarter's matrix can be duplicated into the open one, and
-  the chart's figures match the rule tests.
+### Module 2: Skill matrix (built 06 Oct 2026, awaiting review)
+- Migration `20261006120000_skill_matrix`: `SkillEvaluation`, `SkillTopic`, `SkillItem` (§5, plus `returnedAt`; a
+  line's rating may be empty in a draft).
+- **Who fills in** (`skillEvaluatorDepartments`, `src/server/rules/skill.ts`): in their own department, a manager,
+  the main clerk, and anyone with the Skill matrix evaluator role, unless they are that department's HOD (who
+  approves instead). L&D can fill in for any department. Nobody fills in their own.
+- **About whom**: active non-executive and contract staff, one matrix per person per quarter (enforced by the
+  database as well as the rule).
+- **The open quarter** (`skillOpenQuarter`): the one that has just ended; it closes on the last day of the quarter
+  after it. Only the open quarter takes a new matrix, an edit, a submit, a delete or a send-back.
+- **The form** (`src/lib/forms/skill.ts`): Knowledge, Skill and Ability; topics typed in; up to 5 lines per topic,
+  each a sentence and a rating 1 to 5; each topic's score shows as it is rated. **Save as draft** (may be
+  unfinished) or **Submit to HOD** (every section needs a topic, every topic a name and a line, every line a
+  rating). Problems are shown on the section or topic they belong to.
+- **The path**: draft → submitted → the HOD **approves** (locked) or **sends back** with a reason (the evaluator
+  changes it and submits again). HODs can approve one, or all that are waiting, from Approvals or the list.
+- **Duplicate**: copies a matrix's topics, lines and ratings as drafts for other staff in the department who have
+  none in the open quarter. From a closed quarter it can also be copied to the same person. The copy records where
+  it came from. A draft can be deleted.
+- **Closed quarters**: view-only, with a notice saying why. A matrix **submitted in time but not approved stays
+  with the HOD until approved** (decided 6 Oct 2026): it stays on Approvals and in the sidebar count, marked
+  *Quarter closed*; the HOD can approve it but not send it back. Drafts never submitted stay view-only. The daily
+  reminder (email and in-LDMS notification, then browser push later) is phase 4.
+- **Screens**: **Skill matrix** in the sidebar's Team group (`/skill-matrix`: the department's staff with each
+  one's status for the chosen quarter, a quarter picker, filters; the count is matrices the HOD sent back to you);
+  the form (`/skill-matrix/new?staff=`, `/skill-matrix/[id]/edit`); the matrix (`/skill-matrix/[id]`: topics with
+  scores and levels, the steps, history); **Matrix chart** (`/skill-matrix/chart`: staff against topics for a
+  department and quarter, submitted and approved matrices, with Excel export including evaluated-by and
+  approved-by). Approvals lists skill matrices to approve; the overview's *Waiting on you* counts them; the staff
+  record shows the person's matrices by quarter.
+- **Scores** (`skillTopicScore`, `skillLevel`): a topic's ratings added up over the most they could be, as a
+  percentage; five levels as in the old chart (100, 75 and above, 50 and above, 25 and above, below 25).
+- **Decided while building** (say if any should change):
+  - The **main clerk fills in for their own department only**, as the old system did (the plan didn't say).
+  - A **HOD never fills in their own department's** matrices, even if given the evaluator role.
+  - The chart matches topics across people by name, ignoring capitals and extra spaces, since topics are typed in.
+  - The old export's "verified by" (the evaluator's HOD) is left out: it is the same person as "approved by".
+- Tests: `tests/rules/skill.test.ts` (the open quarter on every boundary day, who fills in and for whom, one per
+  quarter, each step allowed and refused, closed-quarter refusals, scores and levels, the form's rules);
+  `tests/e2e/skill-matrix.spec.ts` (draft, submit, duplicate, delete, send back, approve, chart and export, staff
+  record; a closed quarter's edits refused, its submitted matrix approved, its draft carried forward; other
+  departments and people without the role kept out).
 
-### Module 3: TNA
-- TNA training options: L&D's list, with Excel import and export.
-- Individual TNA (My TNA) and TNA by job grade (main clerk), with the seven sections; copy last year's forward.
-- HOD: review, edit, approve or send back. L&D: any department, reopen, summaries (by department, by section, by
-  method), Excel export.
-- **Done when**: both kinds work through approval for a year, and a second year keeps the first on record.
+### Module 3: TNA (built 07 Oct 2026, awaiting review)
+- Migration `20261007090000_tna`: `Tna`, `TnaItem`, `TnaTrainingCategory`, `TnaTrainingOption` (§5, plus who created,
+  submitted and returned it; a row's skills, method and month may be empty in a draft). The migration also puts in
+  the **193 training options in 13 groups** as they stood in the old system on 7 Oct 2026, so the form has its lists
+  from the first day. Special project has none: its rows are always typed in.
+- **Two kinds** (`tnaKind`, `src/server/rules/tna.ts`): an **individual** TNA for each executive and manager who is
+  not a HOD or division head, and each non-executive L&D ticked *Fills in own TNA*; and one **by job grade** per
+  department for everyone else with a job grade. One per year each (enforced by the database as well as the rule).
+- **Who fills in**: the person themselves (**My TNA**, under My work); the department's **main clerk** for its job
+  grades; **L&D** for anyone, on their behalf. Who approves: the department's HOD.
+- **The year** (`tnaOpenYear`): the calendar year today falls in. Earlier years stay on record, view-only. **Start
+  this year's from last year's** copies the rows of the latest earlier TNA into the form (nothing is saved until the
+  person saves); a training that has since been hidden comes across as typed in.
+- **The form** (`src/lib/forms/tna.ts`): the old form's seven headings, a to g, each a list of rows. A row: problem
+  statement; training required, picked from that heading's list (searchable, in its groups) or **Others** typed in;
+  target and current skill, 1 to 5; the gap, worked out; how it will be achieved (on-job training, coaching,
+  external / in-house); when (a month). **Save as draft** (may be unfinished) or **Submit to HOD** (at least one row,
+  every row complete; headings may be left empty, as in the old form). Problems are shown on the row they belong to.
+- **The path**: draft → submitted → the HOD **approves** (locked), **changes it first** (it stays waiting for
+  approval), or **sends it back** with a reason. L&D can **reopen** an approved one with a reason: it goes back to
+  whoever fills it in and must be submitted and approved again. Every step is in the audit log (entity `Tna`) and
+  in the History on its page.
+- **Earlier years**: a TNA submitted before its year ended still waits for the HOD, who can approve it but not send
+  it back; it is marked *Year ended* on Approvals. A draft never submitted stays view-only.
+- **Screens**: **My TNA** (`/my-tna`: this year's, with Start, Edit, Submit and Delete; earlier years; why not,
+  for people covered by a job grade); **TNA** in the sidebar's Team group (`/tna`: *Individual* and *By job grade*
+  lists for a year, with status counts, filters and Approve all; the count is job-grade TNAs sent back to the main
+  clerk); a TNA's page (`/tna/[id]`: the rows under their headings, the steps, the person's training hours that
+  year, history); the form (`/tna/new`, `/tna/[id]/edit`, `/my-tna/edit`). L&D: **Summary** (`/tna/summary`: per
+  department how many are due and where they stand; the share of training needs per heading and per method; the
+  ten trainings asked for most) with **Export to Excel** (one row per training need); **Training options**
+  (`/tna/options`: add, rename, regroup, hide, delete; **Download Excel** and **Import from Excel**, which shows every
+  change before making any). Approvals lists TNAs to approve; the overview's *Waiting on you* counts them.
+- **Training options**: names are kept in capitals, as in the old lists. Renaming one renames it on the TNA rows
+  that use it; hiding one keeps it on rows already saved; one that a saved row uses can't be deleted.
+- **Decided while building** (say if any should change):
+  - The **year is the calendar year**, and only this year's can be filled in. The `tna.year` setting from phase 1
+    isn't used. If L&D collect next year's TNA before January, this needs a switch for L&D to open a year.
+  - **L&D fill in and reopen, but don't approve**: approving stays with the HOD, as with PME and the skill matrix
+    (the old system let L&D approve). A department with no active HOD says so on the TNA.
+  - The **main clerk fills in job grades for their own department only**, and doesn't see people's own TNAs (the
+    old clerk screen listed the department's people as well).
+  - **A HOD can change a submitted TNA without approving it** in the same click (the old *Save & Approve* did both).
+  - A submitted TNA needs **one complete row**, not a row under every heading.
+  - A job grade is listed when someone is on it today. Trainees with a job grade are covered by it too.
+  - Option order is set by the Excel import (the rows' order); the page has no move up / move down.
+  - The old ESG list has an option named **TESTING**. It was brought across as it is; hide or delete it on the
+    Training options page if it isn't wanted.
+- Tests: `tests/rules/tnaFlow.test.ts` (the year on its boundary days, who is what to a TNA, starting one, each
+  step allowed and refused, earlier-year refusals, the form's tidying and rules, option names);
+  `tests/e2e/tna.spec.ts` (a person's TNA from draft to approved with the HOD's change, a send-back and L&D's
+  reopen, the summary and export; a job grade's by the main clerk; last year's carried forward; other departments,
+  plain staff and a clerk without the role kept out; adding, hiding and deleting an option, and the download).
 
 ### Module 4: TNI
 - HOD: the department's list for the year. L&D: every department's, with Excel export.

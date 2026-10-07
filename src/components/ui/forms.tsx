@@ -46,9 +46,12 @@ export function Field({
   state,
   children,
   className = "",
+  id = name,
 }: {
   label: string;
   name: string;
+  /** The input's id, when the page holds more than one field of this name (e.g. two dialogs that each ask for a reason). Pass the same to fieldProps. */
+  id?: string;
   required?: boolean;
   hint?: React.ReactNode;
   state?: ActionState;
@@ -58,12 +61,12 @@ export function Field({
   const errors = state?.status === "error" ? state.fieldErrors?.[name] : undefined;
   return (
     <div className={className}>
-      <label htmlFor={name} className={`label ${required ? "req" : ""}`}>
+      <label htmlFor={id} className={`label ${required ? "req" : ""}`}>
         {label}
       </label>
       {children}
       {errors?.length ? (
-        <div id={`${name}-error`} className="field-error">
+        <div id={`${id}-error`} className="field-error">
           {errors[0]}
         </div>
       ) : hint ? (
@@ -74,13 +77,13 @@ export function Field({
 }
 
 /** Props for an input inside <Field>, wiring up aria-invalid and the error id. */
-export function fieldProps(name: string, state?: ActionState) {
+export function fieldProps(name: string, state?: ActionState, id = name) {
   const invalid = state?.status === "error" && !!state.fieldErrors?.[name]?.length;
   return {
-    id: name,
+    id,
     name,
     "aria-invalid": invalid || undefined,
-    "aria-describedby": invalid ? `${name}-error` : undefined,
+    "aria-describedby": invalid ? `${id}-error` : undefined,
   };
 }
 

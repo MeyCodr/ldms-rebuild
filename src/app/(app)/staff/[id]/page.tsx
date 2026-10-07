@@ -17,9 +17,11 @@ import { approverReasonLabel, hasNoApproverByDesign } from "@/server/rules/appro
 import { tnaKindLabel } from "@/server/rules/tna";
 import { approverFor, approvesCount } from "@/server/services/approver";
 import { staffTrainingHistory } from "@/server/services/report";
+import { staffSkillHistory } from "@/server/services/skill";
 import { getStaffRecord, recordHistory } from "@/server/services/staff";
 import { requireUser } from "@/server/session";
 import { ReinstateDialog, ResetPasswordDialog, ResignDialog, RolesForm } from "./RecordActions";
+import { SkillPanel } from "./SkillPanel";
 import { TrainingPanel } from "./TrainingPanel";
 
 export const metadata: Metadata = { title: "Staff record" };
@@ -34,11 +36,12 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
   if (!staff) notFound();
 
   const { saved } = await searchParams;
-  const [approver, approves, history, training] = await Promise.all([
+  const [approver, approves, history, training, skills] = await Promise.all([
     staff.status === "ACTIVE" ? approverFor(id) : Promise.resolve(null),
     staff.status === "ACTIVE" ? approvesCount(id) : Promise.resolve(0),
     can(user, "staff.manage") || can(user, "audit.view") ? recordHistory(id) : Promise.resolve([]),
     staffTrainingHistory(user, id, nowInMalaysia()),
+    staffSkillHistory(user, id),
   ]);
   const manage = canManageStaffRecord(user, staff);
   const active = staff.status === "ACTIVE";
@@ -144,6 +147,8 @@ export default async function StaffRecordPage({ params, searchParams }: PageProp
           )}
 
           {training && <TrainingPanel history={training} openTrainings={can(user, "training.view")} />}
+
+          <SkillPanel history={skills} />
 
           <HistoryPanel
             entries={history}

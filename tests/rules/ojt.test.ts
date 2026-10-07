@@ -26,6 +26,7 @@ const user = (roles: SessionUser["roles"]): SessionUser => ({
   roles,
   hodOfDepartmentIds: [],
   headOfDivisionIds: [],
+  designation: "NON_EXECUTIVE",
   mustChangePassword: false,
 });
 const admin = user(["LD_ADMIN"]);

@@ -289,6 +289,7 @@ describe("training permissions", () => {
     roles: [],
     hodOfDepartmentIds: [],
     headOfDivisionIds: [],
+    designation: "NON_EXECUTIVE",
     mustChangePassword: false,
   };
 

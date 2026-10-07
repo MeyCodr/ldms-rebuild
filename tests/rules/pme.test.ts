@@ -278,6 +278,7 @@ describe("PME permissions", () => {
     roles: [],
     hodOfDepartmentIds: [],
     headOfDivisionIds: [],
+    designation: "NON_EXECUTIVE",
     mustChangePassword: false,
     ...over,
   });

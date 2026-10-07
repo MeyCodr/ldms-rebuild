@@ -21,7 +21,8 @@ export type Permission =
   | "report.view"
   | "skill.evaluate"
   | "pme.view"
-  | "pme.verify";
+  | "pme.verify"
+  | "tna.manage";
 
 export type SessionUser = {
   id: number;
@@ -30,6 +31,7 @@ export type SessionUser = {
   departmentId: number;
   departmentName: string;
   divisionId: number;
+  designation: Designation;
   roles: RoleCode[];
   hodOfDepartmentIds: number[];
   headOfDivisionIds: number[];
@@ -52,6 +54,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "skill.evaluate",
     "pme.view",
     "pme.verify",
+    "tna.manage", // the training option lists, the summary and its export
   ],
   MAIN_CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage", "skill.evaluate"],
   CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],
@@ -68,7 +71,7 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<RoleCode, string> = {
   LD_ADMIN: "Full access: trainings, reports, organization, all staff, imports, roles and the audit log.",
-  MAIN_CLERK: "Adds and updates contract staff and records their OJT. Will also handle TNA, PME and skill matrix for contract staff as those screens open.",
+  MAIN_CLERK: "Adds and updates contract staff and records their OJT. In their own department: fills in skill matrices, and the TNA for each job grade.",
   CLERK: "Adds and updates contract staff and records their OJT.",
   SKILL_EVALUATOR: "Fills in the quarterly skill matrix for non-executive and contract staff in their own department, for the HOD to approve.",
 };

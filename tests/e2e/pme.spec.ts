@@ -1,7 +1,7 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
 import ExcelJS from "exceljs";
 import { createTestTraining, deleteTestTraining, giveDemoPassword, makeTestPmes } from "./db";
-import { DEMO_PASSWORD, signIn } from "./helpers";
+import { choose, DEMO_PASSWORD, signIn } from "./helpers";
 
 // PME runs between three people, all in Stamping:
 //   10232 Ahmad Zulkifli bin Rosli, an executive: the one evaluated
@@ -313,4 +313,61 @@ test("only executives and managers with a HOD get a PME, it waits for its period
     await expect(participants.getByRole("columnheader", { name: "PME" })).toHaveCount(0);
     expect((await ld.goto(`pme/${id}`))?.status()).toBe(404);
   });
+});
+
+test("a PME follows its training: new dates move the period, cancelling closes it", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const title = `PME moves ${suffix}`;
+  const trainingId = await createTestTraining(title, [{ staffNo: "10232", attendance: "COMPLETED" }], daysAgo(120));
+  try {
+    const [pme] = await makeTestPmes(trainingId);
+    const ld = await as(browser, "10001");
+    const hod = await as(browser, "10231");
+    const waiting = () => panel(hod, "PMEs to evaluate").getByRole("row", { name: new RegExp(title) });
+
+    // Held four months ago: the period is over, so it waits for the HOD.
+    await hod.goto("approvals");
+    await expect(waiting()).toBeVisible();
+
+    // L&D correct the dates to ten days ago: the period starts again, and the HOD has to wait.
+    await ld.goto(`trainings/${trainingId}/edit`);
+    await ld.waitForLoadState("networkidle");
+    await choose(ld, "HRDC", "No");
+    await choose(ld, "Platform", "Physical");
+    await choose(ld, "Function", "Business");
+    await choose(ld, "Program", "External public program");
+    await ld.getByLabel("Start date").fill(daysAgo(10));
+    await ld.getByLabel("End date").fill(daysAgo(10));
+    await ld.getByRole("button", { name: "Save" }).click();
+    await expect(ld.getByRole("status").first()).toHaveText("Changes saved.");
+    await expect(panel(ld, "Participants").getByRole("row", { name: new RegExp(STAFF) })).toContainText("In evaluation period");
+    await hod.goto("approvals");
+    await expect(waiting()).toHaveCount(0);
+    await hod.goto(`pme/${pme.id}`);
+    await expect(hod.getByText(/The evaluation period runs until/)).toBeVisible();
+    await expect(hod.getByRole("button", { name: "Submit evaluation" })).toHaveCount(0);
+
+    // Back to four months ago, then cancelled: the PME is closed and off every list.
+    await ld.goto(`trainings/${trainingId}/edit`);
+    await ld.waitForLoadState("networkidle");
+    await ld.getByLabel("Start date").fill(daysAgo(120));
+    await ld.getByLabel("End date").fill(daysAgo(120));
+    await ld.getByRole("button", { name: "Save" }).click();
+    await expect(ld.getByRole("status").first()).toHaveText("Changes saved.");
+    await hod.goto("approvals");
+    await expect(waiting()).toBeVisible();
+
+    await ld.getByRole("button", { name: "Cancel training" }).click();
+    await dialog(ld).getByRole("button", { name: "Cancel training" }).click();
+    await expect(dialog(ld).getByRole("status")).toBeVisible();
+    await hod.goto("approvals");
+    await expect(waiting()).toHaveCount(0);
+    await hod.goto(`pme?q=${encodeURIComponent(title)}`);
+    await expect(hod.getByText("No PMEs match these filters.")).toBeVisible();
+    await hod.goto(`pme/${pme.id}`);
+    await expect(hod.getByText("This training was cancelled, so its PME is closed.")).toBeVisible();
+    await expect(hod.getByRole("button", { name: "Submit evaluation" })).toHaveCount(0);
+  } finally {
+    await deleteTestTraining(title);
+  }
 });

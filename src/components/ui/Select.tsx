@@ -271,7 +271,7 @@ export function Select({
           onKeyDown={withSearch ? onListKey : undefined}
         >
           {withSearch && (
-            <div className="flex items-center gap-2 border-b border-rule px-3">
+            <div className="flex items-center gap-2 border-b border-rule px-3 focus-within:border-accent">
               <Search size={14} aria-hidden className="shrink-0 text-ink-3" />
               <input
                 ref={search}
@@ -286,7 +286,10 @@ export function Select({
                 aria-activedescendant={visible[active] ? `${listId}-${active}` : undefined}
                 aria-label="Search options"
                 placeholder="Type to search"
-                className="h-9 w-full bg-transparent text-[13.5px] outline-none placeholder:text-ink-3 focus-visible:outline-none"
+                // Inline, because the global :focus-visible outline outranks the utility class, and the
+                // panel would crop it at the top. The line under the search box shows focus instead.
+                style={{ outline: "none" }}
+                className="h-9 w-full bg-transparent text-[13.5px] placeholder:text-ink-3"
               />
             </div>
           )}

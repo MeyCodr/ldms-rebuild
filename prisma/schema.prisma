@@ -1,7 +1,7 @@
 // LDMS v2 schema.
 // Phase 1: org chart, staff, roles, audit log and settings.
 // Phase 2: trainings, sessions and participants.
-// Phase 3: PME. TNA, TNI and skill-matrix models follow, module by module.
+// Phase 3: PME, the skill matrix and TNA. TNI models follow.
 
 generator client {
   provider = "prisma-client-js"
@@ -68,6 +68,7 @@ model Department {
   sections   Section[]
   staff      Staff[]    @relation("DepartmentStaff")
   trainings  Training[]
+  tnas       Tna[]
 
   @@unique([divisionId, name])
   @@index([hodId])
@@ -86,37 +87,45 @@ model Section {
 }
 
 model Staff {
-  id                 Int           @id @default(autoincrement())
-  staffNo            String        @unique @db.VarChar(20) // the old table allowed duplicates
-  name               String        @db.VarChar(160)
-  email              String?       @db.VarChar(160)
-  position           String?       @db.VarChar(120)
+  id                 Int               @id @default(autoincrement())
+  staffNo            String            @unique @db.VarChar(20) // the old table allowed duplicates
+  name               String            @db.VarChar(160)
+  email              String?           @db.VarChar(160)
+  position           String?           @db.VarChar(120)
   designation        Designation
-  status             StaffStatus   @default(ACTIVE)
-  dateJoined         DateTime?     @db.Date
-  dateResigned       DateTime?     @db.Date
-  jobGrade           Int?          @db.TinyInt // 1 to 5; TNA by job grade (phase 3). Null: none
-  fillsOwnTna        Boolean       @default(false) // a non-executive who fills in their own TNA (the old "office" user)
+  status             StaffStatus       @default(ACTIVE)
+  dateJoined         DateTime?         @db.Date
+  dateResigned       DateTime?         @db.Date
+  jobGrade           Int?              @db.TinyInt // 1 to 5; TNA by job grade (phase 3). Null: none
+  fillsOwnTna        Boolean           @default(false) // a non-executive who fills in their own TNA (the old "office" user)
   departmentId       Int
   sectionId          Int?
-  passwordHash       String?       @db.VarChar(255) // argon2id
-  legacyMd5          String?       @db.Char(32) // cleared after the first sign-in
-  mustChangePassword Boolean       @default(false)
-  sessionVersion     Int           @default(0) // bumped on password reset/change; older sessions stop working
+  passwordHash       String?           @db.VarChar(255) // argon2id
+  legacyMd5          String?           @db.Char(32) // cleared after the first sign-in
+  mustChangePassword Boolean           @default(false)
+  sessionVersion     Int               @default(0) // bumped on password reset/change; older sessions stop working
   lastSignInAt       DateTime?
-  legacyId           Int?          @unique
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  department         Department    @relation("DepartmentStaff", fields: [departmentId], references: [id])
-  section            Section?      @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  legacyId           Int?              @unique
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  department         Department        @relation("DepartmentStaff", fields: [departmentId], references: [id])
+  section            Section?          @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   roles              StaffRole[]
-  hodOf              Department[]  @relation("DepartmentHod")
-  headOf             Division[]    @relation("DivisionHead")
+  hodOf              Department[]      @relation("DepartmentHod")
+  headOf             Division[]        @relation("DivisionHead")
   auditEntries       AuditLog[]
   participants       Participant[]
-  trainerOf          Training[]    @relation("TrainingTrainer")
-  pmeEvaluated       Pme[]         @relation("PmeEvaluator")
-  pmeVerified        Pme[]         @relation("PmeVerifier")
+  trainerOf          Training[]        @relation("TrainingTrainer")
+  pmeEvaluated       Pme[]             @relation("PmeEvaluator")
+  pmeVerified        Pme[]             @relation("PmeVerifier")
+  skillEvaluations   SkillEvaluation[] @relation("SkillSubject")
+  skillCreated       SkillEvaluation[] @relation("SkillCreator")
+  skillApproved      SkillEvaluation[] @relation("SkillApprover")
+  tnas               Tna[]             @relation("TnaSubject")
+  tnaCreated         Tna[]             @relation("TnaCreator")
+  tnaSubmitted       Tna[]             @relation("TnaSubmitter")
+  tnaApproved        Tna[]             @relation("TnaApprover")
+  tnaReturned        Tna[]             @relation("TnaReturner")
 
   @@index([departmentId, status])
   @@index([designation, status])
@@ -328,4 +337,181 @@ model Pme {
   verifiedBy     Staff?      @relation("PmeVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
 
   @@index([status, periodEnd])
+}
+
+// ---------- Phase 3: skill matrix ----------
+
+enum SkillSection {
+  KNOWLEDGE
+  SKILL
+  ABILITY
+}
+
+enum SkillStatus {
+  DRAFT // being filled in, or sent back by the HOD (returnReason says why)
+  SUBMITTED // waiting for the HOD
+  APPROVED // locked
+}
+
+// One per staff member per quarter. The quarter is stored, never worked out
+// from a date: it is the quarter evaluated, which is filled in during the
+// quarter after it (rules/skill.ts).
+model SkillEvaluation {
+  id           Int               @id @default(autoincrement())
+  staffId      Int
+  year         Int               @db.SmallInt
+  quarter      Int               @db.TinyInt // 1 to 4
+  status       SkillStatus       @default(DRAFT)
+  createdById  Int? // the evaluator
+  copiedFromId Int? // the matrix it was duplicated from, if any
+  submittedAt  DateTime?
+  approvedById Int?
+  approvedAt   DateTime?
+  returnReason String?           @db.VarChar(255) // why the HOD sent it back; cleared when submitted again
+  returnedAt   DateTime?
+  legacyId     Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  staff        Staff             @relation("SkillSubject", fields: [staffId], references: [id])
+  createdBy    Staff?            @relation("SkillCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy   Staff?            @relation("SkillApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  copiedFrom   SkillEvaluation?  @relation("SkillCopy", fields: [copiedFromId], references: [id], onDelete: SetNull)
+  copies       SkillEvaluation[] @relation("SkillCopy")
+  topics       SkillTopic[]
+
+  @@unique([staffId, year, quarter])
+  @@index([year, quarter, status])
+}
+
+model SkillTopic {
+  id           Int             @id @default(autoincrement())
+  evaluationId Int
+  section      SkillSection
+  name         String          @db.VarChar(500)
+  sortOrder    Int             @db.SmallInt
+  evaluation   SkillEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  items        SkillItem[]
+
+  @@index([evaluationId, section, sortOrder])
+}
+
+// A line under a topic: a sentence and its rating. A draft may hold a line
+// without a rating yet; a submitted matrix never does.
+model SkillItem {
+  id        Int        @id @default(autoincrement())
+  topicId   Int
+  text      String     @db.Text
+  rating    Int?       @db.TinyInt // 1 Beginner to 5 Expert
+  sortOrder Int        @db.SmallInt
+  topic     SkillTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, sortOrder])
+}
+
+// ---------- Phase 3: TNA (Training Need Analysis) ----------
+
+enum TnaSection {
+  ESG // a. ESG (Environment, Social, Governance)
+  SOFT_SKILLS // b. Soft skills
+  LEADERSHIP // c. Leadership awareness
+  DATA_DRIVEN // d. Data driven
+  FUNCTIONAL // e. Functional awareness
+  DIGITAL // f. Digital transformation and innovation
+  SPECIAL_PROJECT // g. Special project
+}
+
+enum TnaMethod {
+  OJT // on-job training
+  COACHING
+  EXTERNAL_INHOUSE // an external or in-house course
+}
+
+enum TnaStatus {
+  DRAFT // being filled in, or sent back (returnReason says why)
+  SUBMITTED // waiting for the HOD
+  APPROVED // locked; L&D can reopen it
+}
+
+// One per year for a person who fills in their own (staffId), or for a job
+// grade in a department (departmentId + jobGrade), entered by the main clerk
+// (rules/tna.ts). Exactly one of the two is set. MySQL lets a unique index
+// hold many NULLs, so the two unique indexes don't get in each other's way.
+model Tna {
+  id            Int         @id @default(autoincrement())
+  year          Int         @db.SmallInt
+  staffId       Int? // an individual's TNA ...
+  departmentId  Int? // ... or a job grade's, in a department
+  jobGrade      Int?        @db.TinyInt // 1 to 5
+  status        TnaStatus   @default(DRAFT)
+  createdById   Int?
+  submittedById Int?
+  submittedAt   DateTime?
+  approvedById  Int?
+  approvedAt    DateTime?
+  returnReason  String?     @db.VarChar(255) // why the HOD sent it back, or L&D reopened it; cleared when submitted again
+  returnedById  Int?
+  returnedAt    DateTime?
+  legacyId      Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  staff         Staff?      @relation("TnaSubject", fields: [staffId], references: [id])
+  department    Department? @relation(fields: [departmentId], references: [id])
+  createdBy     Staff?      @relation("TnaCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy   Staff?      @relation("TnaSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy    Staff?      @relation("TnaApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  returnedBy    Staff?      @relation("TnaReturner", fields: [returnedById], references: [id], onDelete: SetNull)
+  items         TnaItem[]
+
+  @@unique([year, staffId])
+  @@unique([year, departmentId, jobGrade])
+  @@index([year, status])
+}
+
+// A row of the form. A draft may hold a row that isn't finished; a submitted
+// TNA never does. The gap (target minus current) is worked out, not stored.
+model TnaItem {
+  id           Int                @id @default(autoincrement())
+  tnaId        Int
+  section      TnaSection
+  sortOrder    Int                @db.SmallInt
+  problem      String             @db.Text // problem statement
+  optionId     Int? // the training option picked; null for "Others" (and for a draft row with none yet)
+  trainingName String             @db.VarChar(255) // the option's name, or what was typed for "Others"
+  targetSkill  Int?               @db.TinyInt // 1 to 5
+  currentSkill Int?               @db.TinyInt // 1 to 5
+  method       TnaMethod?
+  month        Int?               @db.TinyInt // 1 to 12: when
+  tna          Tna                @relation(fields: [tnaId], references: [id], onDelete: Cascade)
+  option       TnaTrainingOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([tnaId, section, sortOrder])
+  @@index([optionId])
+}
+
+// "Training required": the lists L&D keep for each section of the form.
+// A section's options may be put in groups (Functional awareness has twelve).
+model TnaTrainingCategory {
+  id        Int                 @id @default(autoincrement())
+  section   TnaSection
+  name      String              @db.VarChar(255)
+  sortOrder Int
+  options   TnaTrainingOption[]
+
+  @@unique([section, name])
+}
+
+model TnaTrainingOption {
+  id          Int                  @id @default(autoincrement())
+  section     TnaSection
+  categoryId  Int?
+  name        String               @db.VarChar(255)
+  sortOrder   Int
+  active      Boolean              @default(true) // hidden options can't be picked for new rows; rows already saved keep them
+  updatedById Int?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  category    TnaTrainingCategory? @relation(fields: [categoryId], references: [id])
+  items       TnaItem[]
+
+  @@index([section, sortOrder])
 }

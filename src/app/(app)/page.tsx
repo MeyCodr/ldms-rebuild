@@ -22,6 +22,8 @@ import { runDataChecks, type Check } from "@/server/services/checks";
 import { myLearning, trainingOverview, type MyLearning, type TrainingOverview } from "@/server/services/dashboard";
 import { feedbackWaiting, type MyTrainingRow } from "@/server/services/myTraining";
 import { pmeWaiting, type PmeWaiting } from "@/server/services/pme";
+import { skillWaiting, type SkillWaiting } from "@/server/services/skill";
+import { tnaWaiting, type TnaWaiting } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -71,7 +73,7 @@ export default async function OverviewPage() {
   const isAdmin = can(user, "org.manage");
   const seesTraining = can(user, "training.view");
 
-  const [me, approver, approves, learning, waiting, pme, training, checks, hodDepts, divisions] = await Promise.all([
+  const [me, approver, approves, learning, waiting, pme, skill, tna, training, checks, hodDepts, divisions] = await Promise.all([
 
     db.staff.findUniqueOrThrow({
       where: { id: user.id },
@@ -82,6 +84,8 @@ export default async function OverviewPage() {
     myLearning(user, today),
     feedbackWaiting(user, today),
     pmeWaiting(user, today),
+    skillWaiting(user, today),
+    tnaWaiting(user, today),
     seesTraining ? trainingOverview(user, today) : Promise.resolve(null),
     isAdmin ? runDataChecks() : Promise.resolve(null),
     user.hodOfDepartmentIds.length
@@ -143,7 +147,7 @@ export default async function OverviewPage() {
 
         <RecentLearning className="md:col-span-6 lg:col-span-7" learning={learning} />
         <div className="grid content-start gap-5 md:col-span-6 md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-          <WaitingOnYou waiting={waiting} pme={pme} today={today} />
+          <WaitingOnYou waiting={waiting} pme={pme} skill={skill} tna={tna} today={today} />
           <Panel title="Your approver">
             {approver?.approverId && approver.approver ? (
               <div className="flex items-center gap-3">
@@ -399,15 +403,26 @@ function NextTraining({ className, learning, today }: { className: string; learn
 }
 
 /** Things the person has to do: PMEs (their own to acknowledge, their staff's to evaluate, L&D's to verify), then feedback forms, most overdue first. */
-function WaitingOnYou({ waiting, pme, today }: { waiting: MyTrainingRow[]; pme: PmeWaiting; today: Date }) {
+function WaitingOnYou({ waiting, pme, skill, tna, today }: { waiting: MyTrainingRow[]; pme: PmeWaiting; skill: SkillWaiting; tna: TnaWaiting; today: Date }) {
   const pmeLines = [
     ...pme.toAcknowledge.map((p) => ({ href: `/pme/${p.id}`, title: p.training.title, sub: `PME to acknowledge · evaluated by ${p.evaluatedBy?.name ?? "your HOD"}` })),
     ...(pme.toEvaluate.length
       ? [{ href: "/approvals", title: `${plural(pme.toEvaluate.length, "PME")} to evaluate`, sub: "Your staff whose evaluation period has ended" }]
       : []),
     ...(pme.toVerify.length ? [{ href: "/approvals", title: `${plural(pme.toVerify.length, "PME")} to verify`, sub: "Evaluated and acknowledged" }] : []),
+    ...(skill.toApprove.length
+      ? [{ href: "/approvals", title: `${plural(skill.toApprove.length, "skill matrix", "skill matrices")} to approve`, sub: "Submitted by your department's evaluators" }]
+      : []),
+    ...(skill.returned
+      ? [{ href: "/skill-matrix?stage=RETURNED", title: `${plural(skill.returned, "skill matrix", "skill matrices")} sent back to you`, sub: "Change and submit again" }]
+      : []),
   ];
-  const count = waiting.length + pme.toAcknowledge.length + pme.toEvaluate.length + pme.toVerify.length;
+  const tnaLines = [
+    ...(tna.toApprove.length ? [{ href: "/approvals", title: `${plural(tna.toApprove.length, "TNA")} to approve`, sub: "Submitted by your staff and your main clerk" }] : []),
+    ...(tna.ownReturned ? [{ href: "/my-tna", title: "Your TNA was sent back", sub: "Change it and submit again" }] : []),
+    ...(tna.gradesReturned ? [{ href: "/tna?view=grade&stage=RETURNED", title: `${plural(tna.gradesReturned, "job-grade TNA")} sent back to you`, sub: "Change and submit again" }] : []),
+  ];
+  const count = waiting.length + pme.toAcknowledge.length + pme.toEvaluate.length + pme.toVerify.length + skill.toApprove.length + skill.returned + tna.toApprove.length + (tna.ownReturned ? 1 : 0) + tna.gradesReturned;
   if (!count)
     return (
       <Panel title="Waiting on you">
@@ -418,7 +433,7 @@ function WaitingOnYou({ waiting, pme, today }: { waiting: MyTrainingRow[]; pme: 
           <div>
             <p className="font-medium">You&apos;re all caught up.</p>
             <p className="mt-0.5 text-[13px] text-ink-2">
-              Training feedback and PMEs that need you are listed here, most urgent first.
+              Training feedback, PMEs, skill matrices and TNAs that need you are listed here, most urgent first.
             </p>
           </div>
         </div>
@@ -427,12 +442,12 @@ function WaitingOnYou({ waiting, pme, today }: { waiting: MyTrainingRow[]; pme: 
   return (
     <Panel
       title="Waiting on you"
-      description={pmeLines.length ? "PMEs and feedback forms, the longest waiting first" : "Feedback forms to fill in, the longest waiting first"}
+      description={pmeLines.length + tnaLines.length ? "Approvals and forms, the longest waiting first" : "Feedback forms to fill in, the longest waiting first"}
       action={<Status tone="wait">{count} to do</Status>}
       flush
     >
       <ul>
-        {pmeLines.map((l) => (
+        {[...pmeLines, ...tnaLines].map((l) => (
           <li key={l.href + l.title} className="border-b border-rule last:border-b-0">
             <Link href={l.href} className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafb]">
               <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${TONE.coral.tile}`}>

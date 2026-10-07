@@ -12,6 +12,7 @@ const user = (over: Partial<SessionUser> = {}): SessionUser => ({
   roles: [],
   hodOfDepartmentIds: [],
   headOfDivisionIds: [],
+  designation: "NON_EXECUTIVE",
   mustChangePassword: false,
   ...over,
 });
