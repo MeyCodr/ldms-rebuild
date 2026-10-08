@@ -33,6 +33,7 @@ export const MODULE_TONE = {
   tna: "jade",
   tni: "cobalt",
   skills: "olive",
+  jobs: "slate", // email and the daily job
 } as const satisfies Record<string, Tone>;
 
 export type ModuleKey = keyof typeof MODULE_TONE;

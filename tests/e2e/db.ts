@@ -282,3 +282,37 @@ export async function setTnaYearSetting(year: number) {
     await db.$disconnect();
   }
 }
+
+/**
+ * Test-only: switches Sending off (so no test ever really sends an email),
+ * puts email test mode to a known state and removes the test emails and
+ * daily job runs a staff member made. Returns a function that removes them
+ * again and puts both switches back as they were.
+ */
+export async function resetMail(staffNo: string, testMode: { enabled: boolean; address: string }) {
+  const clear = async (db: PrismaClient) => {
+    const staff = await db.staff.findUniqueOrThrow({ where: { staffNo }, select: { id: true } });
+    await db.emailMessage.deleteMany({ where: { staffId: staff.id, kind: "test" } });
+    await db.jobRun.deleteMany({ where: { startedById: staff.id } });
+  };
+  const db = new PrismaClient();
+  try {
+    const before = await db.setting.findUnique({ where: { key: "mail.testMode" }, select: { value: true } });
+    const sending = await db.setting.findUnique({ where: { key: "mail.sending" }, select: { value: true } });
+    await db.setting.upsert({ where: { key: "mail.sending" }, update: { value: false }, create: { key: "mail.sending", value: false } });
+    await clear(db);
+    await db.setting.upsert({ where: { key: "mail.testMode" }, update: { value: testMode }, create: { key: "mail.testMode", value: testMode } });
+    return async () => {
+      const again = new PrismaClient();
+      try {
+        await clear(again);
+        await again.setting.update({ where: { key: "mail.testMode" }, data: { value: before?.value ?? testMode } });
+        await again.setting.update({ where: { key: "mail.sending" }, data: { value: sending?.value === true } });
+      } finally {
+        await again.$disconnect();
+      }
+    };
+  } finally {
+    await db.$disconnect();
+  }
+}

@@ -61,7 +61,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (can(user, "org.view")) records.push({ href: "/organization", label: "Organization", module: "organization" });
   if (can(user, "report.view")) records.push({ href: "/reports", label: "Reports", module: "reports" });
   if (records.length) groups.push({ label: "Records", items: records });
-  if (can(user, "audit.view")) groups.push({ label: "Administration", items: [{ href: "/audit", label: "Audit log", module: "audit" }] });
+  const administration: NavGroup["items"] = [];
+  if (can(user, "audit.view")) administration.push({ href: "/audit", label: "Audit log", module: "audit" });
+  if (can(user, "jobs.manage")) administration.push({ href: "/jobs", label: "Jobs and email", module: "jobs" });
+  if (administration.length) groups.push({ label: "Administration", items: administration });
 
   const extra: string[] = user.roles.map((r) => ROLE_LABELS[r]);
   if (user.hodOfDepartmentIds.length || user.headOfDivisionIds.length) {

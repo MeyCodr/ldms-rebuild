@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `emailmessage` MODIFY `status` ENUM('QUEUED', 'SENT', 'FAILED', 'RECORDED') NOT NULL DEFAULT 'QUEUED';
+

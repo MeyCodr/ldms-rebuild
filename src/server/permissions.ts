@@ -22,7 +22,8 @@ export type Permission =
   | "skill.evaluate"
   | "pme.view"
   | "pme.verify"
-  | "tna.manage";
+  | "tna.manage"
+  | "jobs.manage";
 
 export type SessionUser = {
   id: number;
@@ -55,6 +56,7 @@ const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "pme.view",
     "pme.verify",
     "tna.manage", // the training option lists, the summary and its export
+    "jobs.manage", // email test mode, the daily job and its log (phase 4)
   ],
   MAIN_CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage", "skill.evaluate"],
   CLERK: ["staff.view", "staff.manage", "staff.import", "ojt.manage"],

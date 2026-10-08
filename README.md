@@ -8,8 +8,8 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
 | 2 | Training core: trainings, participants, attendance, OJT | **Built** (6 Oct 2026): Trainings, Participants, My Training, OJT for clerks, Certificates, Reports and staff training history; see `docs/phase-2-plan.md`. Still open: the 16 course feedback questions are placeholder wording until L&D supplies them |
-| 3 | Workflows: PME, TNA, TNI, skill matrix | **In progress**: plan approved 6 Oct 2026 (`docs/phase-3-plan.md`); module 0 (groundwork: job grade, own-TNA tick, Skill matrix evaluator role) built; module 1 (PME, with the Approvals page) built; module 2 (skill matrix) built; module 3 (TNA: My TNA, by job grade, training options, summary) built; module 4 (TNI) built, in review: the last module of phase 3 |
-| 4 | Reporting, exports, daily jobs | |
+| 3 | Workflows: PME, TNA, TNI, skill matrix | **Built** (8 Oct 2026): PME with the Approvals page, skill matrix, TNA (My TNA, by job grade, training options, summary, opening next year early) and TNI; see `docs/phase-3-plan.md` |
+| 4 | Reminder emails, notifications, the daily job, dashboards | **In progress**: plan approved 8 Oct 2026 (`docs/phase-4-plan.md`); module 0 (groundwork: email with test mode, the daily job, the Jobs and email screen) built, in review |
 | 5 | Migration rehearsal and cutover | |
 
 ## Run it locally
@@ -34,6 +34,38 @@ Demo sign-ins from the seed (password `Ldms@2026`):
 
 Every other seeded staff member has the "migrated" MD5 password `phn12345`, which is upgraded to argon2 on first sign-in, exactly as migrated staff will experience it.
 
+## Email and the daily job
+
+Set in the server's `.env` (never in code): `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`,
+`MAIL_FROM`, and `APP_URL` for links in emails.
+
+Every email is written down before it is sent (`EmailMessage`), so nothing is sent twice and L&D can see where each
+went on **Jobs and email**. L&D choose the **email mode** there with one button; each change is in the audit log:
+
+- **Off** (how it starts): emails are only recorded ("Recorded only") and none is sent, then or later. A
+  development copy stays here, and the end-to-end tests put it here while they run.
+- **Test**: emails are really sent, every one to the test address given with it, with the real recipient named in
+  the subject.
+- **Live**: emails are really sent to staff.
+
+Test and Live can't be chosen until the mail server is set up in `.env`. Underneath, the mode is two settings,
+`mail.sending` and `mail.testMode`.
+
+The daily job is a command, with no web address:
+
+```bash
+npm run job:daily
+```
+
+On the Linux server, one crontab line runs it at 8am Malaysia time (use `0 0 * * *` if the server's clock is UTC):
+
+```
+0 8 * * * cd /path/to/ldms && npm run job:daily >> /var/log/ldms-daily.log 2>&1
+```
+
+Running it again the same day is harmless. Each run, and what it did, is listed on Jobs and email; L&D can also
+start one there with **Run now**.
+
 ## Checks
 
 ```bash
@@ -54,6 +86,8 @@ src/server/session.ts       current user, requireUser(), requirePermission()
 src/server/permissions.ts   roles → permissions, can(), staff visibility scopes
 src/server/rules/           pure business rules, each with tests in tests/rules
 src/server/services/        all reads and writes; check permissions and write the audit log
+src/server/mailer.ts        the one place that talks to the mail server
+scripts/daily-job.ts        the daily job, for the server's scheduler
 src/app/(app)/              signed-in screens
 src/lib/validation/         Zod schemas shared by forms and services
 ```

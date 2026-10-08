@@ -1,0 +1,318 @@
+# Phase 4: Reminders, notifications, the daily job and dashboards
+
+Build plan for LDMS v2 phase 4. **Approved 8 Oct 2026; the answers are in §3.** Question 4 (a closing date for TNA and TNI) is to be confirmed at module 2. Written
+after reading the old system's reminder scripts and dashboards (`C:\Apache24\htdocs\ldms`) and counting, without
+reading any personal data, what is in its database (`phnportalenterto_trms`, read-only). Read with `README.md`,
+`CLAUDE.md` and `docs/phase-3-plan.md`.
+
+**How to work:** as in phases 2 and 3. One module at a time, in the order in §7; after each: typecheck, lint, unit
+tests, e2e tests, screenshots at desktop and phone width, then stop for review.
+
+---
+
+## 1. Where things stand
+
+- Phases 1 to 3 are on master: org chart, staff, sign-in, permissions, audit log, trainings, attendance, My
+  training, OJT, certificates, reports, PME, skill matrix, TNA and TNI.
+- **Already in place for phase 4**
+  - What is waiting on each person is worked out today, on screen only: `feedbackWaiting`, `pmeWaiting`,
+    `skillWaiting` and `tnaWaiting` feed the sidebar counts, the Approvals page and the overview's *Waiting on you*.
+  - A `mail.testMode` setting (on, with a test address) has been in the seed since phase 1. Nothing reads it yet.
+  - The org and staff data checks already flag *Managers and executives without email*.
+  - The overview has L&D's figures for the year (learning hours by month, attendance to record, spend, headcount by
+    division), and Reports has staff hours, department hours, attendance and the audit log, each with an Excel export.
+  - `ColumnChart` draws one series of columns. There is no chart with two series or stacked parts yet.
+- **Missing**: anything that sends an email, anything that runs by itself, a record of what was sent, a notification
+  list, and any chart about PME, skill matrix, TNA or TNI across departments.
+
+## 2. What the old system does
+
+### 2.1 Reminders
+
+One runner, `scripts/run_reminders.sh`, started once a day by the server's scheduler (8am Malaysia time), runs three
+scripts one after another and writes what each printed to a log file.
+
+| Script | To whom | What | When |
+|---|---|---|---|
+| `notify_pme_incomplete.php` | Each HOD | One email listing every PME of theirs whose 3-month period has ended and is still not evaluated | Every day until none are left |
+| `notify_attendance_incomplete.php` | Each participant | One email listing every training that has ended whose attendance form they haven't filled in | Every day until none are left |
+| `reminder.php` | Three L&D addresses, typed into the code | Trainings that started exactly 3 months ago | On that day |
+
+Also in the PME script: PMEs for trainings of 4 hours or less are closed before anyone is reminded (v2 needs no job for
+this; they are *Not required* from the start). Three older scripts (`notify_hod`, `notify_admin`,
+`notify_participation`) are no longer run.
+
+What the code and the database show:
+
+- Both daily scripts **are in test mode in this copy of the code**: every email goes to one test address, with the
+  real recipient named in the subject. They have run every day since 7 and 8 September 2026 (27 and 26 runs). Whether
+  the live server has been switched to real recipients is a question for whoever deployed it.
+- The backlog today: **82 PMEs** past their period across **17 HODs**, and **144 attendance forms** not filled in by
+  **126 staff**.
+- **Only 447 of about 3,100 active staff have an email address on record.** All 39 HODs do; so do 137 of 140
+  managers and 136 of 155 executives. Among non-executive staff it is 172 of 1,356, and among contract staff 2 of
+  1,465. Email reaches the office; it does not reach the shop floor.
+- Each script marks the day as sent **before** sending, so a failure halfway means the rest wait until tomorrow. There
+  is no record of who was sent what, only the printed log.
+- Email goes through Office 365 with a mailbox sign-in. **The mailbox password is written into five source files**,
+  and each script's web address is protected only by a token that is also in the code. See §9.
+- No reminders exist for skill matrix, TNA or TNI, and none for the staff member's or L&D's PME step.
+
+### 2.2 Dashboards
+
+Every role has a dashboard page, all about **training hours**; none shows PME, skill matrix, TNA or TNI. L&D's has:
+
+- Seven figures: trainings, staff trained, headcount, days, total hours, public hours, OJT hours.
+- **Public and OJT** hours side by side, **cost by month**, the **top 10 staff by hours**, and **average training
+  hours per person by month**.
+- **One chart per division** (nine of them), each with its departments.
+- A switch on most charts between **total man-hours** and **average hours per person**, a date range and a year picker.
+- A table of staff with their total hours.
+
+The HOD's, the clerks' and ordinary staff's pages are cut-down copies of the same page, 1,200 to 1,500 lines each.
+Ordinary staff see the company-wide division charts too. The skill matrix has its own chart page, which v2 already has.
+
+About half of trainings have a cost entered (81 of 152 in 2026), so a cost chart undercounts.
+
+---
+
+## 3. Decisions (8 Oct 2026)
+
+Each has what the old system does, what was recommended and its downside. **The answers:**
+
+- **1**: one combined email per person, **every day until resolved**, as the old system does. No weekly option, so
+  there is no `reminders.cadence` setting.
+- **4**: open. There is no closing-date field today; the proposal is an optional one in the *Open year* dialog.
+  Decide at module 2.
+- **8**: SMTP, with the settings in `.env`.
+- **9**: a **Linux** server; the daily job is a `cron` line.
+- **12**: **yes**, the old PDF reports are needed. Added as module 5: the PME report, the training audit report and
+  the OJT audit report, unless fewer are named.
+- **2, 3, 5, 6, 7, 10, 11**: as recommended.
+
+### Reminders
+
+| # | Question | Old system | Recommended for v2 | Downside |
+|---|---|---|---|---|
+| 1 | **How often?** | Every day until done. | **One email per person**, listing everything waiting on them. Sent the day something new is waiting, then **every Monday** while anything remains. L&D can switch it to every working day. | Slower chasing than daily. L&D chose daily only a month ago, so they may want daily kept; that is why it is a switch and not fixed. A HOD with 30 overdue PMEs learns to delete a daily email. |
+| 2 | **Which things are chased?** | PME for the HOD; attendance form for the participant. | Everything that already appears under *Waiting on you*, listed in §4: twelve kinds, each one L&D can switch off. | More email than today. The single combined email keeps it to one per person. |
+| 3 | **Skill matrices not yet filled in** | No reminder. | Remind the department's evaluators **only in the last month** before the quarter closes, with the number of staff still without one. | Several people can fill them in, so each may assume another will. The HOD's dashboard (question 10) shows the same number, which is the real pressure. |
+| 4 | **TNAs and TNIs not yet started** | No reminder, and no deadline. | **No reminder unless L&D set a closing date** when they open the year. With a date: remind from 14 days before. | Needs a small addition to the *Open year* dialog. Without a date nobody is chased to start, as today. A reminder with no deadline behind it is noise. |
+| 5 | **Staff with no email** (about 2,650) | Skipped; counted in the log. | They get the **in-LDMS notification** only. L&D's run summary lists how many were skipped, by department, with a link to the staff list. | They only see it if they sign in. Nothing in phase 4 fixes that; a kiosk or a printed list from the clerk would. |
+| 6 | **The first live run** | A cut-off date in the code, so the first run didn't send the whole backlog. | A **Chase from** date L&D set when they switch test mode off. Older items still show on screen but aren't emailed. | Older backlog isn't chased by email unless L&D move the date back. |
+| 7 | **Can a person turn their reminders off?** | No. | **No.** L&D switch a kind on or off for everyone. | Someone on long leave still gets them. |
+
+### Sending and running
+
+| # | Question | Old system | Recommended for v2 | Downside |
+|---|---|---|---|---|
+| 8 | **How is email sent?** | Office 365, signing in as a mailbox with a password. | The same mailbox through SMTP, with the address and password in the server's `.env` file and **a new password**. Built behind one small piece of code so it can be swapped. **I need IT to confirm** the mailbox can still sign in this way: Microsoft has been retiring password sign-in for sending mail, and I can't see from here whether the old emails are actually being delivered. | If IT say no, the alternative is sending through Microsoft Graph with an app registration, which IT must set up. About a day more work. |
+| 9 | **Where does the daily job run?** | The server's scheduler runs a script; a web address with a token as a fallback. | A command, `npm run job:daily`, run by the server's scheduler (Task Scheduler on Windows, cron on Linux) at 8am. **No web address.** L&D also get a **Run now** button. | Someone must set the schedule up once on the server. I need to know which system v2 will be hosted on. |
+
+### Dashboards and exports
+
+| # | Question | Old system | Recommended for v2 | Downside |
+|---|---|---|---|---|
+| 10 | **What is charted?** | Training hours only. | A **Dashboard** screen with two parts. *Training*: the old charts worth keeping (§6). *Workflows*: how far each department has got with PME, skill matrix, TNA and TNI. | The nine per-division charts become one chart with a division picker; anyone used to seeing all nine at once has to click. |
+| 11 | **Who sees it?** | Everyone, company-wide. | **L&D** see everything. A **HOD** sees their department, a **division head** their division. Other staff keep their own figures on the overview. | Ordinary staff lose the company-wide charts and the top 10 list. Showing a ranked list of named colleagues to 3,000 people is the part I'd question. |
+| 12 | **PDF reports in the old layouts** (PME report, audit reports) | Three PDF pages. | **Not in phase 4** unless L&D name one an auditor asks for. Excel exports exist for all of them. | If an auditor does want the exact old layout, it is added later, one report at a time. |
+
+**Before module 0, I also recommend** spending a short session on the end-to-end tests. A few fail on a full run and
+pass when run alone, and the cause isn't known. A daily job and emails add more things that depend on time, so the
+checks need to be dependable first.
+
+---
+
+## 4. The reminders
+
+One list per person, built from the same rules that fill *Waiting on you*, so the email and the screen never disagree.
+
+| # | What is waiting | Who is told | Becomes due |
+|---|---|---|---|
+| 1 | Feedback form for a training that has ended | The participant | The day after the training ends |
+| 2 | PME to evaluate | The HOD | When the 3-month period ends |
+| 3 | PME to acknowledge | The staff member | When the HOD evaluates |
+| 4 | PME sent back by L&D | The HOD | When sent back |
+| 5 | PME to verify | L&D | When acknowledged |
+| 6 | Attendance to record for a training that has ended | L&D | The day after it ends |
+| 7 | Skill matrices not filled in | The department's evaluators | The last month before the quarter closes (question 3) |
+| 8 | Skill matrix to approve | The HOD | When submitted |
+| 9 | Skill matrix sent back | The evaluator who filled it in | When sent back |
+| 10 | TNA to approve | The HOD | When submitted |
+| 11 | TNA sent back | The staff member, or the main clerk for a job grade | When sent back |
+| 12 | TNA or TNI not started | The staff member; the HOD for a TNI | 14 days before the closing date, if L&D set one (question 4) |
+
+- **The email**: plain and short. Who it is for, each kind as a heading with a count and up to ten lines (name,
+  training or quarter, how many days it has waited), and one link into LDMS for each kind. The old L&D greeting and
+  sign-off lines are kept.
+- **Never sent twice**: each email is recorded before it is sent, one per person per day. A failed send is retried on
+  the next run; a second run on the same day sends only what is missing.
+- **Test mode**: on until L&D switch it off. Every email goes to the test address, with the real recipient named in
+  the subject, exactly as the old scripts do.
+- **Resigned staff and people with no HOD** are never emailed. A department with no active HOD is listed in L&D's
+  run summary.
+
+## 5. Notifications inside LDMS
+
+- A **bell** in the header with a count of unread, and a list: newest first, each line says what happened and opens
+  the record. *Mark all as read*.
+- A notification is written **when something happens to your record**: sent back, approved, evaluated and waiting
+  for you, verified. It is written in the same step as the change, so it can't be missed or doubled.
+- It does not replace *Waiting on you*. That shows what is waiting now; the bell shows what happened. A line is marked
+  read when the record is opened.
+- Notifications older than 90 days are removed by the daily job.
+- **Browser push** (a pop-up when LDMS isn't open) is not in phase 4. It needs HTTPS on the live server and a
+  permission on each device, and most shop-floor staff share a computer.
+
+## 6. The dashboard
+
+One screen, **Dashboard**, in the sidebar. A year picker; L&D also get a division and department picker.
+
+**Training** (what the old dashboards showed, minus repeats of what Reports already has):
+
+| Chart | Notes |
+|---|---|
+| Hours by month, Public / In-house, Departmental and OJT | Replaces *Public and OJT*. Stacked columns, with the old switch between total hours and average per person. |
+| Hours by department | Replaces the nine division charts: one chart, the division chosen above. |
+| Cost by month | Says how many trainings have no cost entered, so the gap is visible. |
+| Most hours | The ten staff with the most hours, within what the viewer may see. L&D and HODs only. |
+
+**Workflows** (new):
+
+| Chart | Shows |
+|---|---|
+| PME | By department: waiting for the HOD, for the staff member, for L&D, and verified. Overdue ones counted separately. |
+| Skill matrix | By department for the open quarter: not started, draft, waiting for the HOD, approved, against the number of staff who need one. |
+| TNA | By department for the open year: not started, draft, with the HOD, approved. |
+| TNI | Which departments have saved one for the open year. |
+
+Each chart has a table behind it for screen readers and an Excel export of the same numbers. The existing overview
+keeps its own cards; the L&D figures there link to this screen.
+
+## 7. Build order
+
+| Module | What it builds | You can check |
+|---|---|---|
+| **0. Groundwork** | The records for job runs, emails and notifications. The mail sender with test mode. `npm run job:daily`. A **Jobs and email** screen for L&D: each run with its counts, the test-mode switch, *Send a test email*, *Run now*. No reminders yet. | Send yourself a test email; see a run in the log. |
+| **1. Notifications** | The bell and the list; a notification written by each PME, skill matrix and TNA step. | Send a TNA back as a HOD; see it in the staff member's bell. |
+| **2. Reminders** | The twelve kinds, the combined email, how often, the switches, the *Chase from* date, the closing date for TNA and TNI. | In test mode, read the email each demo person would get and compare it with their *Waiting on you*. |
+| **3. Dashboard: training** | The Dashboard screen and the four training charts, with the stacked chart piece. | Compare the totals with the Reports screens for the same year. |
+| **4. Dashboard: workflows** | The four workflow charts and their exports. | Compare a department's counts with its PME, skill matrix and TNA lists. |
+| **5. PDF reports** | The old PME report, training audit report and OJT audit report as PDFs, in the old layouts. Read the old pages first and confirm the layouts with L&D. | Put each beside the old system's PDF for the same training. |
+
+### Module 0: Groundwork (built 8 Oct 2026, in review)
+
+- **Jobs and email** (`/jobs`, Administration, L&D only: permission `jobs.manage`): how email is set up, test mode,
+  the daily job's runs and the latest 50 emails with who each was meant for and where it went.
+- **Email** (`src/server/mailer.ts`, `services/mail.ts`, `rules/mail.ts`): `queueEmail` writes the email down under a
+  unique key, `sendEmail` sends it and records the result. A failed one is tried again by the next runs, three times
+  in all. **Send a test email** goes to the signed-in person, or to the test address in Test; in Off it is only recorded.
+- **Safe when unreadable**: a sending setting that can't be read counts as off, and a test-mode setting that can't
+  be read counts as on with no address, so nothing reaches staff by accident.
+- **The daily job** (`npm run job:daily`, `scripts/daily-job.ts`, `services/job.ts`): sends what is waiting, then
+  removes emails, notifications and runs older than 90 days. One run at a time; a run that died is closed as
+  failed after 30 minutes. **Run now** does the same from the screen.
+- **Decided while building**
+  - **One email mode on the screen: Off, Test or Live** (asked for 8 Oct 2026, instead of a line in `.env` and
+    in place of separate sending and test-mode switches). Off: emails are only recorded, shown as *Recorded
+    only*, and never sent later. Test: really sent, all to the test address typed in with it. Live: really sent to
+    staff, behind a warning and a *Go live* button. It starts Off; Test and Live can't be chosen until the mail
+    server is set up in `.env`; each change is in the audit log. The end-to-end tests put it to Off while they
+    run. The mailbox address and password stay in `.env`: a password typed into a screen would sit in the
+    database and its backups.
+  - The `Notification` table is created now and first used in module 1.
+  - Email bodies are kept (for retries) but never shown on the screen.
+
+## 8. Data model
+
+```prisma
+enum JobStatus { RUNNING  OK  FAILED }
+
+model JobRun {              // one row per run of the daily job
+  id            Int       @id @default(autoincrement())
+  job           String    @db.VarChar(40)   // "daily"
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  status        JobStatus @default(RUNNING)
+  summary       Json?                       // counts: due, sent, failed, skipped (no email), by kind
+  error         String?   @db.Text
+  startedById   Int?                        // null when the scheduler started it
+}
+
+enum EmailStatus { QUEUED  SENT  FAILED }
+
+model EmailMessage {        // one row per email: what was meant for whom, and what happened
+  id         Int         @id @default(autoincrement())
+  staffId    Int?                            // who it is for
+  intendedTo String      @db.VarChar(160)    // their address
+  sentTo     String      @db.VarChar(160)    // the test address in test mode
+  subject    String      @db.VarChar(200)
+  body       String      @db.MediumText
+  dedupeKey  String      @unique @db.VarChar(80)   // "digest:<staffId>:<YYYY-MM-DD>"
+  status     EmailStatus @default(QUEUED)
+  attempts   Int         @default(0)
+  error      String?     @db.VarChar(500)
+  jobRunId   Int?
+  createdAt  DateTime    @default(now())
+  sentAt     DateTime?
+}
+
+model Notification {        // the bell
+  id        Int       @id @default(autoincrement())
+  staffId   Int
+  kind      String    @db.VarChar(40)       // "tna.returned", "pme.evaluated", ...
+  title     String    @db.VarChar(200)
+  href      String    @db.VarChar(200)
+  entity    String    @db.VarChar(40)
+  entityId  Int
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  @@index([staffId, readAt, createdAt])
+}
+```
+
+Settings (the existing `Setting` table): `mail.testMode` (exists),
+`reminders.kinds` (which are on), `reminders.chaseFrom` (a date), `tna.closingDate`. In `.env`: `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, and `APP_URL` for the links in emails.
+
+One new package: `nodemailer`.
+
+- **Rules** (`src/server/rules/reminder.ts`, pure and unit-tested): what goes into a person's list; the *Chase from* cut-off; the last month of a quarter; the closing-date window.
+- **Services**: `reminder.ts` (who is waiting on what, for everyone at once), `mail.ts` (queue, send, retry, test
+  mode), `job.ts` (start, finish, never two runs at once), `notification.ts`, and `dashboard.ts` extended.
+- **Permission**: `jobs.manage` for L&D admins. Changes to switches and test mode go in the audit log.
+- Email bodies hold staff names, so `EmailMessage` rows are removed after 90 days, with the notifications.
+
+## 9. Security notes
+
+- **The old mailbox password is in the old system's source code**, in five files, and that code is in a git
+  repository. Whoever can read the code can send email as that mailbox. It should be changed whatever happens with
+  v2, and v2 will use the new one from `.env`, never from code.
+- The old reminder scripts can be started from a web address with a token that is also in the code. v2's job has no
+  web address.
+- The old log file names staff and their email addresses and sits under the web folder unless the server is set up
+  otherwise. v2 keeps the record in the database, shown only to L&D.
+- Emails contain names and training titles and nothing else: no marks, no ratings, no reasons for sending back.
+
+## 10. Not in phase 4
+
+- Browser push notifications (§5).
+- Telling a division head when a HOD hasn't acted after some days. The dashboard shows it; an email about a
+  colleague's lateness is a decision for L&D and management, not a default.
+- Importing old records: phase 5.
+
+## 11. Tests to add
+
+- **Rules**: each of the twelve kinds in and out of its
+  window; test mode's address and subject; one email per person per day.
+- **A consistency test**: for each demo person, the reminder list equals what `*Waiting` returns for them.
+- **End to end**: L&D run the job in test mode and see the run and its emails; a second run the same day sends
+  nothing; a HOD sends a TNA back and the staff member's bell shows it; the Dashboard's totals match Reports; a
+  staff member and a clerk are refused the Dashboard and the Jobs screen.
+- No test ever sends a real email: the mail sender is swapped for one that only records.
+
+## 12. Phase 4 is done when
+
+- Everything in §7 works and is covered by the tests in §11.
+- L&D have read a week of test-mode emails and agreed the wording.
+- All checks pass: `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e`, `npm run build`.
