@@ -8,7 +8,9 @@ import { Select } from "@/components/ui/Select";
 import { Status } from "@/components/ui/Status";
 import { withBasePath } from "@/lib/base-path";
 import { formatDateTime, nowInMalaysia, plural } from "@/lib/format";
-import { parseTniYear, seesTnis, tniOpenYear, tniYearBlock } from "@/server/rules/tni";
+import { tnaOpenedEarly } from "@/server/rules/tna";
+import { parseTniYear, seesTnis, tniYearBlock } from "@/server/rules/tni";
+import { tnaOpen } from "@/server/services/tna";
 import { tniList, tniYears } from "@/server/services/tni";
 import { requireUser } from "@/server/session";
 
@@ -19,7 +21,7 @@ export default async function TniPage({ searchParams }: PageProps<"/tni">) {
   const user = await requireUser();
   if (!seesTnis(user)) forbidden();
   const today = nowInMalaysia();
-  const open = tniOpenYear(today);
+  const open = await tnaOpen(today);
   const raw = (await searchParams).year;
   const year = parseTniYear(typeof raw === "string" ? raw : undefined) ?? open;
   const isOpen = year === open;
@@ -39,7 +41,7 @@ export default async function TniPage({ searchParams }: PageProps<"/tni">) {
             <span>
               <span className="font-semibold text-ink">{year}</span> <span className="text-ink-3">· Training Need Identification</span>
             </span>
-            {!isOpen && <Status tone="na">Ended: view only</Status>}
+            {isOpen ? tnaOpenedEarly(today, open) && <Status tone="ok">Opened early</Status> : <Status tone="na">Closed: view only</Status>}
             <span>
               <span className="num font-semibold text-ink">{done}</span> of {plural(rows.length, "department")} filled in
             </span>
@@ -52,7 +54,7 @@ export default async function TniPage({ searchParams }: PageProps<"/tni">) {
         }
       />
 
-      {!isOpen && <div className="notice notice-wait mb-3">{tniYearBlock(year, today)}</div>}
+      {!isOpen && <div className="notice notice-wait mb-3">{tniYearBlock(year, open)}</div>}
 
       <form method="get" className="card flex flex-wrap items-end gap-2 p-3" role="search" aria-label="Choose a year">
         <div className="w-full sm:w-40">

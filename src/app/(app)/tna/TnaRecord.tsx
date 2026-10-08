@@ -8,7 +8,7 @@ import { monthLabel, TNA_LEVELS, TNA_METHOD_LABELS, TNA_SECTION_HINTS, TNA_SECTI
 import { formatDateTime, formatHours, plural } from "@/lib/format";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can, type SessionUser } from "@/server/permissions";
-import { TNA_STAGE_LABELS, TNA_STAGE_TONE, tnaOpenYear, tnaTitle, tnaYearBlock } from "@/server/rules/tna";
+import { TNA_STAGE_LABELS, TNA_STAGE_TONE, tnaTitle, tnaYearBlock } from "@/server/rules/tna";
 import type { tnaHistory, tnaTrainingHours, TnaView } from "@/server/services/tna";
 import { ApproveTnaDialog, DeleteTnaDialog, ReopenTnaDialog, SendBackTnaDialog, SubmitTnaDialog } from "./TnaActions";
 
@@ -17,8 +17,9 @@ import { ApproveTnaDialog, DeleteTnaDialog, ReopenTnaDialog, SendBackTnaDialog, 
 
 const SAVED: Record<string, string> = {
   draft: "Draft saved. Submit it to the HOD when it's complete.",
-  submitted: "Submitted. The HOD can now change it, approve it or send it back.",
+  submitted: "Submitted. The HOD can now approve it, change it or send it back.",
   changed: "Changes saved. It is still waiting for approval.",
+  approved: "Saved and approved. It is now locked; L&D can reopen it.",
 };
 
 const HISTORY_FIELDS: HistoryFields = {
@@ -57,9 +58,9 @@ export function TnaHeaderActions({ t, editHref }: { t: TnaView; editHref: string
   );
 }
 
-/** What the page says above the record: what was just saved, why it was sent back, a year that has ended, a department without a HOD. */
-export function TnaNotices({ t, saved, today }: { t: TnaView; saved: string | string[] | undefined; today: Date }) {
-  const closed = tnaYearBlock(t.year, today);
+/** What the page says above the record: what was just saved, why it was sent back, a year that is closed, a department without a HOD. */
+export function TnaNotices({ t, saved, open }: { t: TnaView; saved: string | string[] | undefined; /** The year being filled in. */ open: number }) {
+  const closed = tnaYearBlock(t.year, open);
   return (
     <>
       {typeof saved === "string" && SAVED[saved] && (
@@ -78,8 +79,8 @@ export function TnaNotices({ t, saved, today }: { t: TnaView; saved: string | st
       {closed && t.status !== "APPROVED" && (
         <div className="notice notice-wait mb-5">
           {t.status === "SUBMITTED"
-            ? `${t.year} has ended. This TNA was submitted in time and still waits for the HOD's approval; it can no longer be changed or sent back.`
-            : `${t.year} ended before this draft was submitted, so it can only be viewed. Start ${tnaOpenYear(today)}'s from it to carry it forward.`}
+            ? `${t.year}'s TNAs are closed. This one was submitted in time and still waits for the HOD's approval; it can no longer be changed or sent back.`
+            : `${t.year}'s TNAs closed before this draft was submitted, so it can only be viewed. Start ${open}'s from it to carry it forward.`}
         </div>
       )}
       {t.status === "SUBMITTED" && !t.approver && <div className="notice notice-bad mb-5">{t.department.name} has no active HOD, so no one can approve this yet.</div>}

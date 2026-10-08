@@ -8,8 +8,8 @@ import { Select } from "@/components/ui/Select";
 import { withBasePath } from "@/lib/base-path";
 import { TNA_METHOD_LABELS, tnaSectionTitle } from "@/lib/forms/tna";
 import { nowInMalaysia, plural } from "@/lib/format";
-import { parseTnaYear, tnaOpenYear } from "@/server/rules/tna";
-import { tnaSummary, tnaYears } from "@/server/services/tna";
+import { parseTnaYear } from "@/server/rules/tna";
+import { tnaOpen, tnaSummary, tnaYears } from "@/server/services/tna";
 import { requirePermission } from "@/server/session";
 
 export const metadata: Metadata = { title: "TNA summary" };
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "TNA summary" };
 export default async function TnaSummaryPage({ searchParams }: PageProps<"/tna/summary">) {
   const user = await requirePermission("tna.manage");
   const today = nowInMalaysia();
-  const open = tnaOpenYear(today);
+  const open = await tnaOpen(today);
   const raw = (await searchParams).year;
   const year = parseTnaYear(typeof raw === "string" ? raw : undefined) ?? open;
   const [s, years] = await Promise.all([tnaSummary(user, year), tnaYears(today)]);

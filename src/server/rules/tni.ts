@@ -3,44 +3,43 @@
 // One list per department per year, kept by the department's HOD: where
 // performance falls short of what is expected, and how the gap will be
 // closed. There is no approval and there are no statuses: what the HOD saves
-// is the record, and they can change it for as long as the year lasts.
-// Earlier years stay on record, view-only, and can be copied forward.
-// L&D see every department's; a division head sees their division's.
+// is the record, and they can change it for as long as its year is open.
+// The open year is the TNA's (tnaOpenYear in rules/tna.ts): the calendar
+// year, or next year once L&D have opened it early. One switch moves both.
+// Other years stay on record, view-only, and can be copied forward.
+// L&D see every department's and can fill one in on a department's behalf,
+// as the old system let them; a division head sees their division's.
 //
 // Decision 15 in docs/phase-3-plan.md §3, and module 4 in §8.
 
 import type { Prisma } from "@prisma/client";
 import { isAdmin, isDivisionHead, isHod, type SessionUser } from "../permissions";
 
-/** The year being filled in: the calendar year today falls in (Malaysia time), as for the TNA. */
-export const tniOpenYear = (today: Date): number => today.getUTCFullYear();
-
 /** A year from the URL, or null when it isn't one. */
 export function parseTniYear(value: string | undefined): number | null {
   return /^20\d{2}$/.test(value ?? "") ? Number(value) : null;
 }
 
-/** Why a year's TNI can't be changed, or null when it is this year. */
-export function tniYearBlock(year: number, today: Date): string | null {
-  const open = tniOpenYear(today);
+/** Why a year's TNI can't be changed, or null when it is the open year. */
+export function tniYearBlock(year: number, open: number): string | null {
   if (year === open) return null;
-  if (year > open) return `${year}'s TNI is filled in from 1 Jan ${year}.`;
-  return `${year} has ended, so its TNI can only be viewed. Start ${open}'s from it to carry it forward.`;
+  if (year > open) return `${year}'s TNI isn't open yet. It opens on 1 Jan ${year}, or earlier if L&D open it.`;
+  return `${year}'s TNI is closed, so it can only be viewed. Start ${open}'s from it to carry it forward.`;
 }
 
 export type TniDepartment = { id: number; name: string; divisionId: number };
 
 /** What the signed-in person is to a department's TNI. */
 export type TniViewer = {
-  /** HOD of the department: fills it in. */
+  /** HOD of the department, or L&D on its behalf: fills it in. */
   canEdit: boolean;
-  /** May open it: the HOD, the head of its division, and L&D. */
+  /** May open it: those, and the head of its division. */
   canView: boolean;
 };
 
 export function tniViewer(user: SessionUser, department: Pick<TniDepartment, "id" | "divisionId">): TniViewer {
-  const canEdit = user.hodOfDepartmentIds.includes(department.id);
-  return { canEdit, canView: canEdit || isAdmin(user) || user.headOfDivisionIds.includes(department.divisionId) };
+  const canEdit = user.hodOfDepartmentIds.includes(department.id) || isAdmin(user);
+  return { canEdit, canView: canEdit || user.headOfDivisionIds.includes(department.divisionId) };
 }
 
 /** Who has the TNI screen: HODs, division heads and L&D. */
@@ -56,7 +55,7 @@ export function tniDepartmentScope(user: SessionUser): Prisma.DepartmentWhereInp
 }
 
 /** Why the person can't fill in or change a department's TNI for a year, or null when they can. */
-export function tniEditBlock(department: Pick<TniDepartment, "name">, year: number, viewer: TniViewer, today: Date): string | null {
-  if (!viewer.canEdit) return `Only ${department.name}'s HOD fills in its TNI.`;
-  return tniYearBlock(year, today);
+export function tniEditBlock(department: Pick<TniDepartment, "name">, year: number, viewer: TniViewer, open: number): string | null {
+  if (!viewer.canEdit) return `Only ${department.name}'s HOD, or L&D, fills in its TNI.`;
+  return tniYearBlock(year, open);
 }

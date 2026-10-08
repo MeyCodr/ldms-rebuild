@@ -1,12 +1,12 @@
 "use client";
 
 import { useId } from "react";
-import { Check, CheckCheck, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { CalendarPlus, Check, CheckCheck, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import type { ActionState } from "@/lib/action-state";
 import { plural } from "@/lib/format";
-import { approveTnasAction, deleteTnaAction, reopenTnaAction, sendBackTnaAction, submitTnaAction } from "./actions";
+import { approveTnasAction, deleteTnaAction, reopenTnaAction, sendBackTnaAction, submitTnaAction, switchTnaYearAction } from "./actions";
 
 /** After a successful dialog action: the message and a Close button. */
 function Done({ state }: { state: ActionState }) {
@@ -98,7 +98,7 @@ export function SubmitTnaDialog({ id, title, hodName, hidden }: { id: number; ti
       title={`Submit ${title}`}
     >
       <Confirm action={submitTnaAction.bind(null, id)} submitLabel="Submit" pendingLabel="Sending…">
-        {hodName ?? "The HOD"} can change it, approve it or send it back. Once sent, you can change it only if they send it back.
+        {hodName ?? "The HOD"} can approve it, change it or send it back. Once sent, you can change it only if they send it back.
       </Confirm>
     </DialogButton>
   );
@@ -157,7 +157,7 @@ export function SendBackTnaDialog({ id, title, hidden }: { id: number; title: st
       title={`Send ${title} back`}
     >
       <ReasonForm action={sendBackTnaAction.bind(null, id)} hint="Shown above the form to whoever fills it in." submitLabel="Send back">
-        Whoever filled it in can change it and submit it again. To change it yourself, use Edit instead.
+        Whoever filled it in can change it and submit it again. To change it yourself and approve it, use Edit instead.
       </ReasonForm>
     </DialogButton>
   );
@@ -178,6 +178,49 @@ export function ReopenTnaDialog({ id, title, hidden }: { id: number; title: stri
       <ReasonForm action={reopenTnaAction.bind(null, id)} hint="Kept in the audit log, and shown above the form." submitLabel="Reopen">
         The approval is removed. The TNA goes back to whoever fills it in, to be changed, submitted and approved again.
       </ReasonForm>
+    </DialogButton>
+  );
+}
+
+/**
+ * L&D's year switch, for the TNA and the TNI together. Normally the year being filled in is the calendar year.
+ * Before January, L&D can open next year's; this year's close at that moment.
+ * It can be undone while no one has started one.
+ */
+export function TnaYearDialog({ open, calendar, early, closeBlock }: { open: number; calendar: number; early: boolean; closeBlock: string | null }) {
+  if (!early)
+    return (
+      <DialogButton
+        label={
+          <>
+            <CalendarPlus size={15} aria-hidden /> Open {calendar + 1}
+          </>
+        }
+        title={`Open ${calendar + 1}'s TNAs and TNIs now`}
+      >
+        <Confirm action={switchTnaYearAction.bind(null, "next")} submitLabel={`Open ${calendar + 1}`} pendingLabel="Opening…">
+          From now on staff and main clerks fill in their TNA for {calendar + 1}, and can start it from {calendar}&apos;s. {calendar}&apos;s TNAs close: they can be
+          viewed, and a HOD can still approve one already submitted, but none can be started or changed. The same goes for each department&apos;s TNI: HODs fill in{" "}
+          {calendar + 1}&apos;s, and {calendar}&apos;s can only be viewed. Without this, {calendar + 1} opens by itself on 1 Jan{" "}
+          {calendar + 1}.
+        </Confirm>
+      </DialogButton>
+    );
+  return (
+    <DialogButton label={<>Close {open} again</>} title={`Close ${open}'s TNAs and TNIs again`}>
+      {closeBlock ? (
+        <div className="flex flex-col gap-4">
+          <div className="notice notice-wait">{closeBlock}</div>
+          <div className="flex justify-end">
+            <CancelButton label="Close" />
+          </div>
+        </div>
+      ) : (
+        <Confirm action={switchTnaYearAction.bind(null, "back")} submitLabel={`Close ${open}`} pendingLabel="Closing…">
+          {open}&apos;s TNAs and TNIs were opened early and no one has started one. Closing them puts {calendar}&apos;s back as the year being filled in. {open} opens by
+          itself on 1 Jan {open}.
+        </Confirm>
+      )}
     </DialogButton>
   );
 }

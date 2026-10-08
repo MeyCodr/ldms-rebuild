@@ -6,7 +6,7 @@ import type { ActionState } from "@/lib/action-state";
 import { nowInMalaysia, plural } from "@/lib/format";
 import { toErrorState } from "@/server/errors";
 import { requireUser } from "@/server/session";
-import { approveTnas, createTna, deleteTna, reopenTna, sendBackTna, submitTna, TnaContentError, updateTna, type TnaTarget } from "@/server/services/tna";
+import { approveTnas, closeNextTnaYear, createTna, deleteTna, openNextTnaYear, reopenTna, sendBackTna, submitTna, TnaContentError, updateTna, type TnaTarget } from "@/server/services/tna";
 
 // Every action asks only that the person is signed in: the service checks
 // what they are to the TNA (the person it is about, the main clerk, the HOD,
@@ -36,14 +36,14 @@ function toFormError(e: unknown): ActionState {
   return toErrorState(e);
 }
 
-const modeOf = (fd: FormData) => (str(fd.get("intent")) === "submit" ? "submit" : "draft");
+const modeOf = (fd: FormData) => (str(fd.get("intent")) === "submit" ? "submit" : str(fd.get("intent")) === "approve" ? "approve" : "draft");
 /** A person's own TNA lives under My TNA; everyone else's under Team. */
 const home = (own: boolean, id: number) => (own ? "/my-tna" : `/tna/${id}`);
 
 /** This year's TNA for a person or a job grade: saved as a draft or sent to the HOD. */
 export async function createTnaAction(target: TnaTarget, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const mode = modeOf(fd);
+  const mode = modeOf(fd) === "submit" ? "submit" : "draft";
   let id: number;
   try {
     id = await createTna(user, target, str(fd.get("content")), mode, nowInMalaysia());
@@ -54,18 +54,18 @@ export async function createTnaAction(target: TnaTarget, _prev: ActionState, fd:
   redirect(`${home("staffId" in target && target.staffId === user.id, id)}?saved=${mode === "submit" ? "submitted" : "draft"}`);
 }
 
-/** The form again: for a draft, one sent back, or (the HOD and L&D) one waiting for approval. */
+/** The form again: for a draft, one sent back, or (the HOD and L&D) one waiting for approval, which their save can approve. */
 export async function updateTnaAction(id: number, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
   const mode = modeOf(fd);
-  let result: { withHod: boolean; own: boolean };
+  let result: { withHod: boolean; approved: boolean; own: boolean };
   try {
     result = await updateTna(user, id, str(fd.get("content")), mode, nowInMalaysia());
   } catch (e) {
     return toFormError(e);
   }
   refresh();
-  redirect(`${home(result.own, id)}?saved=${result.withHod ? "changed" : mode === "submit" ? "submitted" : "draft"}`);
+  redirect(`${home(result.own, id)}?saved=${result.approved ? "approved" : result.withHod ? "changed" : mode === "submit" ? "submitted" : "draft"}`);
 }
 
 /** Sends a draft to the HOD as it stands. */
@@ -129,4 +129,16 @@ export async function reopenTnaAction(id: number, _prev: ActionState, fd: FormDa
   }
   refresh();
   return { status: "ok", message: "Reopened. It can now be changed, and must be submitted and approved again." };
+}
+
+/** L&D open next year's TNAs before January (this year's close), or close them again if no one has started one. */
+export async function switchTnaYearAction(to: "next" | "back", _prev: ActionState): Promise<ActionState> {
+  const user = await requireUser();
+  try {
+    const year = to === "next" ? await openNextTnaYear(user, nowInMalaysia()) : await closeNextTnaYear(user, nowInMalaysia());
+    refresh();
+    return { status: "ok", message: `${year}'s TNAs and TNIs are now the ones being filled in.` };
+  } catch (e) {
+    return toErrorState(e);
+  }
 }

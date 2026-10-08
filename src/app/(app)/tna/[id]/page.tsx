@@ -6,8 +6,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { Status } from "@/components/ui/Status";
 import { nowInMalaysia } from "@/lib/format";
 import { can } from "@/server/permissions";
-import { seesTeamTnas, TNA_STAGE_LABELS, TNA_STAGE_TONE, tnaOpenYear } from "@/server/rules/tna";
-import { getTna, tnaGradeHeadcount, tnaHistory, tnaStartFor, tnaTrainingHours } from "@/server/services/tna";
+import { seesTeamTnas, TNA_STAGE_LABELS, TNA_STAGE_TONE } from "@/server/rules/tna";
+import { getTna, tnaGradeHeadcount, tnaHistory, tnaOpen, tnaStartFor, tnaTrainingHours } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
 import { TnaBody, TnaHeaderActions, TnaNotices } from "../TnaRecord";
 
@@ -19,7 +19,7 @@ export default async function TnaRecordPage({ params, searchParams }: PageProps<
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
   const today = nowInMalaysia();
-  const open = tnaOpenYear(today);
+  const open = await tnaOpen(today);
   const t = await getTna(user, id, today);
   if (t?.viewer.isOwner) redirect(t.year === open ? "/my-tna" : `/my-tna?year=${t.year}`);
   if (!seesTeamTnas(user)) forbidden();
@@ -62,7 +62,7 @@ export default async function TnaRecordPage({ params, searchParams }: PageProps<
           </>
         }
       />
-      <TnaNotices t={t} saved={(await searchParams).saved} today={today} />
+      <TnaNotices t={t} saved={(await searchParams).saved} open={open} />
       <TnaBody t={t} user={user} hours={hours} history={history} headcount={headcount} />
     </div>
   );

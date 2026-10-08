@@ -8,6 +8,7 @@ import {
   tnaDepartmentScope,
   tnaGradeName,
   tnaMyBlock,
+  tnaOpenedEarly,
   tnaOpenYear,
   tnaOwnBlock,
   tnaStaffScope,
@@ -23,7 +24,7 @@ import {
 
 /** "Today" as the services pass it: Malaysia time shifted into UTC, any hour of the day. */
 const today = (iso: string) => new Date(`${iso}T15:30:00Z`);
-const NOW = today("2026-10-07"); // 2026 is open
+const NOW = 2026; // the open year
 
 const STAMPING = 5;
 const WELDING = 6;
@@ -64,11 +65,27 @@ describe("the TNA year", () => {
     expect(tnaOpenYear(today("2026-12-31"))).toBe(2026);
     expect(tnaOpenYear(today("2027-01-01"))).toBe(2027);
   });
-  it("lets only this year be filled in", () => {
-    expect(tnaYearBlock(2026, NOW)).toBeNull();
-    expect(tnaYearBlock(2025, NOW)).toBe("2025 has ended, so its TNAs can only be viewed. Start 2026's from it to carry it forward.");
-    expect(tnaYearBlock(2027, NOW)).toBe("2027's TNAs are filled in from 1 Jan 2027.");
-    expect(tnaYearBlock(2026, today("2027-01-01"))).toMatch(/2026 has ended/);
+  it("is next year once L&D have opened it early, and only next year", () => {
+    expect(tnaOpenYear(today("2026-11-15"), 2027)).toBe(2027);
+    expect(tnaOpenedEarly(today("2026-11-15"), 2027)).toBe(true);
+    // The setting still says 2026, or was never set: the calendar year.
+    expect(tnaOpenYear(today("2026-11-15"), 2026)).toBe(2026);
+    expect(tnaOpenYear(today("2026-11-15"), null)).toBe(2026);
+    expect(tnaOpenedEarly(today("2026-11-15"), 2026)).toBe(false);
+    // A year that isn't next year is ignored: nobody can open 2028 in 2026, and an old setting doesn't hold a year back.
+    expect(tnaOpenYear(today("2026-11-15"), 2028)).toBe(2026);
+    expect(tnaOpenYear(today("2027-01-01"), 2026)).toBe(2027);
+    // On 1 January the year opened early is simply the year.
+    expect(tnaOpenYear(today("2027-01-01"), 2027)).toBe(2027);
+    expect(tnaOpenedEarly(today("2027-01-01"), 2027)).toBe(false);
+  });
+  it("lets only the open year be filled in", () => {
+    expect(tnaYearBlock(2026, 2026)).toBeNull();
+    expect(tnaYearBlock(2025, 2026)).toBe("2025's TNAs are closed, so they can only be viewed. Start 2026's from it to carry it forward.");
+    expect(tnaYearBlock(2027, 2026)).toBe("2027's TNAs aren't open yet. They open on 1 Jan 2027, or earlier if L&D open them.");
+    // Opened early: this year's close at the same moment.
+    expect(tnaYearBlock(2027, 2027)).toBeNull();
+    expect(tnaYearBlock(2026, 2027)).toMatch(/2026's TNAs are closed/);
   });
   it("reads a year from the URL", () => {
     expect(parseTnaYear("2025")).toBe(2025);
@@ -91,8 +108,10 @@ describe("who is what to a TNA", () => {
     const both = user({ id: 70, roles: ["MAIN_CLERK"], hodOfDepartmentIds: [STAMPING] });
     expect(tnaViewer(both, grade)).toMatchObject({ canFill: false, isApprover: true });
   });
-  it("lets L&D fill in any, and reopen, but not approve", () => {
-    for (const owner of [own, grade]) expect(tnaViewer(admin, owner)).toEqual({ isOwner: false, canFill: true, isApprover: false, isAdmin: true, canView: true });
+  it("lets L&D fill in any, approve it as the HOD can, and reopen", () => {
+    for (const owner of [own, grade]) expect(tnaViewer(admin, owner)).toEqual({ isOwner: false, canFill: true, isApprover: true, isAdmin: true, canView: true });
+    // ... but not their own.
+    expect(tnaViewer(admin, { ...own, staffId: admin.id })).toMatchObject({ isOwner: true, canFill: true, isApprover: false });
   });
   it("lets the division head look, and keeps other departments and other staff out", () => {
     expect(tnaViewer(head, own)).toEqual({ isOwner: false, canFill: false, isApprover: false, isAdmin: false, canView: true });
@@ -152,8 +171,8 @@ describe("starting a TNA", () => {
     expect(tnaStartBlock(grade, tnaViewer(clerk, grade), null, false, 2026, NOW)).toBeNull();
     expect(tnaStartBlock(own, tnaViewer(admin, own), null, false, 2026, NOW)).toBeNull();
     expect(tnaStartBlock(own, me, null, true, 2026, NOW)).toBe("There is already a TNA for Ahmad for 2026. There is one per year.");
-    expect(tnaStartBlock(own, me, null, false, 2025, NOW)).toMatch(/2025 has ended/);
-    expect(tnaStartBlock(own, me, null, false, 2027, NOW)).toMatch(/filled in from 1 Jan 2027/);
+    expect(tnaStartBlock(own, me, null, false, 2025, NOW)).toMatch(/2025's TNAs are closed/);
+    expect(tnaStartBlock(own, me, null, false, 2027, NOW)).toMatch(/2027's TNAs aren't open yet/);
   });
   it("is refused to the HOD, and to anyone when the owner can't have one", () => {
     expect(tnaStartBlock(own, tnaViewer(hod, own), null, false, 2026, NOW)).toBe("You don't fill in Ahmad's TNA.");
@@ -184,11 +203,11 @@ describe("the steps of a TNA", () => {
     expect(tnaActionBlock("EDIT", state("SUBMITTED"), me, NOW)).toBe("This TNA is with the HOD for approval. It can be changed only if they send it back.");
     expect(tnaActionBlock("SUBMIT", state("SUBMITTED"), me, NOW)).toBe("This TNA is already with the HOD.");
     expect(tnaActionBlock("DELETE", state("SUBMITTED"), me, NOW)).toBe("This TNA has been sent to the HOD, so it stays on record.");
-    // L&D may change it too, but approving is the HOD's.
-    expect(tnaActionBlock("EDIT", state("SUBMITTED"), ld, NOW)).toBeNull();
-    expect(tnaActionBlock("APPROVE", state("SUBMITTED"), ld, NOW)).toBe("Only the department's HOD can approve a TNA.");
-    expect(tnaActionBlock("APPROVE", state("SUBMITTED"), me, NOW)).toBe("Only the department's HOD can approve a TNA.");
-    expect(tnaActionBlock("SEND_BACK", state("SUBMITTED"), looker, NOW)).toBe("Only the department's HOD can send a TNA back.");
+    // L&D may do the same, as in the old system.
+    for (const action of ["EDIT", "APPROVE", "SEND_BACK"] as const) expect(tnaActionBlock(action, state("SUBMITTED"), ld, NOW)).toBeNull();
+    expect(tnaActionBlock("APPROVE", state("SUBMITTED"), me, NOW)).toBe("Only the department's HOD or L&D can approve a TNA.");
+    expect(tnaActionBlock("APPROVE", state("SUBMITTED"), looker, NOW)).toBe("Only the department's HOD or L&D can approve a TNA.");
+    expect(tnaActionBlock("SEND_BACK", state("SUBMITTED"), looker, NOW)).toBe("Only the department's HOD or L&D can send a TNA back.");
   });
   it("locks an approved one for everyone but L&D, who reopen it", () => {
     expect(tnaActionBlock("EDIT", state("APPROVED"), me, NOW)).toBe("This TNA is approved, so it can't be changed. L&D can reopen it.");
@@ -197,14 +216,15 @@ describe("the steps of a TNA", () => {
     for (const action of ["SUBMIT", "DELETE", "APPROVE", "SEND_BACK"] as const) expect(tnaActionBlock(action, state("APPROVED"), action === "SUBMIT" || action === "DELETE" ? me : approver, NOW)).toBe("This TNA is already approved.");
     expect(tnaActionBlock("REOPEN", state("APPROVED"), ld, NOW)).toBeNull();
     expect(tnaActionBlock("REOPEN", state("APPROVED"), approver, NOW)).toBe("Only L&D can reopen an approved TNA.");
+    expect(tnaActionBlock("REOPEN", state("APPROVED"), me, NOW)).toBe("Only L&D can reopen an approved TNA.");
     expect(tnaActionBlock("REOPEN", state("SUBMITTED"), ld, NOW)).toBe("Only an approved TNA needs reopening.");
   });
   it("keeps an earlier year view-only, except that the HOD can still approve what was submitted", () => {
-    for (const action of ["EDIT", "SUBMIT", "DELETE"] as const) expect(tnaActionBlock(action, state("DRAFT", own, 2025), me, NOW)).toMatch(/2025 has ended/);
-    expect(tnaActionBlock("EDIT", state("SUBMITTED", own, 2025), approver, NOW)).toMatch(/2025 has ended/);
+    for (const action of ["EDIT", "SUBMIT", "DELETE"] as const) expect(tnaActionBlock(action, state("DRAFT", own, 2025), me, NOW)).toMatch(/2025's TNAs are closed/);
+    expect(tnaActionBlock("EDIT", state("SUBMITTED", own, 2025), approver, NOW)).toMatch(/2025's TNAs are closed/);
     expect(tnaActionBlock("APPROVE", state("SUBMITTED", own, 2025), approver, NOW)).toBeNull();
-    expect(tnaActionBlock("SEND_BACK", state("SUBMITTED", own, 2025), approver, NOW)).toBe("2025 has ended, so this TNA can no longer be changed. You can still approve it.");
-    expect(tnaActionBlock("REOPEN", state("APPROVED", own, 2025), ld, NOW)).toMatch(/2025 has ended/);
+    expect(tnaActionBlock("SEND_BACK", state("SUBMITTED", own, 2025), approver, NOW)).toBe("2025's TNAs are closed, so this one can no longer be changed. You can still approve it.");
+    expect(tnaActionBlock("REOPEN", state("APPROVED", own, 2025), ld, NOW)).toMatch(/2025's TNAs are closed/);
   });
   it("says where a TNA stands", () => {
     expect(tnaStage(null)).toBe("NOT_STARTED");

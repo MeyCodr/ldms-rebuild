@@ -4,10 +4,12 @@ import { parseTniContent, tniContentProblems, type TniContent, type TniProblem }
 import { db } from "../db";
 import { UserError } from "../errors";
 import type { SessionUser } from "../permissions";
-import { tniDepartmentScope, tniEditBlock, tniOpenYear, tniViewer } from "../rules/tni";
+import { tniDepartmentScope, tniEditBlock, tniViewer } from "../rules/tni";
 import { recordAudit } from "./audit";
+import { tnaOpen } from "./tna";
 
 // TNI: one list per department per year, kept by its HOD (see rules/tni.ts).
+// The year being filled in is the TNA's (tnaOpen): L&D's one switch moves both.
 // A department the user may not see is treated as not found.
 //
 // Audit entries use entity "Tni" with the TNI's id. The rows themselves
@@ -29,6 +31,7 @@ const activeHod = (d: { hod: { id: number; name: string; status: string } | null
 
 /** The user's departments, each with its TNI for the year (or none yet). */
 export async function tniList(user: SessionUser, year: number, today: Date) {
+  const open = await tnaOpen(today);
   const scope = tniDepartmentScope(user);
   if (!scope) return [];
   const departments = await db.department.findMany({
@@ -38,12 +41,13 @@ export async function tniList(user: SessionUser, year: number, today: Date) {
   });
   return departments.map(({ tnis, ...d }) => {
     const viewer = tniViewer(user, d);
-    return { department: d, hod: activeHod(d), tni: tnis[0] ?? null, viewer, editBlock: tniEditBlock(d, year, viewer, today) };
+    return { department: d, hod: activeHod(d), tni: tnis[0] ?? null, viewer, editBlock: tniEditBlock(d, year, viewer, open) };
   });
 }
 
 /** One department's TNI for a year: the department, its rows (empty when none is on record) and what this user can do. Null when they may not see it. */
 export async function getTni(user: SessionUser, departmentId: number, year: number, today: Date) {
+  const open = await tnaOpen(today);
   const department = await db.department.findUnique({
     where: { id: departmentId },
     select: {
@@ -56,7 +60,7 @@ export async function getTni(user: SessionUser, departmentId: number, year: numb
   if (!viewer.canView) return null;
   const { tnis, ...d } = department;
   const tni = tnis[0] ?? null;
-  return { department: d, hod: activeHod(d), year, tni, content: (tni?.items ?? []) as TniContent, viewer, editBlock: tniEditBlock(d, year, viewer, today) };
+  return { department: d, hod: activeHod(d), year, tni, content: (tni?.items ?? []) as TniContent, viewer, editBlock: tniEditBlock(d, year, viewer, open) };
 }
 
 export type TniView = NonNullable<Awaited<ReturnType<typeof getTni>>>;
@@ -79,7 +83,7 @@ export async function tniYearsOf(departmentId: number) {
 /** The years the list's picker offers: this year, and every earlier one with a TNI on record. Newest first. */
 export async function tniYears(today: Date): Promise<number[]> {
   const found = await db.tni.findMany({ distinct: ["year"], select: { year: true } });
-  return [...new Set([tniOpenYear(today), ...found.map((t) => t.year)])].sort((a, b) => b - a);
+  return [...new Set([await tnaOpen(today), ...found.map((t) => t.year)])].sort((a, b) => b - a);
 }
 
 /** The content problems as a user error the form can place: each tied to its row. */
@@ -90,9 +94,9 @@ export class TniContentError extends UserError {
   }
 }
 
-/** The HOD saves their department's TNI for this year: the list as the form sends it replaces the one on record. */
+/** The HOD saves their department's TNI for the open year: the list as the form sends it replaces the one on record. */
 export async function saveTni(user: SessionUser, departmentId: number, json: string, today: Date) {
-  const year = tniOpenYear(today);
+  const year = await tnaOpen(today);
   const content = parseTniContent(json);
   if (!content) throw new UserError("The form didn't arrive in one piece. Reload the page and try again.");
   return db.$transaction(async (tx) => {
@@ -100,7 +104,7 @@ export async function saveTni(user: SessionUser, departmentId: number, json: str
     if (!department) throw new UserError("That department is no longer on record.");
     const viewer = tniViewer(user, department);
     if (!viewer.canView) throw new UserError("That department is no longer on record.");
-    const blocked = tniEditBlock(department, year, viewer, today);
+    const blocked = tniEditBlock(department, year, viewer, year);
     if (blocked) throw new UserError(blocked);
     const problems = tniContentProblems(content);
     if (problems.length) throw new TniContentError(problems);

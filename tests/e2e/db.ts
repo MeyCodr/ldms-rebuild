@@ -262,3 +262,23 @@ export async function deleteTestTnis(departmentName: string) {
     await db.$disconnect();
   }
 }
+
+/** Test-only: puts the TNA year setting (which year L&D have opened) to a value. Returns a function that puts it back as it was. */
+export async function setTnaYearSetting(year: number) {
+  const db = new PrismaClient();
+  try {
+    const before = await db.setting.findUnique({ where: { key: "tna.year" }, select: { value: true } });
+    await db.setting.upsert({ where: { key: "tna.year" }, update: { value: year }, create: { key: "tna.year", value: year } });
+    return async () => {
+      const again = new PrismaClient();
+      try {
+        if (before) await again.setting.update({ where: { key: "tna.year" }, data: { value: before.value ?? year } });
+        else await again.setting.deleteMany({ where: { key: "tna.year" } });
+      } finally {
+        await again.$disconnect();
+      }
+    };
+  } finally {
+    await db.$disconnect();
+  }
+}

@@ -1,7 +1,8 @@
 import ExcelJS from "exceljs";
 import { TNA_METHOD_LABELS, tnaGap } from "@/lib/forms/tna";
 import { nowInMalaysia } from "@/lib/format";
-import { parseTniYear, seesTnis, tniOpenYear } from "@/server/rules/tni";
+import { parseTniYear, seesTnis } from "@/server/rules/tni";
+import { tnaOpen } from "@/server/services/tna";
 import { tniExportRows } from "@/server/services/tni";
 import { getCurrentUser } from "@/server/session";
 
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   if (user.mustChangePassword) return new Response("Change your password first", { status: 403 });
   if (!seesTnis(user)) return new Response("Forbidden", { status: 403 });
 
-  const year = parseTniYear(new URL(request.url).searchParams.get("year") ?? undefined) ?? tniOpenYear(nowInMalaysia());
+  const year = parseTniYear(new URL(request.url).searchParams.get("year") ?? undefined) ?? (await tnaOpen(nowInMalaysia()));
   const rows = await tniExportRows(user, year);
 
   const wb = new ExcelJS.Workbook();

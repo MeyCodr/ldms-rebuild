@@ -12,7 +12,8 @@ import { TNA_LEVELS, TNA_METHOD_LABELS, tnaGap } from "@/lib/forms/tna";
 import { TNI_HEADING } from "@/lib/forms/tni";
 import { formatDateTime, nowInMalaysia, plural } from "@/lib/format";
 import { can } from "@/server/permissions";
-import { parseTniYear, seesTnis, tniEditBlock, tniOpenYear, tniYearBlock } from "@/server/rules/tni";
+import { parseTniYear, seesTnis, tniEditBlock, tniYearBlock } from "@/server/rules/tni";
+import { tnaOpen } from "@/server/services/tna";
 import { getTni, tniHistory, tniYearsOf } from "@/server/services/tni";
 import { requireUser } from "@/server/session";
 
@@ -28,7 +29,7 @@ export default async function TniRecordPage({ params, searchParams }: PageProps<
   const departmentId = Number((await params).departmentId);
   if (!Number.isInteger(departmentId)) notFound();
   const today = nowInMalaysia();
-  const open = tniOpenYear(today);
+  const open = await tnaOpen(today);
   const sp = await searchParams;
   const year = parseTniYear(typeof sp.year === "string" ? sp.year : undefined) ?? open;
   const t = await getTni(user, departmentId, year, today);
@@ -37,7 +38,7 @@ export default async function TniRecordPage({ params, searchParams }: PageProps<
   const { department, tni, content } = t;
   const others = years.filter((y) => y.year !== year);
   // This year's can be started from the latest earlier one that has rows.
-  const canEditNow = tniEditBlock(department, open, t.viewer, today) === null;
+  const canEditNow = tniEditBlock(department, open, t.viewer, open) === null;
   const hasOpen = years.some((y) => y.year === open);
   const copyFrom = years.find((y) => y.year < open && y.rows > 0);
 
@@ -76,7 +77,7 @@ export default async function TniRecordPage({ params, searchParams }: PageProps<
           Saved. L&amp;D can now see {department.name}&apos;s TNI for {year}.
         </div>
       )}
-      {year !== open && <div className="notice notice-wait mb-5">{tniYearBlock(year, today)}</div>}
+      {year !== open && <div className="notice notice-wait mb-5">{tniYearBlock(year, open)}</div>}
 
       {!tni ? (
         <div className="card">
@@ -103,7 +104,7 @@ export default async function TniRecordPage({ params, searchParams }: PageProps<
               : year === open
                 ? t.hod
                   ? `${t.hod.name}, the HOD, fills it in.`
-                  : `${department.name} has no active HOD, so no one can fill it in yet.`
+                  : `${department.name} has no active HOD. L&D can fill it in on the department's behalf.`
                 : `${department.name} had none on record that year.`}
           </EmptyState>
         </div>

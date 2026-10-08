@@ -418,7 +418,8 @@ Each is reviewed before the next starts. Order is by how much each is used and w
   department for everyone else with a job grade. One per year each (enforced by the database as well as the rule).
 - **Who fills in**: the person themselves (**My TNA**, under My work); the department's **main clerk** for its job
   grades; **L&D** for anyone, on their behalf. Who approves: the department's HOD.
-- **The year** (`tnaOpenYear`): the calendar year today falls in. Earlier years stay on record, view-only. **Start
+- **The year** (`tnaOpenYear`): the calendar year today falls in, or next year once L&D have opened it early.
+  Other years stay on record, view-only. **Start
   this year's from last year's** copies the rows of the latest earlier TNA into the form (nothing is saved until the
   person saves); a training that has since been hidden comes across as typed in.
 - **The form** (`src/lib/forms/tna.ts`): the old form's seven headings, a to g, each a list of rows. A row: problem
@@ -426,8 +427,8 @@ Each is reviewed before the next starts. Order is by how much each is used and w
   target and current skill, 1 to 5; the gap, worked out; how it will be achieved (on-job training, coaching,
   external / in-house); when (a month). **Save as draft** (may be unfinished) or **Submit to HOD** (at least one row,
   every row complete; headings may be left empty, as in the old form). Problems are shown on the row they belong to.
-- **The path**: draft → submitted → the HOD **approves** (locked), **changes it first** (it stays waiting for
-  approval), or **sends it back** with a reason. L&D can **reopen** an approved one with a reason: it goes back to
+- **The path**: draft → submitted → the HOD **approves** (locked), **changes it and approves** in one save, or
+  **sends it back** with a reason. L&D can do the same as the HOD. L&D can **reopen** an approved one with a reason: it goes back to
   whoever fills it in and must be submitted and approved again. Every step is in the audit log (entity `Tna`) and
   in the History on its page.
 - **Earlier years**: a TNA submitted before its year ended still waits for the HOD, who can approve it but not send
@@ -444,14 +445,22 @@ Each is reviewed before the next starts. Order is by how much each is used and w
 - **Training options**: names are kept in capitals, as in the old lists. Renaming one renames it on the TNA rows
   that use it; hiding one keeps it on rows already saved; one that a saved row uses can't be deleted.
 - **Decided while building** (say if any should change):
-  - The **year is the calendar year**, and only this year's can be filled in. The `tna.year` setting from phase 1
-    isn't used. If L&D collect next year's TNA before January, this needs a switch for L&D to open a year.
-  - **L&D fill in and reopen, but don't approve**: approving stays with the HOD, as with PME and the skill matrix
-    (the old system let L&D approve). A department with no active HOD says so on the TNA.
-  - The **main clerk fills in job grades for their own department only**, and doesn't see people's own TNAs (the
-    old clerk screen listed the department's people as well).
-  - **A HOD can change a submitted TNA without approving it** in the same click (the old *Save & Approve* did both).
-  - A submitted TNA needs **one complete row**, not a row under every heading.
+  - The **year is the calendar year, unless L&D open next year's early** (added 8 Oct 2026: L&D collect next
+    year's TNA before January). L&D's **Open {next year}** button on the TNA screen makes next year's the one being
+    filled in; this year's close at that moment (one year is open at a time). It can be undone while no one has
+    started a TNA for next year. Without it, the new year opens by itself on 1 January. It is kept in the `tna.year`
+    setting from phase 1, and each switch is in the audit log. The old system's year was fixed at 2023, so this
+    couldn't follow it.
+  - **L&D can approve** (and send back), as in the old system: changed 8 Oct 2026 at the user's request. L&D's
+    Approvals page still lists only what waits on them by role (PMEs to verify); they approve a TNA from its page or
+    the TNA list. A department with no active HOD says so on the TNA.
+  - The **main clerk fills in job grades for their own department only**, and doesn't see people's own TNAs. This
+    is what the old clerk screen showed (a list of job grades), so it stays (confirmed 8 Oct 2026).
+  - **A HOD's save of a submitted TNA approves it** (*Save and approve*), as in the old system: changed 8 Oct 2026
+    at the user's request. L&D also have *Save changes*, which leaves it waiting, as the old admin screen did. To
+    have it changed without approving, the HOD sends it back.
+  - A submitted TNA needs **one complete row**, not a row under every heading, as in the old form (confirmed
+    8 Oct 2026).
   - A job grade is listed when someone is on it today. Trainees with a job grade are covered by it too.
   - Option order is set by the Excel import (the rows' order); the page has no move up / move down.
   - The old ESG list has an option named **TESTING**. It was brought across as it is; hide or delete it on the
@@ -464,12 +473,14 @@ Each is reviewed before the next starts. Order is by how much each is used and w
 
 ### Module 4: TNI (built 07 Oct 2026, awaiting review)
 - Migration `20261007150000_tni`: `Tni` (one per department per year, enforced by the database) and `TniItem` (§5).
-- **Who**: the department's **HOD** fills it in and changes it. **L&D** see every department's; a **division head**
-  sees their division's. Neither can change one. Clerks and other staff have no TNI screen.
+- **Who**: the department's **HOD** fills it in and changes it. **L&D** see every department's and can fill one in
+  or change it on a department's behalf, as the old admin screen could. A **division head** sees their division's
+  and can't change one. Clerks and other staff have no TNI screen.
 - **No approval and no statuses**, as in the old system: what the HOD saves is the record. So there are **no
   drafts**: a save needs at least one row, and every row needs all of its parts.
-- **The year** (`tniOpenYear`, `src/server/rules/tni.ts`): the calendar year, as for the TNA. Earlier years stay on
-  record, view-only. **Start this year's from last year's** copies the latest earlier list into the form.
+- **The year**: the TNA's open year (`tnaOpenYear`): the calendar year, or next year once L&D have opened it early.
+  **One switch moves both** (decided 8 Oct 2026: the TNA and the TNI are one yearly exercise, so they can't get out
+  of step); it is L&D's *Open {next year}* button on the TNA screen. Other years stay on record, view-only. **Start this year's from last year's** copies the latest earlier list into the form.
 - **The form** (`src/lib/forms/tni.ts`): the old form's one heading, *Mandatory (within the first 3 months in the
   role)*. A row: performance indicator; expected and actual performance, 1 to 5 (the TNA's levels); the gap, worked
   out; possible causes; attitude, skill or knowledge (typed, as before); L&D method (the TNA's three); evaluation
@@ -479,10 +490,11 @@ Each is reviewed before the next starts. Order is by how much each is used and w
   department's TNI (`/tni/[departmentId]`: its rows, other years, history); the form (`/tni/[departmentId]/edit`).
   Every save is in the audit log (entity `Tni`).
 - **Decided while building** (say if any should change):
-  - **Every part of a row is required**. The old form saved rows with blanks.
-  - **L&D can't fill one in for a department**, and a department with no active HOD has no one who can; the page
-    says so.
-  - A list can be changed but **not emptied or deleted** once saved.
+  - **Every part of a row is required** (confirmed 8 Oct 2026). The old form saved rows with blanks; with no
+    approver, this is the only check there is.
+  - **L&D can fill one in for a department** (changed 8 Oct 2026, to follow the old system), so a department with
+    no active HOD isn't left without one.
+  - A list can be changed but **not emptied or deleted** once saved (confirmed 8 Oct 2026).
   - Indicators are kept **as typed** (the old system put them in capitals).
 - Tests: `tests/rules/tni.test.ts` (the year, who is what to a department's TNI, the form's tidying and rules);
   `tests/e2e/tni.spec.ts` (the HOD starts from last year's, can't save an unfinished row or an empty list,

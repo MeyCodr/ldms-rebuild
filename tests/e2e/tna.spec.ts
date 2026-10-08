@@ -1,6 +1,6 @@
 import { type Browser, expect, type Locator, type Page, test } from "@playwright/test";
 import ExcelJS from "exceljs";
-import { createTestTna, deleteTestTnas, giveDemoPassword, giveRole, setJobGrade } from "./db";
+import { createTestTna, deleteTestTnas, giveDemoPassword, giveRole, setJobGrade, setTnaYearSetting } from "./db";
 import { choose, DEMO_PASSWORD, signIn } from "./helpers";
 
 // TNA runs in Stamping:
@@ -25,6 +25,7 @@ test.beforeAll(async () => {
   await deleteTestTnas(["10232", "10233"], "Stamping", [NEW_OPTION, IMPORTED_OPTION]);
   restore.push(await giveDemoPassword("10232", DEMO_PASSWORD), await giveDemoPassword("10233", DEMO_PASSWORD), await setJobGrade(["10235", "10236"], 4));
   removeRole = await giveRole("10003", "MAIN_CLERK");
+  restore.push(await setTnaYearSetting(YEAR));
 });
 test.afterAll(async () => {
   await deleteTestTnas(["10232", "10233"], "Stamping", [NEW_OPTION, IMPORTED_OPTION]);
@@ -54,7 +55,7 @@ async function fillRest(row: Locator, problem: string, target: string, current: 
   await choose(row, "When", "Mar");
 }
 
-test("a person's TNA goes from draft to approved: fill in, submit, the HOD changes it, sends it back, approves; L&D reopen", async ({ browser }) => {
+test("a person's TNA goes from draft to approved: fill in, submit, the HOD sends it back, then changes and approves it; L&D reopen and approve", async ({ browser }) => {
   test.setTimeout(300_000);
   const staff = await as(browser, "10232");
   const hod = await as(browser, "10231");
@@ -109,7 +110,7 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
     // The gap is worked out: target minus current.
     await expect(row.getByLabel("Gap, a. ESG, row 1: 2")).toBeVisible();
     await staff.getByRole("button", { name: "Submit to HOD" }).click();
-    await expect(staff.getByRole("status").first()).toHaveText("Submitted. The HOD can now change it, approve it or send it back.");
+    await expect(staff.getByRole("status").first()).toHaveText("Submitted. The HOD can now approve it, change it or send it back.");
     await expect(panel(staff, "Record")).toContainText("Waiting for HOD");
     await expect(panel(staff, "a. ESG")).toContainText(ESG_OPTION);
     // With the HOD: they can't change or delete it, and can never approve it.
@@ -120,7 +121,7 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
     await expect(staff.getByText("This TNA is with the HOD for approval. It can be changed only if they send it back.")).toBeVisible();
   });
 
-  await test.step("the HOD changes it before approving, then sends it back with a reason", async () => {
+  await test.step("the HOD sends it back with a reason", async () => {
     await hod.goto("approvals");
     await expect(nav(hod, /^Approvals/)).toContainText(/[1-9]/);
     const waiting = panel(hod, "TNAs to approve").getByRole("row", { name: new RegExp(AHMAD) });
@@ -128,20 +129,6 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
     await waiting.getByRole("link", { name: "Review" }).click();
     await expect(hod.getByRole("heading", { name: AHMAD, level: 1 })).toBeVisible();
     id = Number(new URL(hod.url()).pathname.split("/").pop());
-
-    // The HOD adds a row, typed in under Others. It stays waiting for approval.
-    await hod.getByRole("link", { name: "Edit" }).click();
-    await hod.waitForLoadState("networkidle");
-    await expect(hod.getByRole("button", { name: "Save as draft" })).toHaveCount(0);
-    await hod.getByRole("button", { name: "Add a row under g. Special project" }).click();
-    const row = formRow(hod, "g. Special project");
-    await choose(row, "Training required", "Others");
-    await row.getByRole("textbox", { name: /^Name of the training/ }).fill("Die maintenance clinic");
-    await fillRest(row, "Dies wait too long for repair", "3", "1");
-    await hod.getByRole("button", { name: "Save changes" }).click();
-    await expect(hod.getByRole("status").first()).toHaveText("Changes saved. It is still waiting for approval.");
-    await expect(panel(hod, "g. Special project")).toContainText("Die maintenance clinic");
-    await expect(panel(hod, "Record")).toContainText("Waiting for HOD");
 
     await hod.waitForLoadState("networkidle");
     await hod.getByRole("button", { name: "Send back" }).click();
@@ -154,7 +141,7 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
     await expect(panel(hod, "Record")).toContainText("Sent back");
   });
 
-  await test.step("the person sees why, changes it and submits again; the HOD approves and it is locked", async () => {
+  await test.step("the person sees why, changes it and submits again; the HOD adds a row and approves in one save, and it is locked", async () => {
     await staff.goto("my-tna");
     await expect(nav(staff, /^My TNA/)).toContainText("1");
     await expect(staff.getByText(`${HOD} sent this back`)).toBeVisible();
@@ -163,15 +150,23 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
     await staff.waitForLoadState("networkidle");
     await choose(formRow(staff, "a. ESG"), "When", "Jun");
     await staff.getByRole("button", { name: "Submit to HOD" }).click();
-    await expect(staff.getByRole("status").first()).toHaveText("Submitted. The HOD can now change it, approve it or send it back.");
+    await expect(staff.getByRole("status").first()).toHaveText("Submitted. The HOD can now approve it, change it or send it back.");
     await expect(panel(staff, "a. ESG")).toContainText("Jun");
 
+    // The HOD's save approves, as the old system's Save & Approve did: there is no saving it and leaving it waiting.
     await hod.goto(`tna/${id}`);
+    await hod.getByRole("link", { name: "Edit" }).click();
     await hod.waitForLoadState("networkidle");
-    await hod.getByRole("button", { name: "Approve" }).click();
-    await dialog(hod).getByRole("button", { name: "Approve" }).click();
-    await expect(dialog(hod).getByRole("status")).toHaveText("Approved.");
-    await dialog(hod).getByRole("button", { name: "Close" }).click();
+    await expect(hod.getByRole("button", { name: "Save as draft" })).toHaveCount(0);
+    await expect(hod.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+    await hod.getByRole("button", { name: "Add a row under g. Special project" }).click();
+    const added = formRow(hod, "g. Special project");
+    await choose(added, "Training required", "Others");
+    await added.getByRole("textbox", { name: /^Name of the training/ }).fill("Die maintenance clinic");
+    await fillRest(added, "Dies wait too long for repair", "3", "1");
+    await hod.getByRole("button", { name: "Save and approve" }).click();
+    await expect(hod.getByRole("status").first()).toHaveText("Saved and approved. It is now locked; L&D can reopen it.");
+    await expect(panel(hod, "g. Special project")).toContainText("Die maintenance clinic");
     await expect(panel(hod, "Record")).toContainText("Approved");
     await expect(hod.getByRole("link", { name: "Edit" })).toHaveCount(0);
     await expect(hod.getByRole("button", { name: "Send back" })).toBeHidden();
@@ -226,8 +221,6 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
 
     await ld.goto(`tna/${id}`);
     await ld.waitForLoadState("networkidle");
-    // L&D reopen; approving stays with the HOD.
-    await expect(ld.getByRole("button", { name: "Approve" })).toHaveCount(0);
     await ld.getByRole("button", { name: "Reopen" }).click();
     await dialog(ld).getByRole("button", { name: "Reopen" }).click();
     await expect(dialog(ld).getByText("Say why it is being reopened")).toBeVisible();
@@ -241,7 +234,21 @@ test("a person's TNA goes from draft to approved: fill in, submit, the HOD chang
 
     await staff.goto("my-tna");
     await expect(staff.getByText("Budget changed")).toBeVisible();
-    await expect(staff.getByRole("link", { name: "Edit" })).toBeVisible();
+    await staff.waitForLoadState("networkidle");
+    await staff.getByRole("button", { name: "Submit to HOD" }).click();
+    await dialog(staff).getByRole("button", { name: "Submit" }).click();
+    await expect(dialog(staff).getByRole("status")).toHaveText("Sent to the HOD for approval.");
+
+    // L&D can approve as well as the HOD, as in the old system.
+    const again = await as(browser, "10001");
+    await again.goto(`tna/${id}`);
+    await again.waitForLoadState("networkidle");
+    await again.getByRole("button", { name: "Approve" }).click();
+    await dialog(again).getByRole("button", { name: "Approve" }).click();
+    await expect(dialog(again).getByRole("status")).toHaveText("Approved.");
+    await dialog(again).getByRole("button", { name: "Close" }).click();
+    await expect(panel(again, "Record")).toContainText("Approved");
+    await again.context().close();
   });
 });
 
@@ -272,7 +279,7 @@ test("a job grade's TNA, last year's carried forward, who sees what, and L&D's o
     await form.getByRole("option", { name: /PREDICTIVE MAINTENANCE USING IOT/ }).click();
     await fillRest(form, "Breakdowns aren't seen coming", "3", "2");
     await clerk.getByRole("button", { name: "Submit to HOD" }).click();
-    await expect(clerk.getByRole("status").first()).toHaveText("Submitted. The HOD can now change it, approve it or send it back.");
+    await expect(clerk.getByRole("status").first()).toHaveText("Submitted. The HOD can now approve it, change it or send it back.");
     await clerk.waitForURL(/\/tna\/\d+\?/);
     gradeId = Number(new URL(clerk.url()).pathname.split("/").pop());
     await expect(panel(clerk, "e. Functional awareness")).toContainText("PREDICTIVE MAINTENANCE USING IOT");
@@ -410,5 +417,64 @@ test("a job grade's TNA, last year's carried forward, who sees what, and L&D's o
     await expect(ld.getByRole("row", { name: new RegExp(NEW_OPTION) })).toHaveCount(0);
     await expect(ld.getByRole("row", { name: new RegExp(IMPORTED_OPTION) })).toBeVisible();
     await ld.context().close();
+  });
+});
+
+test("L&D open next year's TNAs before January: this year's close, and it can be undone while no one has started", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const NEXT = YEAR + 1;
+  const ld = await as(browser, "10001");
+  const staff = await as(browser, "10233");
+
+  await test.step("until then, this year's is the one being filled in", async () => {
+    await staff.goto("my-tna");
+    await expect(staff.getByText(String(YEAR)).first()).toBeVisible();
+    // Only L&D have the switch.
+    const hod = await as(browser, "10231");
+    await hod.goto("tna");
+    await expect(hod.getByRole("button", { name: `Open ${NEXT}` })).toHaveCount(0);
+    await hod.context().close();
+  });
+
+  await test.step("L&D open next year's", async () => {
+    await ld.goto("tna");
+    await ld.waitForLoadState("networkidle");
+    await ld.getByRole("button", { name: `Open ${NEXT}` }).click();
+    await expect(dialog(ld).getByText(`${YEAR}'s TNAs close`)).toBeVisible();
+    await dialog(ld).getByRole("button", { name: `Open ${NEXT}` }).click();
+    await expect(dialog(ld).getByRole("status")).toHaveText(`${NEXT}'s TNAs and TNIs are now the ones being filled in.`);
+    await ld.goto("tna");
+    await expect(ld.getByText("Opened early", { exact: true })).toBeVisible();
+    await expect(ld.getByRole("heading", { name: "TNA", level: 1 })).toBeVisible();
+    // This year's is now closed: view only.
+    await ld.goto(`tna?year=${YEAR}`);
+    await expect(ld.getByText("Closed: view only")).toBeVisible();
+    await expect(ld.getByText(`${YEAR}'s TNAs are closed, so they can only be viewed.`)).toBeVisible();
+  });
+
+  await test.step("staff now fill in next year's; this year's can't be started", async () => {
+    await staff.goto("my-tna");
+    await expect(staff.getByText(`Your TNA for ${NEXT} hasn't been started`)).toBeVisible();
+    await staff.getByRole("link", { name: "Start my TNA" }).click();
+    await expect(staff.getByRole("heading", { name: `My TNA for ${NEXT}`, level: 1 })).toBeVisible();
+
+    // The same switch moves the TNI: HODs fill in next year's, and this year's is view-only.
+    const hod = await as(browser, "10231");
+    await hod.goto("tni");
+    await expect(hod.getByText("Opened early", { exact: true })).toBeVisible();
+    await expect(hod.getByText(String(NEXT)).first()).toBeVisible();
+    await hod.goto(`tni?year=${YEAR}`);
+    await expect(hod.getByText(`${YEAR}'s TNI is closed, so it can only be viewed.`)).toBeVisible();
+    await hod.context().close();
+  });
+
+  await test.step("L&D close it again, as no one has started one", async () => {
+    await ld.goto("tna");
+    await ld.waitForLoadState("networkidle");
+    await ld.getByRole("button", { name: `Close ${NEXT} again` }).click();
+    await dialog(ld).getByRole("button", { name: `Close ${NEXT}`, exact: true }).click();
+    await expect(dialog(ld).getByRole("status")).toHaveText(`${YEAR}'s TNAs and TNIs are now the ones being filled in.`);
+    await staff.goto("my-tna/edit");
+    await expect(staff.getByRole("heading", { name: `My TNA for ${YEAR}`, level: 1 })).toBeVisible();
   });
 });

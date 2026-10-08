@@ -16,6 +16,7 @@ import {
   tnaGradeName,
   tnaKind,
   tnaMyBlock,
+  tnaOpenedEarly,
   tnaOpenYear,
   tnaOwnBlock,
   tnaStaffScope,
@@ -106,7 +107,7 @@ const gradeOwner = (d: { id: number; name: string; divisionId: number }, jobGrad
 });
 
 /** A TNA with what the pages need worked out: whose it is, where it stands, and what this user can do. */
-function view(t: TnaRecord, user: SessionUser, today: Date) {
+function view(t: TnaRecord, user: SessionUser, openYear: number) {
   // Exactly one of staff and department is set; the department shown is the person's today, or the job grade's.
   const department = t.staff ? t.staff.department : t.department!;
   const owner = t.staff ? staffOwner(t.staff) : gradeOwner(department, t.jobGrade!);
@@ -132,26 +133,100 @@ function view(t: TnaRecord, user: SessionUser, today: Date) {
     })) as TnaContent,
     viewer,
     /** Why this user can't take each step, or null when they can. */
-    blocked: Object.fromEntries(TNA_ACTIONS.map((a) => [a, tnaActionBlock(a, state, viewer, today)])) as Record<TnaAction, string | null>,
+    blocked: Object.fromEntries(TNA_ACTIONS.map((a) => [a, tnaActionBlock(a, state, viewer, openYear)])) as Record<TnaAction, string | null>,
   };
 }
 
 export type TnaView = ReturnType<typeof view>;
 
+// ---------- The open year ----------
+
+const YEAR_SETTING = "tna.year";
+
+/**
+ * The year being filled in, for the TNA and the TNI alike: this calendar
+ * year, or next year once L&D have opened it early (the tna.year setting; see
+ * tnaOpenYear in rules/tna.ts).
+ */
+export async function tnaOpen(today: Date): Promise<number> {
+  const setting = await db.setting.findUnique({ where: { key: YEAR_SETTING }, select: { value: true } });
+  return tnaOpenYear(today, typeof setting?.value === "number" ? setting.value : null);
+}
+
+/** What L&D's year switch on the TNA screen shows: the open year, whether it was opened early, and why it can't be switched (or null). */
+export async function tnaYearSwitch(user: SessionUser, today: Date) {
+  const open = await tnaOpen(today);
+  const calendar = today.getUTCFullYear();
+  const early = tnaOpenedEarly(today, open);
+  const started = early ? (await db.tna.count({ where: { year: open } })) + (await db.tni.count({ where: { year: open } })) : 0;
+  return {
+    open,
+    calendar,
+    early,
+    mayManage: can(user, "tna.manage"),
+    /** Why next year's can't be closed again, once opened early. */
+    closeBlock: early && started > 0 ? `${started === 1 ? "A TNA or TNI" : `${started} TNAs and TNIs`} for ${open} ${started === 1 ? "has" : "have"} already been started, so ${open} stays open.` : null,
+  };
+}
+
+/** L&D open next year's TNAs and TNIs before January. This year's close at the same moment: one year is open at a time. */
+export async function openNextTnaYear(user: SessionUser, today: Date) {
+  if (!can(user, "tna.manage")) throw new UserError("Only L&D can open a year's TNAs.");
+  const calendar = today.getUTCFullYear();
+  return db.$transaction(async (tx) => {
+    const before = await tx.setting.findUnique({ where: { key: YEAR_SETTING }, select: { value: true } });
+    if (tnaOpenYear(today, typeof before?.value === "number" ? before.value : null) !== calendar) throw new UserError(`${calendar + 1}'s TNAs are already open.`);
+    await tx.setting.upsert({ where: { key: YEAR_SETTING }, update: { value: calendar + 1, updatedById: user.id }, create: { key: YEAR_SETTING, value: calendar + 1, updatedById: user.id } });
+    await recordAudit(tx, {
+      actorId: user.id,
+      action: "UPDATE",
+      entity: "Setting",
+      entityId: YEAR_SETTING,
+      summary: `Opened ${calendar + 1}'s TNAs and TNIs early; ${calendar}'s are now closed`,
+      changes: { year: [calendar, calendar + 1] },
+    });
+    return calendar + 1;
+  });
+}
+
+/** L&D close next year's again, if it was opened by mistake and no one has started one. This year's reopen. */
+export async function closeNextTnaYear(user: SessionUser, today: Date) {
+  if (!can(user, "tna.manage")) throw new UserError("Only L&D can close a year's TNAs.");
+  const calendar = today.getUTCFullYear();
+  return db.$transaction(async (tx) => {
+    const before = await tx.setting.findUnique({ where: { key: YEAR_SETTING }, select: { value: true } });
+    if (tnaOpenYear(today, typeof before?.value === "number" ? before.value : null) === calendar) throw new UserError(`${calendar + 1}'s TNAs aren't open.`);
+    const started = (await tx.tna.count({ where: { year: calendar + 1 } })) + (await tx.tni.count({ where: { year: calendar + 1 } }));
+    if (started > 0) throw new UserError(`${started === 1 ? "A TNA or TNI" : `${started} TNAs and TNIs`} for ${calendar + 1} ${started === 1 ? "has" : "have"} already been started, so ${calendar + 1} stays open.`);
+    await tx.setting.update({ where: { key: YEAR_SETTING }, data: { value: calendar, updatedById: user.id } });
+    await recordAudit(tx, {
+      actorId: user.id,
+      action: "UPDATE",
+      entity: "Setting",
+      entityId: YEAR_SETTING,
+      summary: `Closed ${calendar + 1}'s TNAs and TNIs again; ${calendar}'s are open`,
+      changes: { year: [calendar + 1, calendar] },
+    });
+    return calendar;
+  });
+}
+
 // ---------- One TNA ----------
 
 /** One TNA, or null (also when the user may not open it). */
 export async function getTna(user: SessionUser, id: number, today: Date): Promise<TnaView | null> {
+  const openYear = await tnaOpen(today);
   const t = await db.tna.findUnique({ where: { id }, select: tnaSelect });
   if (!t) return null;
-  const v = view(t, user, today);
+  const v = view(t, user, openYear);
   return v.viewer.canView ? v : null;
 }
 
 /** The signed-in person's own TNA for a year, or null when they have none. */
 export async function myTna(user: SessionUser, year: number, today: Date): Promise<TnaView | null> {
+  const openYear = await tnaOpen(today);
   const t = await db.tna.findUnique({ where: { year_staffId: { year, staffId: user.id } }, select: tnaSelect });
-  return t ? view(t, user, today) : null;
+  return t ? view(t, user, openYear) : null;
 }
 
 /**
@@ -171,7 +246,8 @@ export async function myTnaInfo(user: SessionUser) {
 /** Whose TNA is being started: a person's (staffId) or a job grade's in a department. */
 export type TnaTarget = { staffId: number } | { departmentId: number; jobGrade: number };
 
-async function resolveTarget(client: Prisma.TransactionClient | typeof db, user: SessionUser, target: TnaTarget, year: number, today: Date) {
+async function resolveTarget(client: Prisma.TransactionClient | typeof db, user: SessionUser, target: TnaTarget, openYear: number) {
+  const year = openYear;
   if ("staffId" in target) {
     const staff = await client.staff.findUnique({ where: { id: target.staffId }, select: { ...staffSelect, tnas: { where: { year }, select: { id: true } } } });
     if (!staff) return null;
@@ -187,7 +263,7 @@ async function resolveTarget(client: Prisma.TransactionClient | typeof db, user:
       headcount: null,
       year,
       existingId,
-      blocked: tnaStartBlock(owner, viewer, tnaOwnBlock({ ...staff, isHead: isHead(staff) }), existingId !== null, year, today),
+      blocked: tnaStartBlock(owner, viewer, tnaOwnBlock({ ...staff, isHead: isHead(staff) }), existingId !== null, year, openYear),
     };
   }
   if (!(JOB_GRADES as readonly number[]).includes(target.jobGrade)) return null;
@@ -210,13 +286,13 @@ async function resolveTarget(client: Prisma.TransactionClient | typeof db, user:
     headcount,
     year,
     existingId,
-    blocked: tnaStartBlock(owner, viewer, subject, existingId !== null, year, today),
+    blocked: tnaStartBlock(owner, viewer, subject, existingId !== null, year, openYear),
   };
 }
 
 /** Who a new TNA would be for this year, with why it can't be started (or null). Null when the user may not see it. */
 export async function tnaStartFor(user: SessionUser, target: TnaTarget, today: Date) {
-  const start = await resolveTarget(db, user, target, tnaOpenYear(today), today);
+  const start = await resolveTarget(db, user, target, await tnaOpen(today));
   return start && start.viewer.canView ? start : null;
 }
 
@@ -367,9 +443,9 @@ const sent = (mode: "draft" | "submit", user: SessionUser) =>
 
 /** Starts this year's TNA for a person or a job grade, as a draft or sent straight to the HOD. Returns its id. */
 export async function createTna(user: SessionUser, target: TnaTarget, json: string, mode: "draft" | "submit", today: Date): Promise<number> {
-  const year = tnaOpenYear(today);
+  const year = await tnaOpen(today);
   return db.$transaction(async (tx) => {
-    const start = await resolveTarget(tx, user, target, year, today);
+    const start = await resolveTarget(tx, user, target, year);
     if (!start || !start.viewer.canView) throw new UserError("That TNA can't be started: the person or department is no longer on record.");
     if (start.blocked) throw new UserError(start.blocked);
     const content = await checked(tx, json, mode);
@@ -391,9 +467,10 @@ export async function createTna(user: SessionUser, target: TnaTarget, json: stri
 
 /** Loads a TNA inside a transaction and checks the user may take this step. */
 async function forStep(tx: Prisma.TransactionClient, user: SessionUser, id: number, action: TnaAction, today: Date) {
+  const openYear = await tnaOpen(today);
   const t = await tx.tna.findUnique({ where: { id }, select: tnaSelect });
   if (!t) throw gone();
-  const v = view(t, user, today);
+  const v = view(t, user, openYear);
   if (!v.viewer.canView) throw gone();
   if (v.blocked[action]) throw new UserError(v.blocked[action]);
   return v;
@@ -401,36 +478,40 @@ async function forStep(tx: Prisma.TransactionClient, user: SessionUser, id: numb
 
 /**
  * Saves the form again. A draft (or one sent back) is kept as a draft or sent
- * to the HOD. A submitted TNA, changed by the HOD or L&D before approval,
- * stays submitted and so must stay complete.
+ * to the HOD. A submitted TNA is changed by the HOD or L&D: "approve" saves
+ * and approves it in one step, as the old system's Save & Approve did;
+ * otherwise it stays submitted. Either way it must stay complete.
  */
-export async function updateTna(user: SessionUser, id: number, json: string, mode: "draft" | "submit", today: Date) {
+export async function updateTna(user: SessionUser, id: number, json: string, mode: "draft" | "submit" | "approve", today: Date) {
   return db.$transaction(async (tx) => {
     const t = await forStep(tx, user, id, "EDIT", today);
     const withHod = t.status === "SUBMITTED";
     if (!withHod && mode === "submit" && t.blocked.SUBMIT) throw new UserError(t.blocked.SUBMIT);
+    const approve = mode === "approve";
+    if (approve && t.blocked.APPROVE) throw new UserError(t.blocked.APPROVE);
     const content = await checked(
       tx,
       json,
-      withHod ? "submit" : mode,
+      withHod || approve ? "submit" : mode,
       t.items.map((i) => i.optionId),
     );
-    if (!withHod) await tx.tna.update({ where: { id }, data: sent(mode, user) });
+    if (approve) await tx.tna.update({ where: { id }, data: { status: "APPROVED", approvedById: user.id, approvedAt: new Date() } });
+    else if (!withHod) await tx.tna.update({ where: { id }, data: sent(mode, user) });
     else await tx.tna.update({ where: { id }, data: { updatedAt: new Date() } });
     await writeItems(tx, id, content);
-    const what = withHod ? "Changed" : mode === "submit" ? (t.returnReason ? "Submitted again" : "Submitted") : "Updated";
+    const what = approve ? "Approved" : withHod ? "Changed" : mode === "submit" ? (t.returnReason ? "Submitted again" : "Submitted") : "Updated";
     await recordAudit(tx, {
       actorId: user.id,
       action: "UPDATE",
       entity: "Tna",
       entityId: id,
-      summary: `${what} ${tnaTitle(t.owner)} for ${t.year}${withHod ? " before approval" : ""}`,
+      summary: `${what} ${tnaTitle(t.owner)} for ${t.year}${approve ? ", with changes" : withHod ? " before approval" : ""}`,
       changes: {
-        ...(!withHod && mode === "submit" ? { status: ["DRAFT", "SUBMITTED"] as [unknown, unknown] } : {}),
+        ...(approve ? { status: ["SUBMITTED", "APPROVED"] as [unknown, unknown] } : !withHod && mode === "submit" ? { status: ["DRAFT", "SUBMITTED"] as [unknown, unknown] } : {}),
         ...(t.items.length !== content.length ? { rows: [t.items.length, content.length] as [unknown, unknown] } : {}),
       },
     });
-    return { withHod, own: t.viewer.isOwner };
+    return { withHod, approved: approve, own: t.viewer.isOwner };
   });
 }
 
@@ -472,12 +553,13 @@ export type ApproveResult = { approved: number; skipped: string[] };
 
 /** Approves one or more TNAs. Those the user can't approve are skipped with the reason; if none can be, the first reason is the error. */
 export async function approveTnas(user: SessionUser, ids: number[], today: Date): Promise<ApproveResult> {
+  const openYear = await tnaOpen(today);
   return db.$transaction(async (tx) => {
     const rows = await tx.tna.findMany({ where: { id: { in: ids } }, select: tnaSelect, orderBy: { id: "asc" } });
     const skipped: string[] = [];
     if (rows.length < ids.length) skipped.push(`${plural(ids.length - rows.length, "TNA")} no longer on record.`);
     const approving = rows
-      .map((t) => view(t, user, today))
+      .map((t) => view(t, user, openYear))
       .filter((t) => {
         const blocked = t.viewer.canView ? t.blocked.APPROVE : "This TNA no longer exists.";
         if (blocked) skipped.push(blocked);
@@ -563,6 +645,7 @@ function staffListWhere(user: SessionUser, year: number, f: TnaFilters): Prisma.
 
 /** The user's staff who fill in their own TNA, each with theirs for the year (or none yet), by department then name, a page at a time. */
 export async function tnaStaffList(user: SessionUser, year: number, f: TnaFilters, today: Date) {
+  const openYear = await tnaOpen(today);
   const where = staffListWhere(user, year, f);
   if (!where) return { rows: [], total: 0, page: 1, pages: 1 };
   const total = await db.staff.count({ where });
@@ -585,9 +668,9 @@ export async function tnaStaffList(user: SessionUser, year: number, f: TnaFilter
       tna,
       stage: tnaStage(tna),
       /** Why the user can't start this person's TNA, or null when they can (L&D, on the person's behalf). */
-      startBlock: tnaStartBlock(owner, viewer, tnaOwnBlock({ ...s, isHead: isHead(s) }), tna !== null, year, today),
-      canEdit: !!state && tnaActionBlock("EDIT", state, viewer, today) === null,
-      canApprove: !!state && tnaActionBlock("APPROVE", state, viewer, today) === null,
+      startBlock: tnaStartBlock(owner, viewer, tnaOwnBlock({ ...s, isHead: isHead(s) }), tna !== null, year, openYear),
+      canEdit: !!state && tnaActionBlock("EDIT", state, viewer, openYear) === null,
+      canApprove: !!state && tnaActionBlock("APPROVE", state, viewer, openYear) === null,
     };
   });
   return { rows, total, page, pages };
@@ -610,6 +693,7 @@ export async function tnaStaffStageCounts(user: SessionUser, year: number, depar
  * is on it today, or it has a TNA on record for the year.
  */
 export async function tnaGradeList(user: SessionUser, year: number, f: Pick<TnaFilters, "departmentId" | "stage">, today: Date) {
+  const openYear = await tnaOpen(today);
   const scope = tnaDepartmentScope(user);
   if (!scope) return { rows: [], counts: emptyCounts() };
   const departments = await db.department.findMany({
@@ -641,9 +725,9 @@ export async function tnaGradeList(user: SessionUser, year: number, f: Pick<TnaF
           headcount,
           tna,
           stage: tnaStage(tna),
-          startBlock: tnaStartBlock(owner, viewer, subject, tna !== null, year, today),
-          canEdit: !!state && tnaActionBlock("EDIT", state, viewer, today) === null,
-          canApprove: !!state && tnaActionBlock("APPROVE", state, viewer, today) === null,
+          startBlock: tnaStartBlock(owner, viewer, subject, tna !== null, year, openYear),
+          canEdit: !!state && tnaActionBlock("EDIT", state, viewer, openYear) === null,
+          canApprove: !!state && tnaActionBlock("APPROVE", state, viewer, openYear) === null,
         },
       ];
     }),
@@ -664,7 +748,7 @@ export async function tnaDepartments(user: SessionUser) {
 
 /** The years the picker offers: this year, and every earlier one with a TNA on record. Newest first. */
 export async function tnaYears(today: Date): Promise<number[]> {
-  const open = tnaOpenYear(today);
+  const open = await tnaOpen(today);
   const found = await db.tna.findMany({ distinct: ["year"], select: { year: true } });
   return [...new Set([open, ...found.map((t) => t.year)])].sort((a, b) => b - a);
 }
@@ -678,7 +762,7 @@ export async function tnaYears(today: Date): Promise<number[]> {
  * and, for the sidebar, whether they fill in their own TNA at all.
  */
 export async function tnaWaiting(user: SessionUser, today: Date) {
-  const year = tnaOpenYear(today);
+  const year = await tnaOpen(today);
   const hodOf = user.hodOfDepartmentIds;
   const clerk = user.roles.includes("MAIN_CLERK") && !hodOf.includes(user.departmentId);
   const [me, approve, returned] = await Promise.all([

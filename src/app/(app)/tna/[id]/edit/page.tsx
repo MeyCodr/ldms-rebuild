@@ -43,7 +43,7 @@ export default async function EditTnaPage({ params }: PageProps<"/tna/[id]/edit"
         title={`Training Need Analysis for ${t.year}`}
         description={
           withHod
-            ? `Change ${tnaTitle(t.owner)} before approving it. It stays waiting for approval.`
+            ? `Change ${tnaTitle(t.owner)} as you approve it.`
             : t.staff
               ? `The training ${t.staff.name} needs this year.`
               : `The training that ${t.department.name}'s staff on job grade ${t.jobGrade} need this year.`
@@ -65,6 +65,8 @@ export default async function EditTnaPage({ params }: PageProps<"/tna/[id]/edit"
             cancelHref={`/tna/${t.id}`}
             returnReason={t.returnReason}
             withHod={withHod}
+            canApprove={t.blocked.APPROVE === null}
+            canKeepWaiting={t.viewer.isAdmin}
           />
         )}
       </Panel>

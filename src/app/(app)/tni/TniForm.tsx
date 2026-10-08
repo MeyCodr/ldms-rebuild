@@ -210,7 +210,7 @@ export function TniForm({
         <Link href={cancelHref} className="btn btn-ghost">
           Cancel
         </Link>
-        <span className="text-xs text-ink-3">Saving puts the list on record, so every row needs all of its parts. You can change it until the year ends.</span>
+        <span className="text-xs text-ink-3">Saving puts the list on record, so every row needs all of its parts. It can be changed for as long as the year is open.</span>
       </div>
     </form>
   );

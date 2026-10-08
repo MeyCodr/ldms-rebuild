@@ -4,7 +4,8 @@ import { forbidden, notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { nowInMalaysia } from "@/lib/format";
-import { seesTnis, tniOpenYear } from "@/server/rules/tni";
+import { seesTnis } from "@/server/rules/tni";
+import { tnaOpen } from "@/server/services/tna";
 import { getTni, tniToCopy } from "@/server/services/tni";
 import { requireUser } from "@/server/session";
 import { saveTniAction } from "../../actions";
@@ -19,7 +20,7 @@ export default async function EditTniPage({ params, searchParams }: PageProps<"/
   const departmentId = Number((await params).departmentId);
   if (!Number.isInteger(departmentId)) notFound();
   const today = nowInMalaysia();
-  const year = tniOpenYear(today);
+  const year = await tnaOpen(today);
   const t = await getTni(user, departmentId, year, today);
   if (!t) notFound();
   const copy = !t.tni && !t.editBlock && (await searchParams).copy === "1" ? await tniToCopy(departmentId, year) : null;

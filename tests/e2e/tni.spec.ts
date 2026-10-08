@@ -41,7 +41,7 @@ async function fillRow(row: Locator, indicator: string, expected: string, actual
   await row.getByLabel("Evaluation method").fill("Measured monthly");
 }
 
-test("a HOD fills in the department's TNI from last year's, changes it; L&D see it and export it; others are kept out", async ({ browser }) => {
+test("a HOD fills in the department's TNI from last year's, changes it; L&D see it, export it and can change it; others are kept out", async ({ browser }) => {
   test.setTimeout(300_000);
   await createTestTni("Stamping", YEAR - 1);
   const hod = await as(browser, "10231");
@@ -58,7 +58,7 @@ test("a HOD fills in the department's TNI from last year's, changes it; L&D see 
     departmentId = Number(new URL(hod.url()).pathname.split("/").pop());
 
     await hod.goto(`tni/${departmentId}?year=${YEAR - 1}`);
-    await expect(hod.getByText(`${YEAR - 1} has ended, so its TNI can only be viewed.`)).toBeVisible();
+    await expect(hod.getByText(`${YEAR - 1}'s TNI is closed, so it can only be viewed.`)).toBeVisible();
     await expect(panel(hod, "Mandatory (within the first 3 months in the role)")).toContainText("Test changeover time");
     await expect(hod.getByRole("link", { name: "Edit" })).toHaveCount(0);
     await hod.getByRole("link", { name: `Start ${YEAR}'s from this` }).click();
@@ -102,7 +102,7 @@ test("a HOD fills in the department's TNI from last year's, changes it; L&D see 
     await expect(list(hod).getByRole("row", { name: /Stamping/ })).toContainText("Filled in");
   });
 
-  await test.step("L&D see every department's and export it, but don't change it", async () => {
+  await test.step("L&D see every department's, export it, and can change one on the department's behalf", async () => {
     const ld = await as(browser, "10001");
     await ld.goto("tni");
     const row = list(ld).getByRole("row", { name: /Stamping/ });
@@ -132,10 +132,16 @@ test("a HOD fills in the department's TNI from last year's, changes it; L&D see 
 
     await row.getByRole("link", { name: "Stamping" }).click();
     await expect(ld.getByRole("table", { name: "Performance indicators" })).toContainText("Scrap rate");
+    await ld.getByRole("link", { name: "Edit" }).click();
+    await ld.waitForLoadState("networkidle");
+    await formRow(ld, 1).getByLabel("Evaluation method").fill("Changeover under 15 minutes");
+    await ld.getByRole("button", { name: "Save" }).click();
+    await expect(ld.getByRole("table", { name: "Performance indicators" })).toContainText("Changeover under 15 minutes");
+    // The record says who saved it last.
+    await expect(ld.getByText("Nor Azlina binti Hamid").first()).toBeVisible();
+    // Last year's stays closed for L&D too.
+    await ld.goto(`tni/${departmentId}?year=${YEAR - 1}`);
     await expect(ld.getByRole("link", { name: "Edit" })).toHaveCount(0);
-    await ld.goto(`tni/${departmentId}/edit`);
-    await expect(ld.getByText("Only Stamping's HOD fills in its TNI.")).toBeVisible();
-    await expect(ld.getByRole("button", { name: "Save" })).toHaveCount(0);
     await ld.context().close();
   });
 

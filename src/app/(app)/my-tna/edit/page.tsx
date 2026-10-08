@@ -3,8 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { nowInMalaysia } from "@/lib/format";
-import { tnaOpenYear } from "@/server/rules/tna";
-import { myTna, myTnaInfo, tnaFormOptions, tnaStartFor, tnaToCopy } from "@/server/services/tna";
+import { myTna, myTnaInfo, tnaFormOptions, tnaOpen, tnaStartFor, tnaToCopy } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
 import { createTnaAction, updateTnaAction } from "../../tna/actions";
 import { TnaForm } from "../../tna/TnaForm";
@@ -15,7 +14,7 @@ export const metadata: Metadata = { title: "My TNA" };
 export default async function EditMyTnaPage({ searchParams }: PageProps<"/my-tna/edit">) {
   const user = await requireUser();
   const today = nowInMalaysia();
-  const year = tnaOpenYear(today);
+  const year = await tnaOpen(today);
   const [info, t] = await Promise.all([myTnaInfo(user), myTna(user, year, today)]);
   const start = t ? null : await tnaStartFor(user, { staffId: user.id }, today);
   const blocked = t ? t.blocked.EDIT : (info.block ?? start?.blocked ?? null);
@@ -47,6 +46,7 @@ export default async function EditMyTnaPage({ searchParams }: PageProps<"/my-tna
             cancelHref="/my-tna"
             returnReason={t?.returnReason}
             withHod={t?.status === "SUBMITTED"}
+            canKeepWaiting
           />
         )}
       </Panel>

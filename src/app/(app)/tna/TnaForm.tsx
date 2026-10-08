@@ -60,8 +60,9 @@ const MONTH_OPTIONS: SelectOption[] = MONTHS.map((m, i) => ({ value: String(i + 
 /**
  * The TNA form: seven sections, each a list of rows the person adds. Two
  * buttons: keep it as a draft (it may be unfinished), or send it to the HOD
- * (every row must be complete). When the HOD or L&D change a TNA that is
- * already waiting for approval, there is one button: it stays submitted.
+ * (every row must be complete). A TNA already waiting for approval is changed
+ * by the HOD with Save and approve, as in the old system; L&D can also save
+ * it and leave it waiting.
  */
 export function TnaForm({
   action,
@@ -71,6 +72,8 @@ export function TnaForm({
   cancelHref,
   returnReason,
   withHod = false,
+  canApprove = false,
+  canKeepWaiting = false,
 }: {
   action: (prev: ActionState, fd: FormData) => Promise<ActionState>;
   /** What is on record when editing, or last year's rows when copying forward. A new form starts empty. */
@@ -80,8 +83,12 @@ export function TnaForm({
   cancelHref: string;
   /** Why it was sent back or reopened, shown above the form. */
   returnReason?: string | null;
-  /** The TNA is waiting for approval: saving keeps it there. */
+  /** The TNA is waiting for approval. */
   withHod?: boolean;
+  /** With withHod: this person's save can approve it (the HOD, L&D). */
+  canApprove?: boolean;
+  /** With withHod: this person can also save and leave it waiting (L&D). */
+  canKeepWaiting?: boolean;
 }) {
   const { state, onSubmit, pending } = useFormAction(action);
   const formId = useId();
@@ -282,9 +289,18 @@ export function TnaForm({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule pt-5">
         {withHod ? (
-          <SubmitButton pending={pending} pendingLabel="Saving…">
-            Save changes
-          </SubmitButton>
+          <>
+            {canKeepWaiting && (
+              <SubmitButton pending={pending} pendingLabel="Saving…" variant={canApprove ? "secondary" : "primary"}>
+                Save changes
+              </SubmitButton>
+            )}
+            {canApprove && (
+              <button type="submit" name="intent" value="approve" className="btn btn-primary" disabled={pending} aria-busy={pending}>
+                Save and approve
+              </button>
+            )}
+          </>
         ) : (
           <>
             <SubmitButton pending={pending} pendingLabel="Saving…" variant="secondary">
@@ -299,7 +315,7 @@ export function TnaForm({
           Cancel
         </Link>
         <span className="text-xs text-ink-3">
-          {withHod ? "It stays waiting for approval, so every row must be complete." : "A draft can be unfinished. To submit, every row needs all of its parts."}
+          {withHod ? (canApprove ? "Approving locks it, so every row must be complete. To have it changed by whoever filled it in, send it back instead." : "It stays waiting for approval, so every row must be complete.") : "A draft can be unfinished. To submit, every row needs all of its parts."}
         </span>
       </div>
     </form>

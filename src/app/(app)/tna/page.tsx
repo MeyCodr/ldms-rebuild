@@ -10,10 +10,10 @@ import { withBasePath } from "@/lib/base-path";
 import { nowInMalaysia, plural } from "@/lib/format";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can } from "@/server/permissions";
-import { parseTnaYear, seesTeamTnas, TNA_STAGE_LABELS, TNA_STAGE_TONE, TNA_STAGES, tnaOpenYear, tnaStaffScope, tnaYearBlock, type TnaStage } from "@/server/rules/tna";
-import { TNA_PAGE_SIZE, tnaDepartments, tnaGradeList, tnaStaffList, tnaStaffStageCounts, tnaYears, type TnaFilters } from "@/server/services/tna";
+import { parseTnaYear, seesTeamTnas, TNA_STAGE_LABELS, TNA_STAGE_TONE, TNA_STAGES, tnaStaffScope, tnaYearBlock, type TnaStage } from "@/server/rules/tna";
+import { TNA_PAGE_SIZE, tnaDepartments, tnaGradeList, tnaStaffList, tnaStaffStageCounts, tnaYears, tnaYearSwitch, type TnaFilters } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
-import { ApproveTnaDialog } from "./TnaActions";
+import { ApproveTnaDialog, TnaYearDialog } from "./TnaActions";
 
 export const metadata: Metadata = { title: "TNA" };
 
@@ -29,7 +29,8 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
   if (!seesTeamTnas(user)) forbidden();
   const today = nowInMalaysia();
   const sp = await searchParams;
-  const open = tnaOpenYear(today);
+  const yearSwitch = await tnaYearSwitch(user, today);
+  const open = yearSwitch.open;
   const year = parseTnaYear(one(sp.year)) ?? open;
   const isOpen = year === open;
   // A main clerk has only the job grades; everyone else has both lists.
@@ -84,7 +85,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
             <span>
               <span className="font-semibold text-ink">{year}</span> <span className="text-ink-3">· Training Need Analysis</span>
             </span>
-            {!isOpen && <Status tone="na">Ended: view only</Status>}
+            {isOpen ? yearSwitch.early && <Status tone="ok">Opened early</Status> : <Status tone="na">Closed: view only</Status>}
             {(["RETURNED", "SUBMITTED"] as const)
               .filter((s) => counts[s] > 0)
               .map((s) => (
@@ -101,6 +102,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
             {pending.length > 1 && <ApproveTnaDialog ids={pending} title={`Approve ${pending.length} TNAs`} />}
             {can(user, "tna.manage") && (
               <>
+                <TnaYearDialog open={yearSwitch.open} calendar={yearSwitch.calendar} early={yearSwitch.early} closeBlock={yearSwitch.closeBlock} />
                 <Link href={`/tna/summary${isOpen ? "" : `?year=${year}`}`} className="btn">
                   <BarChart3 size={15} aria-hidden /> Summary
                 </Link>
@@ -118,7 +120,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
           Draft deleted.
         </div>
       )}
-      {!isOpen && <div className="notice notice-wait mb-3">{tnaYearBlock(year, today)}</div>}
+      {!isOpen && <div className="notice notice-wait mb-3">{tnaYearBlock(year, open)}</div>}
 
       {hasStaffList && (
         <nav aria-label="Kind of TNA" className="mb-3 flex gap-1.5">

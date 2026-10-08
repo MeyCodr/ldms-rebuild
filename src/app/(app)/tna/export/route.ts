@@ -2,8 +2,8 @@ import ExcelJS from "exceljs";
 import { monthLabel, TNA_METHOD_LABELS, tnaGap, tnaSectionTitle } from "@/lib/forms/tna";
 import { nowInMalaysia } from "@/lib/format";
 import { can } from "@/server/permissions";
-import { parseTnaYear, TNA_STAGE_LABELS, tnaOpenYear } from "@/server/rules/tna";
-import { tnaExportRows } from "@/server/services/tna";
+import { parseTnaYear, TNA_STAGE_LABELS } from "@/server/rules/tna";
+import { tnaExportRows, tnaOpen } from "@/server/services/tna";
 import { getCurrentUser } from "@/server/session";
 
 /** Every row of every TNA of a year (individual and by job grade, at any status), one row per training need. */
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (user.mustChangePassword) return new Response("Change your password first", { status: 403 });
   if (!can(user, "tna.manage")) return new Response("Forbidden", { status: 403 });
 
-  const year = parseTnaYear(new URL(request.url).searchParams.get("year") ?? undefined) ?? tnaOpenYear(nowInMalaysia());
+  const year = parseTnaYear(new URL(request.url).searchParams.get("year") ?? undefined) ?? (await tnaOpen(nowInMalaysia()));
   const rows = await tnaExportRows(user, year);
 
   const wb = new ExcelJS.Workbook();

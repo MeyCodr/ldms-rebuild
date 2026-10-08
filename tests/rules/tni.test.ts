@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parseTniContent, tniContentProblems, type TniRow } from "@/lib/forms/tni";
 import type { SessionUser } from "@/server/permissions";
-import { parseTniYear, seesTnis, tniDepartmentScope, tniEditBlock, tniOpenYear, tniViewer, tniYearBlock } from "@/server/rules/tni";
+import { parseTniYear, seesTnis, tniDepartmentScope, tniEditBlock, tniViewer, tniYearBlock } from "@/server/rules/tni";
 
-/** "Today" as the services pass it: Malaysia time shifted into UTC, any hour of the day. */
-const today = (iso: string) => new Date(`${iso}T15:30:00Z`);
-const NOW = today("2026-10-07"); // 2026 is open
+const NOW = 2026; // the open year: the TNA's (tnaOpenYear), which L&D may open early
 
 const STAMPING = { id: 5, name: "Stamping", divisionId: 2 };
 
@@ -30,12 +28,13 @@ const admin = user({ id: 60, departmentId: 10, divisionId: 9, roles: ["LD_ADMIN"
 const clerk = user({ id: 50, roles: ["MAIN_CLERK"] });
 
 describe("the TNI year", () => {
-  it("is the calendar year today falls in, and only it can be changed", () => {
-    expect(tniOpenYear(today("2026-12-31"))).toBe(2026);
-    expect(tniOpenYear(today("2027-01-01"))).toBe(2027);
+  it("is the open year, and only it can be changed", () => {
     expect(tniYearBlock(2026, NOW)).toBeNull();
-    expect(tniYearBlock(2025, NOW)).toBe("2025 has ended, so its TNI can only be viewed. Start 2026's from it to carry it forward.");
-    expect(tniYearBlock(2027, NOW)).toBe("2027's TNI is filled in from 1 Jan 2027.");
+    expect(tniYearBlock(2025, NOW)).toBe("2025's TNI is closed, so it can only be viewed. Start 2026's from it to carry it forward.");
+    expect(tniYearBlock(2027, NOW)).toBe("2027's TNI isn't open yet. It opens on 1 Jan 2027, or earlier if L&D open it.");
+    // Once L&D open next year's early, this year's closes.
+    expect(tniYearBlock(2027, 2027)).toBeNull();
+    expect(tniYearBlock(2026, 2027)).toMatch(/2026's TNI is closed/);
   });
   it("reads a year from the URL", () => {
     expect(parseTniYear("2025")).toBe(2025);
@@ -48,17 +47,20 @@ describe("who is what to a department's TNI", () => {
     expect(tniViewer(hod, STAMPING)).toEqual({ canEdit: true, canView: true });
     expect(tniEditBlock(STAMPING, 2026, tniViewer(hod, STAMPING), NOW)).toBeNull();
   });
-  it("lets L&D and the division head look, not change", () => {
-    for (const u of [admin, head]) {
-      expect(tniViewer(u, STAMPING)).toEqual({ canEdit: false, canView: true });
-      expect(tniEditBlock(STAMPING, 2026, tniViewer(u, STAMPING), NOW)).toBe("Only Stamping's HOD fills in its TNI.");
-    }
+  it("lets L&D fill it in on the department's behalf, as the old system did", () => {
+    expect(tniViewer(admin, STAMPING)).toEqual({ canEdit: true, canView: true });
+    expect(tniEditBlock(STAMPING, 2026, tniViewer(admin, STAMPING), NOW)).toBeNull();
+  });
+  it("lets the division head look, not change", () => {
+    expect(tniViewer(head, STAMPING)).toEqual({ canEdit: false, canView: true });
+    expect(tniEditBlock(STAMPING, 2026, tniViewer(head, STAMPING), NOW)).toBe("Only Stamping's HOD, or L&D, fills in its TNI.");
   });
   it("keeps other HODs, clerks and plain staff out", () => {
     for (const u of [otherHod, clerk, user()]) expect(tniViewer(u, STAMPING)).toEqual({ canEdit: false, canView: false });
   });
-  it("keeps an earlier year view-only, even for the HOD", () => {
-    expect(tniEditBlock(STAMPING, 2025, tniViewer(hod, STAMPING), NOW)).toMatch(/2025 has ended/);
+  it("keeps an earlier year view-only, for the HOD and L&D alike", () => {
+    expect(tniEditBlock(STAMPING, 2025, tniViewer(admin, STAMPING), NOW)).toMatch(/2025's TNI is closed/);
+    expect(tniEditBlock(STAMPING, 2025, tniViewer(hod, STAMPING), NOW)).toMatch(/2025's TNI is closed/);
   });
   it("gives the screen to HODs, division heads and L&D only, each with their departments", () => {
     for (const u of [hod, head, admin]) expect(seesTnis(u)).toBe(true);

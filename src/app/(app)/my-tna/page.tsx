@@ -6,8 +6,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Status } from "@/components/ui/Status";
 import { nowInMalaysia } from "@/lib/format";
 import { can } from "@/server/permissions";
-import { parseTnaYear, TNA_STAGE_LABELS, TNA_STAGE_TONE, tnaOpenYear } from "@/server/rules/tna";
-import { myTna, myTnaInfo, tnaHistory, tnaTrainingHours } from "@/server/services/tna";
+import { parseTnaYear, TNA_STAGE_LABELS, TNA_STAGE_TONE } from "@/server/rules/tna";
+import { myTna, myTnaInfo, tnaHistory, tnaOpen, tnaTrainingHours } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
 import { TnaBody, TnaHeaderActions, TnaNotices } from "../tna/TnaRecord";
 
@@ -24,7 +24,7 @@ export default async function MyTnaPage({ searchParams }: PageProps<"/my-tna">) 
   const user = await requireUser();
   const today = nowInMalaysia();
   const sp = await searchParams;
-  const open = tnaOpenYear(today);
+  const open = await tnaOpen(today);
   const year = parseTnaYear(one(sp.year)) ?? open;
   const [info, t] = await Promise.all([myTnaInfo(user), myTna(user, year, today)]);
   const [hours, history] = await Promise.all([t ? tnaTrainingHours(user.id, year) : null, t && can(user, "audit.view") ? tnaHistory(t.id) : []]);
@@ -68,7 +68,7 @@ export default async function MyTnaPage({ searchParams }: PageProps<"/my-tna">) 
 
       {t ? (
         <>
-          <TnaNotices t={t} saved={sp.saved} today={today} />
+          <TnaNotices t={t} saved={sp.saved} open={open} />
           <TnaBody t={t} user={user} hours={hours} history={history} />
         </>
       ) : info.block ? (
@@ -95,7 +95,7 @@ export default async function MyTnaPage({ searchParams }: PageProps<"/my-tna">) 
               </div>
             }
           >
-            List the training you need this year, with your immediate superior. Your HOD
+            List the training you need in {open}, with your immediate superior. Your HOD
             {info.staff.department.hod?.status === "ACTIVE" ? `, ${info.staff.department.hod.name},` : ""} approves it.
           </EmptyState>
         </div>

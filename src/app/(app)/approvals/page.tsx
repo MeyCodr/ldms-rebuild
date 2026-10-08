@@ -201,7 +201,7 @@ export default async function ApprovalsPage() {
                     ids={tnas.map((t) => t.id)}
                     title={`Approve ${tnas.length} TNAs`}
                     size="sm"
-                    note={tnas.some((t) => t.earlierYear) ? "Some are from a year that has ended; they can still be approved." : undefined}
+                    note={tnas.some((t) => t.earlierYear) ? "Some are from a year that is closed; they can still be approved." : undefined}
                   />
                 )}
               </div>
@@ -244,7 +244,7 @@ export default async function ApprovalsPage() {
                       </td>
                       <td className="whitespace-nowrap">
                         <span className="num">{t.year}</span>
-                        {t.earlierYear && <div className="text-xs font-medium text-bad">Year ended</div>}
+                        {t.earlierYear && <div className="text-xs font-medium text-bad">Year closed</div>}
                       </td>
                       <td className="num text-right">{t._count.items}</td>
                       <td>{t.submittedBy?.name ?? <span className="muted">–</span>}</td>
