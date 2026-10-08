@@ -22,7 +22,9 @@ import {
   type SkillAction,
   type SkillStage,
 } from "../rules/skill";
+import { skillNotification } from "../rules/notification";
 import { recordAudit } from "./audit";
+import { forgetNotifications, notify } from "./notification";
 
 // Skill matrix: one per non-executive or contract staff member per quarter
 // (see rules/skill.ts for who fills it in, who approves, and when a quarter
@@ -357,6 +359,7 @@ export async function deleteSkillMatrix(user: SessionUser, id: number, today: Da
   return db.$transaction(async (tx) => {
     const m = await forStep(tx, user, id, "DELETE", today);
     await tx.skillEvaluation.delete({ where: { id } }); // topics and lines cascade
+    await forgetNotifications(tx, "SkillEvaluation", [id]);
     await recordAudit(tx, {
       actorId: user.id,
       action: "DELETE",
@@ -399,6 +402,12 @@ export async function approveSkillMatrices(user: SessionUser, ids: number[], tod
         summary: `Approved ${who(m.staff)}'s skill matrix for ${quarterLabel(m)}`,
         changes: { status: ["SUBMITTED", "APPROVED"] },
       });
+    // Whoever filled each one in is told.
+    await notify(
+      tx,
+      user.id,
+      approving.map((m) => skillNotification("skill.approved", { id: m.id, staffName: m.staff.name, quarter: quarterLabel(m), evaluatorId: m.createdBy?.id ?? null }, user.name)),
+    );
     return { approved: approving.length, skipped };
   });
 }
@@ -418,6 +427,7 @@ export async function sendBackSkillMatrix(user: SessionUser, id: number, reason:
       summary: `Sent ${who(m.staff)}'s skill matrix for ${quarterLabel(m)} back to the evaluator`,
       changes: { status: ["SUBMITTED", "DRAFT"], reason: [null, reason] },
     });
+    await notify(tx, user.id, [skillNotification("skill.returned", { id: m.id, staffName: m.staff.name, quarter: quarterLabel(m), evaluatorId: m.createdBy?.id ?? null }, user.name)]);
   });
 }
 

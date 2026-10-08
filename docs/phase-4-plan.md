@@ -200,7 +200,7 @@ keeps its own cards; the L&D figures there link to this screen.
 | **4. Dashboard: workflows** | The four workflow charts and their exports. | Compare a department's counts with its PME, skill matrix and TNA lists. |
 | **5. PDF reports** | The old PME report, training audit report and OJT audit report as PDFs, in the old layouts. Read the old pages first and confirm the layouts with L&D. | Put each beside the old system's PDF for the same training. |
 
-### Module 0: Groundwork (built 8 Oct 2026, in review)
+### Module 0: Groundwork (built 8 Oct 2026, merged)
 
 - **Jobs and email** (`/jobs`, Administration, L&D only: permission `jobs.manage`): how email is set up, test mode,
   the daily job's runs and the latest 50 emails with who each was meant for and where it went.
@@ -222,6 +222,35 @@ keeps its own cards; the L&D figures there link to this screen.
     database and its backups.
   - The `Notification` table is created now and first used in module 1.
   - Email bodies are kept (for retries) but never shown on the screen.
+
+### Module 1: Notifications (built 8 Oct 2026, in review)
+
+- **Notifications** (`/notifications`, everyone, under My work): the person's own list, newest first, 50 a page,
+  unread ones in bold with a dot (amber when it asks them to do something). **Mark all as read**. The sidebar entry
+  shows the unread count; on a phone or tablet a **bell** with the count sits in the top bar.
+- **When one is written** (`rules/notification.ts`, `services/notification.ts`), always in the same transaction as
+  the change, and never to the person who made it:
+
+  | What happened | Who is told | Opens |
+  |---|---|---|
+  | The HOD evaluated a PME | The staff member | Their training's page, to acknowledge |
+  | L&D verified a PME | The staff member | Their training's page |
+  | L&D sent a PME back | The HOD who evaluates | The PME |
+  | The HOD sent a skill matrix back, or approved it | Whoever filled it in | The matrix |
+  | A TNA was sent back, approved, or reopened by L&D | The person it is about; for a job grade's, whoever submitted it | My TNA, or the job grade's TNA |
+
+- **Opening one** goes through `/notifications/[id]/open`, which marks it read and goes to the record. Only the
+  person it was written for can; anyone else gets 404.
+- **Decided while building**
+  - **A screen and a sidebar entry, not a pop-up list.** The desktop has no top bar to hang a bell on, and the
+    sidebar already carries counts. The phone's top bar gets the bell.
+  - **Read when opened from the list**, not whenever the record is opened some other way. Marking it from the
+    record's own page would also mark it when the browser pre-loads a link.
+  - **No notification for things already under Waiting on you**: a TNA or skill matrix submitted for approval, or
+    a PME acknowledged and waiting for L&D. Those are counted in the sidebar and chased by the reminders of
+    module 2; a notification each would double them.
+  - Approving 40 skill matrices at once writes 40 notifications to their evaluators. If that proves noisy, it can
+    become one line per approval.
 
 ## 8. Data model
 

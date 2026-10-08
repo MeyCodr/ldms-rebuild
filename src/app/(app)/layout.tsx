@@ -7,6 +7,7 @@ import { db } from "@/server/db";
 import { nowInMalaysia } from "@/lib/format";
 import { divisionTone } from "@/lib/tones";
 import { feedbackWaiting } from "@/server/services/myTraining";
+import { unreadNotificationCount } from "@/server/services/notification";
 import { pmeWaiting } from "@/server/services/pme";
 import { skillWaiting } from "@/server/services/skill";
 import { seesSkillMatrices } from "@/server/rules/skill";
@@ -37,10 +38,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Everyone has their own training; the count is what is waiting for them there:
   // feedback forms to fill in and PMEs to acknowledge.
   const today = nowInMalaysia();
-  const [feedback, pme, skill, tna] = await Promise.all([feedbackWaiting(user, today), pmeWaiting(user, today), skillWaiting(user, today), tnaWaiting(user, today)]);
+  const [feedback, pme, skill, tna, unread] = await Promise.all([
+    feedbackWaiting(user, today),
+    pmeWaiting(user, today),
+    skillWaiting(user, today),
+    tnaWaiting(user, today),
+    unreadNotificationCount(user),
+  ]);
   const mine: NavGroup["items"] = [{ href: "/my-training", label: "My training", module: "learning", count: feedback.length + pme.toAcknowledge.length }];
   // My TNA: for those who fill in their own. The count: theirs was sent back.
   if (tna.fillsOwn) mine.push({ href: "/my-tna", label: "My TNA", module: "tna", count: tna.ownReturned ? 1 : 0 });
+  // What happened to the person's records; the count is the unread ones. Also the bell on the phone's top bar.
+  mine.push({ href: "/notifications", label: "Notifications", module: "notifications", count: unread });
   groups.push({ label: "My work", items: mine });
   // Team: what HODs do for their staff, and L&D for everyone. The count is what is waiting on this person.
   const team: NavGroup["items"] = [];
@@ -82,6 +91,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         groups={groups}
         user={{ name: user.name, staffNo: user.staffNo, departmentName: user.departmentName, roleLabel: extra.join(" · "), tone: divisionTone(user.divisionId) }}
         signOut={doSignOut}
+        unread={unread}
         defaultCollapsed={sidebarCollapsed}
       />
       <main className="min-w-0 flex-1 px-4 pt-7 pb-16 sm:px-6 lg:px-10">{children}</main>

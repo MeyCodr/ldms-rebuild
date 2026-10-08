@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { Avatar, StepsMark, Wordmark } from "@/components/brand";
 import { MODULE_ICON } from "@/components/moduleIcons";
 import { MODULE_TONE, TONE, type ModuleKey, type Tone } from "@/lib/tones";
@@ -16,6 +16,8 @@ type Props = {
   groups: NavGroup[];
   user: { name: string; staffNo: string; departmentName: string; roleLabel: string; tone: Tone };
   signOut: () => Promise<void>;
+  /** Unread notifications, for the bell on the phone and tablet top bar. On desktop the sidebar's Notifications entry carries the count. */
+  unread: number;
   /** Desktop only. Labels show by default; people who want more room can collapse to icons. */
   defaultCollapsed: boolean;
 };
@@ -36,7 +38,7 @@ function Tip({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
+export function Sidebar({ groups, user, signOut, unread, defaultCollapsed }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -198,16 +200,30 @@ export function Sidebar({ groups, user, signOut, defaultCollapsed }: Props) {
         <Link href="/" aria-label="LDMS overview">
           <Wordmark />
         </Link>
-        <button
-          type="button"
-          className="flex size-10 items-center justify-center rounded-lg text-ink-2 hover:bg-sunken"
-          aria-expanded={open}
-          aria-controls="mobile-nav"
-          aria-label={open ? "Close menu" : "Menu"}
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/notifications"
+            aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+            className="relative flex size-10 items-center justify-center rounded-lg text-ink-2 hover:bg-sunken"
+          >
+            <Bell size={19} aria-hidden />
+            {unread > 0 && (
+              <span aria-hidden className="num absolute top-1 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10.5px] leading-4 font-semibold text-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </Link>
+          <button
+            type="button"
+            className="flex size-10 items-center justify-center rounded-lg text-ink-2 hover:bg-sunken"
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            aria-label={open ? "Close menu" : "Menu"}
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
       </div>
       {open && (
         <div className="fixed inset-0 top-[60px] z-20 lg:hidden">

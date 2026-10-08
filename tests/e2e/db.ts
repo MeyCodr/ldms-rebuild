@@ -22,6 +22,8 @@ export async function deleteTestTraining(title: string) {
     const found = await db.training.findMany({ where: { title }, select: { id: true, certificateFile: true } });
     if (!found.length) return;
     const ids = found.map((t) => t.id);
+    const pmes = await db.pme.findMany({ where: { participant: { trainingId: { in: ids } } }, select: { id: true } });
+    await db.notification.deleteMany({ where: { entity: "Pme", entityId: { in: pmes.map((p) => p.id) } } });
     await db.participant.deleteMany({ where: { trainingId: { in: ids } } });
     await db.training.deleteMany({ where: { id: { in: ids } } }); // sessions cascade
     for (const t of found) if (t.certificateFile) await rm(path.join(CERTIFICATE_DIR, t.certificateFile), { force: true });
@@ -166,7 +168,10 @@ export async function createTestSkillMatrix(staffNo: string, quarter: { year: nu
 export async function deleteTestSkillMatrices(staffNos: string[]) {
   const db = new PrismaClient();
   try {
-    await db.skillEvaluation.deleteMany({ where: { staff: { staffNo: { in: staffNos } } } }); // topics and lines cascade
+    const where = { staff: { staffNo: { in: staffNos } } };
+    const found = await db.skillEvaluation.findMany({ where, select: { id: true } });
+    await db.notification.deleteMany({ where: { entity: "SkillEvaluation", entityId: { in: found.map((m) => m.id) } } });
+    await db.skillEvaluation.deleteMany({ where }); // topics and lines cascade
   } finally {
     await db.$disconnect();
   }
@@ -226,7 +231,10 @@ export async function createTestTna(staffNo: string, year: number, status: TnaSt
 export async function deleteTestTnas(staffNos: string[], departmentName: string, optionNames: string[] = []) {
   const db = new PrismaClient();
   try {
-    await db.tna.deleteMany({ where: { OR: [{ staff: { staffNo: { in: staffNos } } }, { department: { name: departmentName } }] } }); // rows cascade
+    const where = { OR: [{ staff: { staffNo: { in: staffNos } } }, { department: { name: departmentName } }] };
+    const found = await db.tna.findMany({ where, select: { id: true } });
+    await db.notification.deleteMany({ where: { entity: "Tna", entityId: { in: found.map((t) => t.id) } } });
+    await db.tna.deleteMany({ where }); // rows cascade
     if (optionNames.length) await db.tnaTrainingOption.deleteMany({ where: { name: { in: optionNames } } });
   } finally {
     await db.$disconnect();
@@ -312,6 +320,16 @@ export async function resetMail(staffNo: string, testMode: { enabled: boolean; a
         await again.$disconnect();
       }
     };
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only clean-up: every notification written for these staff. */
+export async function deleteTestNotifications(staffNos: string[]) {
+  const db = new PrismaClient();
+  try {
+    await db.notification.deleteMany({ where: { staff: { staffNo: { in: staffNos } } } });
   } finally {
     await db.$disconnect();
   }

@@ -7,8 +7,10 @@ import { parseForm, UserError } from "../errors";
 import { can, pmeStaffScope, reportDepartmentScope, type SessionUser } from "../permissions";
 import { resolveApprover } from "../rules/approver";
 import { pmeActionBlock, pmeMark, pmeStage, pmeStageWhere, PME_ACTIONS, type PmeAction, type PmeStage, type PmeViewer } from "../rules/pme";
+import { pmeNotification } from "../rules/notification";
 import { trainingHours } from "../rules/training";
 import { recordAudit } from "./audit";
+import { notify } from "./notification";
 import { approverInput, approverStaffSelect } from "./pmeSync";
 
 // PME: one per person per training (see rules/pme.ts for the path it takes).
@@ -124,6 +126,9 @@ function view(p: Row, user: SessionUser, today: Date) {
 }
 
 export type PmeView = ReturnType<typeof view>;
+
+/** What a notification about a PME says. */
+const facts = (p: PmeView) => ({ id: p.id, participantId: p.participantId, staffId: p.staff.id, staffName: p.staff.name, training: p.training.title });
 
 /** PMEs of a training that went ahead: a cancelled training's are kept but not listed. */
 const live: Prisma.PmeWhereInput = { participant: { training: { status: "SCHEDULED" } } };
@@ -315,6 +320,7 @@ export async function evaluatePme(user: SessionUser, id: number, raw: Record<str
       summary: `${p.returnedAt ? "Re-evaluated" : "Evaluated"} ${who(p.staff)} for ${p.training.title} (PME)`,
       changes: { status: [p.status, "EVALUATED"], averageMark: [p.mark?.average ?? null, average] },
     });
+    await notify(tx, user.id, [pmeNotification("pme.evaluated", facts(p), null)]);
   });
 }
 
@@ -349,6 +355,7 @@ export async function verifyPme(user: SessionUser, id: number, today: Date) {
       summary: `Verified ${who(p.staff)}'s PME for ${p.training.title}`,
       changes: { status: [p.status, "VERIFIED"], averageMark: [null, p.mark.average] },
     });
+    await notify(tx, user.id, [pmeNotification("pme.verified", facts(p), null)]);
   });
 }
 
@@ -370,6 +377,8 @@ export async function sendBackPme(user: SessionUser, id: number, reason: string,
       summary: `Sent ${who(p.staff)}'s PME for ${p.training.title} back to the HOD`,
       changes: { status: [p.status, "PENDING"], reason: [null, reason], ...(p.staffComment ? { comment: [p.staffComment, null] } : {}) },
     });
+    // To the HOD who evaluates today, which is who will redo it.
+    await notify(tx, user.id, [pmeNotification("pme.returned", facts(p), p.evaluator?.id ?? null)]);
   });
 }
 

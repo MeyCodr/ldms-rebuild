@@ -78,6 +78,7 @@ export async function syncPmes(tx: Tx, where: Prisma.ParticipantWhereInput): Pro
     if (!need || need.kind === "NONE") {
       if (p.pme) {
         await tx.pme.delete({ where: { id: p.pme.id } });
+        await tx.notification.deleteMany({ where: { entity: "Pme", entityId: p.pme.id } }); // they would lead nowhere
         result.withdrawn++;
       }
       continue;

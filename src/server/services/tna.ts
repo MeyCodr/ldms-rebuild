@@ -28,8 +28,10 @@ import {
   type TnaOwner,
   type TnaStage,
 } from "../rules/tna";
+import { tnaNotification } from "../rules/notification";
 import { countsTowardHours, trainingHours } from "../rules/training";
 import { recordAudit } from "./audit";
+import { forgetNotifications, notify } from "./notification";
 
 // TNA: one per year for each person who fills in their own, and one per job
 // grade per department (see rules/tna.ts for who fills in, who approves and
@@ -62,7 +64,7 @@ const staffSelect = {
   headOf: { select: { id: true } },
 } satisfies Prisma.StaffSelect;
 
-const person = { select: { name: true, staffNo: true } } as const;
+const person = { select: { id: true, name: true, staffNo: true } } as const;
 
 const tnaSelect = {
   id: true,
@@ -138,6 +140,9 @@ function view(t: TnaRecord, user: SessionUser, openYear: number) {
 }
 
 export type TnaView = ReturnType<typeof view>;
+
+/** What a notification about a TNA says, and who fills in a job grade's: whoever submitted it, else whoever started it. */
+const facts = (t: TnaView) => ({ id: t.id, year: t.year, staffId: t.staffId, gradeName: t.owner.name, filledById: t.submittedBy?.id ?? t.createdBy?.id ?? null });
 
 // ---------- The open year ----------
 
@@ -495,8 +500,10 @@ export async function updateTna(user: SessionUser, id: number, json: string, mod
       withHod || approve ? "submit" : mode,
       t.items.map((i) => i.optionId),
     );
-    if (approve) await tx.tna.update({ where: { id }, data: { status: "APPROVED", approvedById: user.id, approvedAt: new Date() } });
-    else if (!withHod) await tx.tna.update({ where: { id }, data: sent(mode, user) });
+    if (approve) {
+      await tx.tna.update({ where: { id }, data: { status: "APPROVED", approvedById: user.id, approvedAt: new Date() } });
+      await notify(tx, user.id, [tnaNotification("tna.approved", facts(t), user.name)]);
+    } else if (!withHod) await tx.tna.update({ where: { id }, data: sent(mode, user) });
     else await tx.tna.update({ where: { id }, data: { updatedAt: new Date() } });
     await writeItems(tx, id, content);
     const what = approve ? "Approved" : withHod ? "Changed" : mode === "submit" ? (t.returnReason ? "Submitted again" : "Submitted") : "Updated";
@@ -542,6 +549,7 @@ export async function deleteTna(user: SessionUser, id: number, today: Date) {
   return db.$transaction(async (tx) => {
     const t = await forStep(tx, user, id, "DELETE", today);
     await tx.tna.delete({ where: { id } }); // rows cascade
+    await forgetNotifications(tx, "Tna", [id]);
     await recordAudit(tx, { actorId: user.id, action: "DELETE", entity: "Tna", entityId: id, summary: `Deleted the draft of ${tnaTitle(t.owner)} for ${t.year}` });
     return { year: t.year, own: t.viewer.isOwner, individual: t.staffId !== null };
   });
@@ -577,6 +585,11 @@ export async function approveTnas(user: SessionUser, ids: number[], today: Date)
         summary: `Approved ${tnaTitle(t.owner)} for ${t.year}`,
         changes: { status: ["SUBMITTED", "APPROVED"] },
       });
+    await notify(
+      tx,
+      user.id,
+      approving.map((t) => tnaNotification("tna.approved", facts(t), user.name)),
+    );
     return { approved: approving.length, skipped };
   });
 }
@@ -601,6 +614,7 @@ export async function sendBackTna(user: SessionUser, id: number, reason: string,
       summary: `Sent ${tnaTitle(t.owner)} for ${t.year} back`,
       changes: { status: ["SUBMITTED", "DRAFT"], reason: [null, reason] },
     });
+    await notify(tx, user.id, [tnaNotification("tna.returned", facts(t), user.name)]);
   });
 }
 
@@ -621,6 +635,7 @@ export async function reopenTna(user: SessionUser, id: number, reason: string, t
       summary: `Reopened ${tnaTitle(t.owner)} for ${t.year} after approval`,
       changes: { status: ["APPROVED", "DRAFT"], reason: [null, reason] },
     });
+    await notify(tx, user.id, [tnaNotification("tna.reopened", facts(t), "L&D")]);
   });
 }
 

@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, BookOpenCheck, Building2, ClipboardCheck, GraduationCap, History, Inbox, LayoutDashboard, MailCheck, ScanSearch, Target, UserRound, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BarChart3, Bell, BookOpen, BookOpenCheck, Building2, ClipboardCheck, GraduationCap, History, Inbox, LayoutDashboard, MailCheck, ScanSearch, Target, UserRound, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { ModuleKey } from "@/lib/tones";
 
 export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
@@ -17,4 +17,5 @@ export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
   tni: ScanSearch,
   skills: Target,
   jobs: MailCheck,
+  notifications: Bell,
 };
