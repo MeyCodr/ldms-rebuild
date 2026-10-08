@@ -462,8 +462,31 @@ Each is reviewed before the next starts. Order is by how much each is used and w
   reopen, the summary and export; a job grade's by the main clerk; last year's carried forward; other departments,
   plain staff and a clerk without the role kept out; adding, hiding and deleting an option, and the download).
 
-### Module 4: TNI
-- HOD: the department's list for the year. L&D: every department's, with Excel export.
+### Module 4: TNI (built 07 Oct 2026, awaiting review)
+- Migration `20261007150000_tni`: `Tni` (one per department per year, enforced by the database) and `TniItem` (§5).
+- **Who**: the department's **HOD** fills it in and changes it. **L&D** see every department's; a **division head**
+  sees their division's. Neither can change one. Clerks and other staff have no TNI screen.
+- **No approval and no statuses**, as in the old system: what the HOD saves is the record. So there are **no
+  drafts**: a save needs at least one row, and every row needs all of its parts.
+- **The year** (`tniOpenYear`, `src/server/rules/tni.ts`): the calendar year, as for the TNA. Earlier years stay on
+  record, view-only. **Start this year's from last year's** copies the latest earlier list into the form.
+- **The form** (`src/lib/forms/tni.ts`): the old form's one heading, *Mandatory (within the first 3 months in the
+  role)*. A row: performance indicator; expected and actual performance, 1 to 5 (the TNA's levels); the gap, worked
+  out; possible causes; attitude, skill or knowledge (typed, as before); L&D method (the TNA's three); evaluation
+  method. Up to 50 rows. Problems are shown on the row they belong to.
+- **Screens**: **TNI** in the sidebar's Team group (`/tni`: the user's departments for a year, each *Filled in* or
+  *Not filled in*, with its rows and when it was last saved; **Export to Excel**, one row per indicator); a
+  department's TNI (`/tni/[departmentId]`: its rows, other years, history); the form (`/tni/[departmentId]/edit`).
+  Every save is in the audit log (entity `Tni`).
+- **Decided while building** (say if any should change):
+  - **Every part of a row is required**. The old form saved rows with blanks.
+  - **L&D can't fill one in for a department**, and a department with no active HOD has no one who can; the page
+    says so.
+  - A list can be changed but **not emptied or deleted** once saved.
+  - Indicators are kept **as typed** (the old system put them in capitals).
+- Tests: `tests/rules/tni.test.ts` (the year, who is what to a department's TNI, the form's tidying and rules);
+  `tests/e2e/tni.spec.ts` (the HOD starts from last year's, can't save an unfinished row or an empty list,
+  changes it; L&D see it and export it but can't change it; another HOD and plain staff kept out).
 
 ---
 

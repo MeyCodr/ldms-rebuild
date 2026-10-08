@@ -11,6 +11,7 @@ import { pmeWaiting } from "@/server/services/pme";
 import { skillWaiting } from "@/server/services/skill";
 import { seesSkillMatrices } from "@/server/rules/skill";
 import { seesTeamTnas } from "@/server/rules/tna";
+import { seesTnis } from "@/server/rules/tni";
 import { tnaWaiting } from "@/server/services/tna";
 import { can, hasApprovals, ROLE_LABELS } from "@/server/permissions";
 import { requireUser } from "@/server/session";
@@ -49,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (seesSkillMatrices(user)) team.push({ href: "/skill-matrix", label: "Skill matrix", module: "skills", count: skill.returned });
   // The count: job-grade TNAs the main clerk filled in that the HOD sent back.
   if (seesTeamTnas(user)) team.push({ href: "/tna", label: "TNA", module: "tna", count: tna.gradesReturned });
+  if (seesTnis(user)) team.push({ href: "/tni", label: "TNI", module: "tni" });
   const training: NavGroup["items"] = [];
   if (can(user, "training.view")) training.push({ href: "/trainings", label: "Trainings", module: "training" });
   if (can(user, "ojt.manage")) training.push({ href: "/ojt", label: "OJT", module: "ojt" });

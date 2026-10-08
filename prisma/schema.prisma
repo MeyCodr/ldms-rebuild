@@ -1,7 +1,7 @@
 // LDMS v2 schema.
 // Phase 1: org chart, staff, roles, audit log and settings.
 // Phase 2: trainings, sessions and participants.
-// Phase 3: PME, the skill matrix and TNA. TNI models follow.
+// Phase 3: PME, the skill matrix, TNA and TNI.
 
 generator client {
   provider = "prisma-client-js"
@@ -69,6 +69,7 @@ model Department {
   staff      Staff[]    @relation("DepartmentStaff")
   trainings  Training[]
   tnas       Tna[]
+  tnis       Tni[]
 
   @@unique([divisionId, name])
   @@index([hodId])
@@ -126,6 +127,7 @@ model Staff {
   tnaSubmitted       Tna[]             @relation("TnaSubmitter")
   tnaApproved        Tna[]             @relation("TnaApprover")
   tnaReturned        Tna[]             @relation("TnaReturner")
+  tniUpdated         Tni[]
 
   @@index([departmentId, status])
   @@index([designation, status])
@@ -514,4 +516,41 @@ model TnaTrainingOption {
   items       TnaItem[]
 
   @@index([section, sortOrder])
+}
+
+// ---------- Phase 3: TNI (Training Need Identification) ----------
+
+// A department's list for a year, kept by its HOD: where performance falls
+// short of what is expected, why, and how the gap will be closed. No approval
+// and no statuses: what is saved is the record (rules/tni.ts).
+model Tni {
+  id           Int        @id @default(autoincrement())
+  year         Int        @db.SmallInt
+  departmentId Int
+  updatedById  Int? // who saved it last
+  legacyId     Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id])
+  updatedBy    Staff?     @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  items        TniItem[]
+
+  @@unique([year, departmentId])
+}
+
+// A row of the list. The gap (expected minus actual) is worked out, not stored.
+model TniItem {
+  id         Int       @id @default(autoincrement())
+  tniId      Int
+  sortOrder  Int       @db.SmallInt
+  indicator  String    @db.Text // performance indicator (critical to quality or process)
+  expected   Int       @db.TinyInt // 1 to 5
+  actual     Int       @db.TinyInt // 1 to 5
+  causes     String    @db.VarChar(500) // possible causes
+  ask        String    @db.VarChar(255) // attitude, skill or knowledge
+  method     TnaMethod // L&D method: the same three as the TNA's
+  evaluation String    @db.VarChar(255) // evaluation method
+  tni        Tni       @relation(fields: [tniId], references: [id], onDelete: Cascade)
+
+  @@index([tniId, sortOrder])
 }

@@ -8,7 +8,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | 0 | Business rules sign-off, data cleanup in the old system | Rules for phase 1 written and tested; sign-off and cleanup are with L&D/HR |
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
 | 2 | Training core: trainings, participants, attendance, OJT | **Built** (6 Oct 2026): Trainings, Participants, My Training, OJT for clerks, Certificates, Reports and staff training history; see `docs/phase-2-plan.md`. Still open: the 16 course feedback questions are placeholder wording until L&D supplies them |
-| 3 | Workflows: PME, TNA, TNI, skill matrix | **In progress**: plan approved 6 Oct 2026 (`docs/phase-3-plan.md`); module 0 (groundwork: job grade, own-TNA tick, Skill matrix evaluator role) built; module 1 (PME, with the Approvals page) built; module 2 (skill matrix) built; module 3 (TNA: My TNA, by job grade, training options, summary) built, in review; TNI next |
+| 3 | Workflows: PME, TNA, TNI, skill matrix | **In progress**: plan approved 6 Oct 2026 (`docs/phase-3-plan.md`); module 0 (groundwork: job grade, own-TNA tick, Skill matrix evaluator role) built; module 1 (PME, with the Approvals page) built; module 2 (skill matrix) built; module 3 (TNA: My TNA, by job grade, training options, summary) built; module 4 (TNI) built, in review: the last module of phase 3 |
 | 4 | Reporting, exports, daily jobs | |
 | 5 | Migration rehearsal and cutover | |
 

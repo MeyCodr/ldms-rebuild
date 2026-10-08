@@ -232,3 +232,33 @@ export async function deleteTestTnas(staffNos: string[], departmentName: string,
     await db.$disconnect();
   }
 }
+
+/** Test-only: a department's TNI put straight into a year (the app only lets this year's be filled in), with one row. */
+export async function createTestTni(departmentName: string, year: number) {
+  const db = new PrismaClient();
+  try {
+    const department = await db.department.findFirstOrThrow({ where: { name: departmentName }, select: { id: true, hodId: true } });
+    await db.tni.create({
+      data: {
+        year,
+        departmentId: department.id,
+        updatedById: department.hodId,
+        items: {
+          create: [{ sortOrder: 0, indicator: "Test changeover time", expected: 4, actual: 2, causes: "No standard work", ask: "Skill", method: "OJT", evaluation: "Changeover under 20 minutes" }],
+        },
+      },
+    });
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only clean-up: every TNI of this department, in any year. */
+export async function deleteTestTnis(departmentName: string) {
+  const db = new PrismaClient();
+  try {
+    await db.tni.deleteMany({ where: { department: { name: departmentName } } }); // rows cascade
+  } finally {
+    await db.$disconnect();
+  }
+}

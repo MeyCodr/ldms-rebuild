@@ -11,7 +11,7 @@ import { requirePermission } from "@/server/session";
 export const metadata: Metadata = { title: "Audit log" };
 
 const PAGE = 100;
-const ENTITIES = ["Staff", "Training", "Participant", "Pme", "SkillEvaluation", "Tna", "TnaTrainingOption", "Department", "Division", "Section"] as const;
+const ENTITIES = ["Staff", "Training", "Participant", "Pme", "SkillEvaluation", "Tna", "TnaTrainingOption", "Tni", "Department", "Division", "Section"] as const;
 const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "IMPORT"];
 const ACTION_LABEL: Record<AuditAction, string> = { CREATE: "Added", UPDATE: "Changed", DELETE: "Deleted", IMPORT: "Import" };
 
@@ -68,7 +68,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
           <label htmlFor="entity" className="sr-only">
             Record type
           </label>
-          <Select id="entity" name="entity" defaultValue={entity} options={[{ value: "", label: "All records" }, ...ENTITIES.map((e) => ({ value: e, label: e === "Pme" ? "PME" : e === "SkillEvaluation" ? "Skill matrix" : e === "Tna" ? "TNA" : e === "TnaTrainingOption" ? "TNA training option" : e }))]} />
+          <Select id="entity" name="entity" defaultValue={entity} options={[{ value: "", label: "All records" }, ...ENTITIES.map((e) => ({ value: e, label: e === "Pme" ? "PME" : e === "SkillEvaluation" ? "Skill matrix" : e === "Tna" ? "TNA" : e === "Tni" ? "TNI" : e === "TnaTrainingOption" ? "TNA training option" : e }))]} />
         </div>
         <div className="w-[calc(50%-4px)] sm:w-36">
           <label htmlFor="action" className="sr-only">

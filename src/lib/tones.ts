@@ -31,6 +31,7 @@ export const MODULE_TONE = {
   approvals: "marigold", // what is waiting on a HOD or L&D
   pme: "coral",
   tna: "jade",
+  tni: "cobalt",
   skills: "olive",
 } as const satisfies Record<string, Tone>;
 
