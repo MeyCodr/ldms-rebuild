@@ -174,7 +174,6 @@ model Setting {
 enum TrainingType {
   PUBLIC_INHOUSE // a course for staff, run by an external provider or at PHN
   OJT // on-the-job training
-  DEPARTMENTAL // run by a department for its own staff
 }
 
 // The next three lists match the old system's Add Training form.
@@ -249,7 +248,7 @@ model Training {
   certificateName String?           @db.VarChar(255) // original file name, for download
   certificateAt   DateTime?
   certificateById Int? // who uploaded it
-  departmentId    Int? // organising department (DEPARTMENTAL, and OJT)
+  departmentId    Int? // organising department (OJT)
   createdById     Int?
   legacySource    String?           @db.VarChar(10) // "training" | "ojt": old IDs overlap between tables
   legacyId        Int?

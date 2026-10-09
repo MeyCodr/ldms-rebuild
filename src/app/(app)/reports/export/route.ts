@@ -3,6 +3,7 @@ import { formatDateRange, nowInMalaysia } from "@/lib/format";
 import { ATTENDANCE_LABELS } from "@/lib/validation/participant";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { TRAINING_TYPE_LABELS } from "@/lib/validation/training";
+import { DATE, HOURS, sheet } from "@/server/excel";
 import { can } from "@/server/permissions";
 import { PME_STAGE_LABELS } from "@/server/rules/pme";
 import { TRAINING_PHASE_LABELS } from "@/server/rules/training";
@@ -10,29 +11,8 @@ import { auditReportForExport, departmentHoursReport, staffHoursReport, training
 import { getCurrentUser } from "@/server/session";
 import { parseReportFilters } from "../filters";
 
-type Column = { header: string; key: string; width: number; numFmt?: string };
-type Row = Record<string, string | number | Date | null>;
-
-const HOURS = "0.##";
-const DATE = "dd/mm/yyyy";
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const periodLine = (p: { from: string; to: string }) => `Trainings that started ${formatDateRange(day(p.from), day(p.to))}`;
-
-/** A sheet with a title, a line saying what it covers, the table from row 4, and an optional totals row. */
-function sheet(wb: ExcelJS.Workbook, name: string, title: string, covers: string, columns: Column[], rows: Row[], total?: Row) {
-  const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 4 }] });
-  ws.columns = columns.map(({ key, width, numFmt }) => ({ key, width, style: numFmt ? { numFmt } : undefined }));
-  ws.getCell("A1").value = title;
-  ws.getCell("A1").font = { bold: true, size: 13 };
-  ws.getCell("A2").value = covers;
-  const header = ws.getRow(4);
-  columns.forEach((c, i) => (header.getCell(i + 1).value = c.header));
-  header.font = { bold: true };
-  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: columns.length } };
-  rows.forEach((r, i) => ws.addRow({ no: i + 1, ...r }));
-  if (total && rows.length) ws.addRow(total).font = { bold: true };
-  return ws;
-}
 
 /**
  * The Excel file of a report, as filtered on screen: ?report=staff-hours |

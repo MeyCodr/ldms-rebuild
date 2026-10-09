@@ -59,7 +59,7 @@ function trainingOrderBy(f: TrainingFilters): Prisma.TrainingOrderByWithRelation
     case "title":
       return [{ title: dir }, ...newest];
     case "type":
-      // Enum order: Public / In-house, OJT, Departmental.
+      // Enum order: Public / In-house, OJT.
       return [{ type: dir }, ...newest];
     case "participants":
       return [{ participants: { _count: dir } }, ...newest];

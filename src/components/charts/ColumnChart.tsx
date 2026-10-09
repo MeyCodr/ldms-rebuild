@@ -16,7 +16,7 @@ export type ColumnPoint = {
 };
 
 /** A round axis maximum just above the data: 1, 2, 2.5, 5 × 10^n. */
-function niceMax(max: number): number {
+export function niceMax(max: number): number {
   if (max <= 0) return 1;
   const pow = 10 ** Math.floor(Math.log10(max));
   for (const step of [1, 2, 2.5, 5, 10]) if (step * pow >= max) return step * pow;
@@ -27,12 +27,18 @@ export function ColumnChart({
   data,
   caption,
   format,
+  axisFormat = format,
+  color,
   height = 180,
 }: {
   data: ColumnPoint[];
   /** What the chart shows, for screen readers and the table. */
   caption: string;
   format: (n: number) => string;
+  /** A shorter form for the axis, when the full one doesn't fit beside it. */
+  axisFormat?: (n: number) => string;
+  /** The columns' colour as a background class, e.g. "bg-cobalt". Left out, the accent. */
+  color?: string;
   height?: number;
 }) {
   const max = Math.max(0, ...data.map((d) => d.value));
@@ -47,7 +53,7 @@ export function ColumnChart({
         <div className="relative w-9 shrink-0 text-right text-[11px] text-ink-3" style={{ height }} aria-hidden>
           {ticks.map((t) => (
             <span key={t} className="num absolute right-0 -translate-y-1/2" style={{ top: `${(1 - t / top) * 100}%` }}>
-              {format(t)}
+              {axisFormat(t)}
             </span>
           ))}
         </div>
@@ -63,7 +69,8 @@ export function ColumnChart({
             <div className="absolute inset-0 flex items-end">
               {data.map((d, i) => {
                 const pct = (d.value / top) * 100;
-                const align = i < 2 ? "left-0" : i > data.length - 3 ? "right-0" : "left-1/2 -translate-x-1/2";
+                // The tooltip opens inward from the outer thirds, so with many narrow columns it never leaves the chart.
+                const align = i < data.length / 3 ? "left-0" : i >= (data.length * 2) / 3 ? "right-0" : "left-1/2 -translate-x-1/2";
                 return (
                   <div
                     key={d.title}
@@ -74,11 +81,11 @@ export function ColumnChart({
                       <>
                         {/* The column: at most 24px wide, rounded at the data end only. */}
                         <div
-                          className="w-[56%] max-w-6 rounded-t-[4px] bg-accent transition-colors group-hover:bg-accent-deep group-focus-visible:bg-accent-deep"
+                          className={`w-[56%] max-w-6 rounded-t-[4px] ${color ? `${color} opacity-90 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100` : "bg-accent transition-colors group-hover:bg-accent-deep group-focus-visible:bg-accent-deep"}`}
                           style={{ height: d.value > 0 ? `max(${pct}%, 3px)` : 0 }}
                         />
                         {i === peak && (
-                          <span className="num absolute text-[11px] font-semibold text-ink-2" style={{ bottom: `calc(${pct}% + 4px)` }}>
+                          <span className="num absolute text-[11px] font-semibold whitespace-nowrap text-ink-2" style={{ bottom: `calc(${pct}% + 4px)` }}>
                             {format(d.value)}
                           </span>
                         )}

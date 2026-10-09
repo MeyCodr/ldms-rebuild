@@ -307,9 +307,9 @@ describe("trainingCode", () => {
   it("is TR, the day it was added, then 6 digits", () => {
     expect(trainingCode("PUBLIC_INHOUSE", d("2026-10-02"), 909393)).toBe("TR20261002909393");
   });
-  it("uses OJT for OJT and TR for departmental", () => {
+  it("uses OJT for OJT", () => {
     expect(trainingCode("OJT", d("2026-10-02"), 1)).toBe("OJT20261002000001");
-    expect(trainingCode("DEPARTMENTAL", d("2026-01-05"), 999999)).toBe("TR20260105999999");
+    expect(trainingCode("PUBLIC_INHOUSE", d("2026-01-05"), 999999)).toBe("TR20260105999999");
   });
   it("pads the random part to 6 digits and fits the 20-character column", () => {
     const code = trainingCode("OJT", d("2026-12-31"), 0);

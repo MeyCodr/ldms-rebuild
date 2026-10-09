@@ -171,7 +171,7 @@ One screen, **Dashboard**, in the sidebar. A year picker; L&D also get a divisio
 
 | Chart | Notes |
 |---|---|
-| Hours by month, Public / In-house, Departmental and OJT | Replaces *Public and OJT*. Stacked columns, with the old switch between total hours and average per person. |
+| Hours by month, Public / In-house and OJT | Replaces *Public and OJT*. Stacked columns, with the old switch between total hours and average per person. |
 | Hours by department | Replaces the nine division charts: one chart, the division chosen above. |
 | Cost by month | Says how many trainings have no cost entered, so the gap is visible. |
 | Most hours | The ten staff with the most hours, within what the viewer may see. L&D and HODs only. |
@@ -251,7 +251,7 @@ keeps its own cards; the L&D figures there link to this screen.
   - Approving 40 skill matrices at once writes 40 notifications to their evaluators. If that proves noisy, it can
     become one line per approval.
 
-### Module 2: Reminder emails (built 8 Oct 2026, in review)
+### Module 2: Reminder emails (built 8 Oct 2026, merged)
 
 - **The daily job** now starts by writing today's reminder for each person with something waiting: one email, every
   kind in it, each with a count, up to ten lines, how many days each has waited, and a link into LDMS. One per
@@ -282,6 +282,57 @@ keeps its own cards; the L&D figures there link to this screen.
     renderer doesn't suit how the daily job runs). One new package: `handlebars`.
   - On a development copy in Test mode, **Run now really sends** one email per demo person with an address to the
     test address. The end-to-end tests put email to Off first, and clear the day's reminder emails.
+
+### Module 3: Dashboard, training (built 9 Oct 2026, merged)
+
+Laid out as the user asked on 9 Oct 2026, after the old system's L&D dashboard.
+
+- **Dashboard** in the sidebar, just below Overview, for everyone who has Reports: L&D see all of PHN, a HOD their
+  departments, a division head their divisions. It is built from the same rows and rules as the staff and
+  department reports (`trainingDashboard` in `services/dashboard.ts`, `rules/dashboard.ts`), so its totals are theirs.
+- **The only filter is the period** (start and end date; empty is this year). No division or department filter.
+- **Two tabs**: *Total man hour* and *Average total hour*.
+- **Total man hour** has, in this order:
+  - **Training overview**: total hours on a large dark tile, split by a bar into total public training hours and
+    total OJT hours, each with its percentage; beside it four small tiles for total trainings, total participant
+    attend training, total manpower and total training days. There is no pie chart: the user had it removed on
+    9 Oct 2026 because the dark tile shows the same split.
+  - **Monthly total cost (RM)**: a bar chart with its own **Year** picker; left on *Dates above* it follows the period.
+  - **Training hours by month**: stacked columns, Public / In-house and OJT, with a line under it naming the
+    busiest month and how many months had training.
+  - **All Department List (Total Man Hour)**: a full-width bar chart, one column for each department, between the
+    hours chart and the cost chart (asked for 9 Oct 2026). It replaces the first build's list of department bars.
+  - **One bar chart for each division** under it, titled with the division's name, showing the total man hours of
+    each of its departments, in the division's colour (asked for 9 Oct 2026; the old dashboard had these too).
+    Shown when the viewer has more than one division.
+  - **Three rankings in one row** (asked for 9 Oct 2026): *Top 5 most hours* (staff), *Top 5 in-house trainers*
+    (staff set as a training's internal trainer, by the hours of the trainings they gave, as the old trainer list
+    counted) and *Top 5 trainings (total man hour)* (my suggestion: which trainings the hours came from).
+  - The four small tiles show the number beside its icon and, under it, how the count is made up: trainings,
+    participants and training days month by month with the highest month named (asked for 9 Oct 2026: data, not
+    decoration). Total manpower shows its number only, as the user asked.
+  - The page is a bento grid: tiles of different sizes on twelve columns, total hours on the one dark tile.
+- **Average total hour** so far has the average per person, average hours by training type by month, and average
+  hours by department. Its layout hasn't been specified yet.
+- **Export to Excel**: a sheet for the overview and one per chart, the same numbers (`/dashboard/export`).
+- **How the figures are counted**
+  - *Total trainings*: trainings that started in the period and weren't cancelled (for a HOD: those with any of
+    their staff on them).
+  - *Total participant attend training*: staff with at least one completed training in the period, each counted once.
+  - *Total manpower*: active staff, trainees not counted, as in the reports. The old system counted everyone not
+    resigned, trainees included, so its number is a little higher.
+  - *Total training days*: each training's days, once for every person who completed it, as the old system did.
+  - *Total hours*: each training's hours for every person who completed it; the same total as the reports.
+  - Public / In-house and OJT add up to total hours. **There is no Departmental type**: the
+    user removed it from the system on 9 Oct 2026; trainings that had it became Public / In-house.
+- **Decided while building**
+  - **Monthly total cost is for L&D only.** A cost is entered for a whole training, not for each department, so a
+    HOD or division head has no cost chart.
+  - **OJT isn't counted as missing a cost**: its form has no cost field. The chart says how many other trainings
+    have none entered.
+  - **A person with one department has no department chart**: there is nothing to compare it with.
+  - A period of up to two years is drawn month by month; a longer one, year by year.
+  - The overview keeps its cards; its *Training at PHN* heading links to the Dashboard.
 
 ## 8. Data model
 

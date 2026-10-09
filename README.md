@@ -9,7 +9,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
 | 2 | Training core: trainings, participants, attendance, OJT | **Built** (6 Oct 2026): Trainings, Participants, My Training, OJT for clerks, Certificates, Reports and staff training history; see `docs/phase-2-plan.md`. Still open: the 16 course feedback questions are placeholder wording until L&D supplies them |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | **Built** (8 Oct 2026): PME with the Approvals page, skill matrix, TNA (My TNA, by job grade, training options, summary, opening next year early) and TNI; see `docs/phase-3-plan.md` |
-| 4 | Reminder emails, notifications, the daily job, dashboards | **In progress**: plan approved 8 Oct 2026 (`docs/phase-4-plan.md`); module 0 (groundwork: email with its Off / Test / Live mode, the daily job, the Jobs and email screen) built; module 1 (notifications) built; module 2 (reminder emails, with a closing date for TNA and TNI) built, in review |
+| 4 | Reminder emails, notifications, the daily job, dashboards | **In progress**: plan approved 8 Oct 2026 (`docs/phase-4-plan.md`); module 0 (groundwork: email with its Off / Test / Live mode, the daily job, the Jobs and email screen) built; module 1 (notifications) built; module 2 (reminder emails, with a closing date for TNA and TNI) built; module 3 (the Dashboard: training figures and charts; the Departmental training type removed) built |
 | 5 | Migration rehearsal and cutover | |
 
 ## Run it locally
@@ -119,7 +119,7 @@ Colour system (tokens in `src/app/globals.css`):
 
 A small category palette (teal, blue, plum, amber, coral, olive, slate) tells **training categories**, **modules** and
 **divisions** apart: each training has a category (`trainingCategory()` in `src/lib/trainingCategory.ts`: its type for
-OJT and departmental, otherwise its function) that sets its cover, icon and tag colour; each screen has a module colour
+OJT, otherwise its function) that sets its cover, icon and tag colour; each screen has a module colour
 (`MODULE_TONE`); each division keeps one colour for avatars and markers (`divisionTone()`). Status is a dot plus words,
 never a filled badge.
 
@@ -131,6 +131,7 @@ hours, a tall "next training" card, a wide hours chart, then L&D figures for adm
 
 **Pieces.** `Progress` (thin bar), `EmptyState` (icon, what's missing and why), `CategoryTag` / `.tag` (quiet labels),
 `ColumnChart` (single-series columns in HTML: one hue, rounded data end, value on hover/focus, a screen-reader table),
+`StackedColumnChart` (the same, split into series with a legend) and `BarList` (ranked horizontal bars for named things),
 `.skeleton` (loading placeholder for data loaded on the client). There is no route-level `loading.tsx`: streaming
 would send a 200 before a page can answer 403 or 404.
 

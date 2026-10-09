@@ -30,7 +30,7 @@ const course = { type: "PUBLIC_INHOUSE", hours: 9 } as const;
 describe("pmeRequirement", () => {
   it("gives executives and managers a PME for a course", () => {
     expect(pmeRequirement(exec, course, HOD)).toEqual({ kind: "REQUIRED" });
-    expect(pmeRequirement({ status: "ACTIVE", designation: "MANAGER" }, { type: "DEPARTMENTAL", hours: 16 }, HOD)).toEqual({ kind: "REQUIRED" });
+    expect(pmeRequirement({ status: "ACTIVE", designation: "MANAGER" }, { type: "PUBLIC_INHOUSE", hours: 16 }, HOD)).toEqual({ kind: "REQUIRED" });
   });
   it("gives non-executive, contract and trainee staff none", () => {
     for (const designation of ["NON_EXECUTIVE", "CONTRACT", "TRAINEE"] as const)

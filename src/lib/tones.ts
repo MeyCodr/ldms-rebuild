@@ -28,6 +28,7 @@ export const MODULE_TONE = {
   training: "marigold",
   ojt: "olive", // OJT that clerks and L&D record for staff
   reports: "coral",
+  dashboard: "cobalt", // charts of the figures the reports list
   approvals: "marigold", // what is waiting on a HOD or L&D
   pme: "coral",
   tna: "jade",

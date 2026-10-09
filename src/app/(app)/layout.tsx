@@ -35,6 +35,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Navigation is grouped by what people do, and only lists screens the user
   // can open. Modules appear here as each phase ships.
   const groups: NavGroup[] = [{ items: [{ href: "/", label: "Overview", module: "overview" }] }];
+  // The Dashboard charts what the reports list, for the same people.
+  if (can(user, "report.view")) groups[0].items.push({ href: "/dashboard", label: "Dashboard", module: "dashboard" });
   // Everyone has their own training; the count is what is waiting for them there:
   // feedback forms to fill in and PMEs to acknowledge.
   const today = nowInMalaysia();

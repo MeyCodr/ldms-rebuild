@@ -24,7 +24,7 @@ import { dailyMinutes, dayNumber, trainingHours, usesInternalTrainer } from "@/s
 /** Active executives and managers, plus the current trainer if they no longer qualify. */
 export type TrainerOption = { id: number; name: string; staffNo: string; eligible: boolean; department: { name: string } };
 
-/** Types offered on the form. Departmental is left out for now (still kept on edit). */
+/** Types offered on the form. */
 const FORM_TYPES: TrainingTypeCode[] = ["PUBLIC_INHOUSE", "OJT"];
 
 export type TrainingFormValues = {
@@ -69,7 +69,7 @@ export function TrainingForm({
   const [range, setRange] = useState({ startDate: initial.startDate, endDate: initial.endDate, startTime: initial.startTime, endTime: initial.endTime });
   const [type, setType] = useState<string>(initial.type);
   const classify = needsClassification(type);
-  const typeOptions = FORM_TYPES.includes(initial.type as TrainingTypeCode) || !initial.type ? FORM_TYPES : [...FORM_TYPES, initial.type as TrainingTypeCode];
+  const typeOptions = FORM_TYPES;
   const optional = classify ? [] : [{ value: "", label: "None" }];
 
   const setRangeField = (field: keyof typeof range) => (value: string) => {

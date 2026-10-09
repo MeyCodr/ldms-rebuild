@@ -40,10 +40,10 @@ function scopes(user: SessionUser) {
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 
 /** Trainings that start within the period. */
-const startsIn = (period: { from: string; to: string }): Prisma.TrainingWhereInput => ({ startDate: { gte: day(period.from), lte: day(period.to) } });
+export const startsIn = (period: { from: string; to: string }): Prisma.TrainingWhereInput => ({ startDate: { gte: day(period.from), lte: day(period.to) } });
 
 /** The user's staff, narrowed by the division, department and search filters. */
-function staffWhere(user: SessionUser, f: ReportFilters, search = true): Prisma.StaffWhereInput {
+export function staffWhere(user: SessionUser, f: ReportFilters, search = true): Prisma.StaffWhereInput {
   const and: Prisma.StaffWhereInput[] = [scopes(user).staff];
   if (f.departmentId) and.push({ departmentId: f.departmentId });
   if (f.divisionId) and.push({ department: { divisionId: f.divisionId } });
@@ -52,7 +52,7 @@ function staffWhere(user: SessionUser, f: ReportFilters, search = true): Prisma.
   return { AND: and };
 }
 
-const hoursSelect = {
+export const hoursSelect = {
   startDate: true,
   endDate: true,
   startTime: true,

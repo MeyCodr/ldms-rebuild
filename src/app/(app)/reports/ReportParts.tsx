@@ -77,8 +77,11 @@ export function ReportFilterBar({
   department = false,
   type = false,
   show = false,
+  clearHref,
+  children,
 }: {
-  report: ReportKey;
+  /** Which report the bar is on. Left out on the Dashboard, which gives clearHref. */
+  report?: ReportKey;
   f: ReportFilters;
   period: Period;
   departments: Department[];
@@ -89,10 +92,15 @@ export function ReportFilterBar({
   type?: boolean;
   /** Staff hours: everyone, only those with training, or only those without. */
   show?: boolean;
+  /** Where Clear goes, when the bar isn't on a report. */
+  clearHref?: string;
+  /** Hidden fields to keep through Apply. */
+  children?: React.ReactNode;
 }) {
   const divisions = [...new Map(departments.map((d) => [d.division.id, d.division])).values()];
   return (
     <form method="get" className="card flex flex-wrap items-end gap-2 p-3" role="search" aria-label="Filter the report">
+      {children}
       {search && (
         <div className="w-full sm:w-60">
           <label htmlFor="q" className="label">
@@ -165,7 +173,7 @@ export function ReportFilterBar({
         Apply
       </button>
       {/* A full page load, so every field resets: back to this year, every department. */}
-      <a href={withBasePath(`/reports/${report}`)} className="btn">
+      <a href={withBasePath(clearHref ?? `/reports/${report}`)} className="btn">
         Clear
       </a>
     </form>

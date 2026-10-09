@@ -1,26 +1,23 @@
 import { z } from "zod";
 import { dayNumber, MAX_CONSECUTIVE_DAYS, usesInternalTrainer } from "@/server/rules/training";
 
-export const TRAINING_TYPES = ["PUBLIC_INHOUSE", "OJT", "DEPARTMENTAL"] as const;
+export const TRAINING_TYPES = ["PUBLIC_INHOUSE", "OJT"] as const;
 export type TrainingTypeCode = (typeof TRAINING_TYPES)[number];
 
 export const TRAINING_TYPE_LABELS: Record<TrainingTypeCode, string> = {
   PUBLIC_INHOUSE: "Public / In-house",
   OJT: "OJT",
-  DEPARTMENTAL: "Departmental",
 };
 
 /** Shorter labels for tight spaces such as the trainings table. */
 export const TRAINING_TYPE_SHORT_LABELS: Record<TrainingTypeCode, string> = {
   PUBLIC_INHOUSE: "Public",
   OJT: "OJT",
-  DEPARTMENTAL: "Departmental",
 };
 
 export const TRAINING_TYPE_HINTS: Record<TrainingTypeCode, string> = {
   PUBLIC_INHOUSE: "A course run by an external provider, either at their venue or at PHN.",
   OJT: "On-the-job training at the workplace.",
-  DEPARTMENTAL: "Run by a department for its own staff.",
 };
 
 export const TRAINING_PROGRAMS = ["EXTERNAL_PUBLIC", "INTERNAL_EXTERNAL_TRAINER", "INTERNAL_INTERNAL_TRAINER"] as const;

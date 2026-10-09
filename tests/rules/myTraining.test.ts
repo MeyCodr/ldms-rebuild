@@ -16,10 +16,9 @@ const cancelled = { ...course, status: "CANCELLED" as const };
 const me = (attendance: Attendance, submittedAt: Date | null = null) => ({ attendance, submittedAt });
 
 describe("which form a training uses", () => {
-  it("OJT has its own form; every other type the course feedback form", () => {
+  it("OJT has its own form; a course the feedback form", () => {
     expect(formKind({ type: "OJT" })).toBe("OJT");
     expect(formKind({ type: "PUBLIC_INHOUSE" })).toBe("FEEDBACK");
-    expect(formKind({ type: "DEPARTMENTAL" })).toBe("FEEDBACK");
   });
 });
 

@@ -267,7 +267,8 @@ Built to match the old system's Add Training form, following the user's review. 
 - Service `src/server/services/training.ts`; validation `src/lib/validation/training.ts`; rules
   `src/server/rules/training.ts`; migration `20260929100000_phase2_trainings`.
 
-**Kept in the model but not on the form:** Departmental type (left out for now), course code, category, provider,
+**Removed on 9 Oct 2026:** the Departmental type (the user: it should not exist in this system; trainings that had
+it became Public / In-house). **Kept in the model but not on the form:** course code, category, provider,
 description, organising department and sessions. Editing leaves them unchanged, except that saving replaces any sessions
 with the form's dates and times. Decide at the phase 5 import whether the old data fills them; otherwise remove them.
 Phase 5 must also map the old values of HRDC, platform, function and program.

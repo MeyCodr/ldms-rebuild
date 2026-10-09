@@ -1,9 +1,26 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "../db";
-import type { SessionUser } from "../permissions";
-import { countsTowardHours, trainingHours, trainingPhase } from "../rules/training";
+import { DESIGNATIONS } from "@/lib/validation/staff";
+import { TRAINING_TYPES } from "@/lib/validation/training";
+import { isAdmin, type SessionUser } from "../permissions";
+import {
+  bucketKey,
+  costSummary,
+  periodBuckets,
+  topTrainings,
+  trainerTotals,
+  stackHours,
+  sumByBucket,
+  topByHours,
+  type Bucket,
+  type BucketUnit,
+} from "../rules/dashboard";
+import { isActiveHeadcount } from "../rules/headcount";
+import { departmentTotals, grandTotal, inStaffReport, reportPeriod, round2, staffTotals } from "../rules/report";
+import { countsTowardHours, trainingDays, trainingHours, trainingPhase } from "../rules/training";
 import { ensure } from "./org";
+import { hoursSelect, reportDepartments, staffWhere, startsIn, type ReportFilters } from "./report";
 
 // Read-only figures for the overview. Hours always come from trainingHours and
 // countsTowardHours, and a training belongs to the year and month it starts in
@@ -129,3 +146,167 @@ export async function trainingOverview(user: SessionUser, today: Date) {
 
 export type TrainingOverview = Awaited<ReturnType<typeof trainingOverview>>;
 export type { TrainingRow };
+
+// ---------- The Dashboard screen (phase 4, module 3) ----------
+
+/**
+ * The training charts, for the staff the user's reports cover (L&D all, a HOD
+ * their departments, a division head their divisions), for the period chosen.
+ * Built from the same rows and rules as the staff and department reports, so
+ * the totals are theirs. `costYear` draws the cost chart for one calendar
+ * year instead of the period.
+ */
+export async function trainingDashboard(user: SessionUser, f: ReportFilters, today: Date, costYear?: number) {
+  ensure(user, "report.view");
+  const period = reportPeriod(f.from, f.to, today);
+  const where = staffWhere(user, f, false);
+  const admin = isAdmin(user);
+  const [allDepartments, staff, done, trainings] = await Promise.all([
+    reportDepartments(user),
+    db.staff.findMany({
+      where,
+      select: { id: true, staffNo: true, name: true, designation: true, status: true, departmentId: true, department: { select: { name: true } } },
+    }),
+    db.participant.findMany({
+      where: { attendance: "COMPLETED", staff: where, training: { status: "SCHEDULED", ...startsIn(period) } },
+      select: { staffId: true, training: { select: { id: true, type: true, title: true, trainingCode: true, ...hoursSelect } } },
+    }),
+    // Trainings going ahead in the period: all of them for L&D, those with any of their staff on them for others.
+    db.training.findMany({
+      where: { status: { not: "CANCELLED" }, ...startsIn(period), ...(admin ? {} : { participants: { some: { staff: where } } }) },
+      select: { ...hoursSelect, trainerStaff: { select: { id: true, staffNo: true, name: true, department: { select: { name: true } } } } },
+    }),
+  ]);
+
+  const counted = done.map((p) => ({
+    staffId: p.staffId,
+    trainingId: p.training.id,
+    type: p.training.type,
+    date: p.training.startDate,
+    hours: trainingHours(p.training) ?? 0,
+    days: trainingDays(p.training) ?? 0,
+  }));
+  const totals = staffTotals(counted);
+  const people = staff.filter((s) => inStaffReport(s, totals.get(s.id))).map((s) => ({ ...s, ...(totals.get(s.id) ?? { completed: 0, hours: 0 }) }));
+  const byDepartment = departmentTotals(people);
+  const departments = allDepartments
+    .filter((d) => (!f.divisionId || d.division.id === f.divisionId) && (!f.departmentId || d.id === f.departmentId))
+    .map((d) => ({ ...d, ...(byDepartment.get(d.id) ?? { headcount: 0, trained: 0, completed: 0, hours: 0, average: null }) }));
+  const total = grandTotal(departments);
+
+  // In-house trainers: the staff set as a training's internal trainer. Each training's own hours go to them.
+  const mine = new Set(staff.map((s) => s.id));
+  const taught = trainings.flatMap((t) =>
+    t.trainerStaff && mine.has(t.trainerStaff.id) ? [{ trainerId: t.trainerStaff.id, trainer: t.trainerStaff, hours: trainingHours(t) ?? 0 }] : [],
+  );
+  const trainers = new Map(taught.map((t) => [t.trainerId, t.trainer]));
+  const topTrainers = topByHours([...trainerTotals(taught).entries()].map(([id, t]) => ({ ...trainers.get(id)!, completed: t.trainings, hours: t.hours })));
+
+  const { unit, buckets } = periodBuckets(period, today);
+  const byType = stackHours(
+    buckets,
+    unit,
+    TRAINING_TYPES,
+    counted.map((c) => ({ date: c.date, series: c.type, hours: c.hours })),
+  );
+  const hoursOf = (type: (typeof TRAINING_TYPES)[number]) => round2(counted.filter((c) => c.type === type).reduce((a, c) => a + c.hours, 0));
+
+  // Cost is entered per training, not per department: only L&D see it, and only for all of PHN.
+  const narrowed = !admin || !!f.divisionId || !!f.departmentId;
+  let cost: {
+    year: number | null;
+    years: number[];
+    unit: BucketUnit;
+    buckets: Bucket[];
+    byBucket: number[];
+    total: number;
+    withCost: number;
+    withoutCost: number;
+  } | null = null;
+  if (!narrowed) {
+    const span = await db.training.aggregate({ _min: { startDate: true }, _max: { startDate: true } });
+    const years: number[] = [];
+    if (span._min.startDate && span._max.startDate)
+      for (let y = span._max.startDate.getUTCFullYear(); y >= span._min.startDate.getUTCFullYear(); y--) years.push(y);
+    const year = costYear && years.includes(costYear) ? costYear : null;
+    const costPeriod = year ? { from: `${year}-01-01`, to: `${year}-12-31` } : period;
+    const drawn = year ? periodBuckets(costPeriod, today) : { unit, buckets };
+    const trainings = await db.training.findMany({
+      where: { status: { not: "CANCELLED" }, ...startsIn(costPeriod) },
+      select: { cost: true, type: true, startDate: true },
+    });
+    const rows = trainings.map((t) => ({ cost: t.cost === null ? null : Number(t.cost), type: t.type, date: t.startDate }));
+    cost = {
+      year,
+      years,
+      ...drawn,
+      byBucket: sumByBucket(
+        drawn.buckets,
+        drawn.unit,
+        rows.map((r) => ({ date: r.date, amount: r.cost ?? 0 })),
+      ),
+      ...costSummary(rows),
+    };
+  }
+
+  return {
+    period,
+    unit,
+    buckets,
+    /** Hours for each bucket, one number per training type, in TRAINING_TYPES order. */
+    byType,
+    departments,
+    total,
+    /** The figures of the training overview. */
+    overview: {
+      trainings: trainings.length,
+      /** People with at least one completed training in the period. */
+      attended: people.filter((p) => p.completed > 0).length,
+      manpower: total.headcount,
+      /** The manpower by designation, largest group first; designations with no one are left out. */
+      manpowerByDesignation: DESIGNATIONS.map((designation) => ({
+        designation,
+        count: people.filter((p) => p.designation === designation && isActiveHeadcount(p)).length,
+      }))
+        .filter((d) => d.count > 0)
+        .sort((a, b) => b.count - a.count),
+      /** A training's days, once for each person who completed it. */
+      days: counted.reduce((a, c) => a + c.days, 0),
+      hours: total.hours,
+      hoursByType: Object.fromEntries(TRAINING_TYPES.map((t) => [t, hoursOf(t)])) as Record<(typeof TRAINING_TYPES)[number], number>,
+    },
+    /** The overview's counts for each bucket, to show how they are spread over the period. */
+    trend: {
+      trainings: sumByBucket(
+        buckets,
+        unit,
+        trainings.map((t) => ({ date: t.startDate, amount: 1 })),
+      ),
+      /** People who completed at least one training that started in the bucket. */
+      attended: sumByBucket(
+        buckets,
+        unit,
+        [...new Map(counted.map((c) => [`${bucketKey(c.date, unit)}:${c.staffId}`, c.date])).values()].map((date) => ({ date, amount: 1 })),
+      ),
+      days: sumByBucket(
+        buckets,
+        unit,
+        counted.map((c) => ({ date: c.date, amount: c.days })),
+      ),
+    },
+    /** The five staff with the most completed hours. */
+    top: topByHours(people),
+    /** The five in-house trainers who gave the most hours, among the staff the user may see. */
+    topTrainers,
+    /** The five trainings that gave the most man hours. */
+    topTrainings: topTrainings(
+      counted,
+      new Map(done.map((p) => [p.training.id, { title: p.training.title, trainingCode: p.training.trainingCode, type: p.training.type }])),
+    ),
+    /** Null when it can't be shown: not L&D, or narrowed to a division or department. */
+    cost,
+    isAdmin: admin,
+  };
+}
+
+export type TrainingDashboard = Awaited<ReturnType<typeof trainingDashboard>>;

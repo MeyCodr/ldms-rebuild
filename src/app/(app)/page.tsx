@@ -558,9 +558,14 @@ function TrainingAtPhn({ training, today }: { training: TrainingOverview; today:
         id="phn-heading"
         title={`Training at PHN, ${year}`}
         action={
-          <Link href="/trainings" className="link inline-flex items-center gap-1 text-[13px] font-medium">
-            All trainings <ArrowRight size={14} aria-hidden />
-          </Link>
+          <span className="flex gap-5">
+            <Link href="/dashboard" className="link inline-flex items-center gap-1 text-[13px] font-medium">
+              Dashboard <ArrowRight size={14} aria-hidden />
+            </Link>
+            <Link href="/trainings" className="link inline-flex items-center gap-1 text-[13px] font-medium">
+              All trainings <ArrowRight size={14} aria-hidden />
+            </Link>
+          </span>
         }
       />
       <div className="grid gap-5 md:grid-cols-6 lg:grid-cols-12">

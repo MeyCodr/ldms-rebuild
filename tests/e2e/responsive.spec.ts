@@ -75,3 +75,14 @@ test("phone: the calendar fits on screen", async ({ page }) => {
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
+
+test("phone: the Dashboard's charts fit the screen", async ({ page }) => {
+  await signIn(page, "10001");
+  // This year, and two years (twenty-four columns): neither may scroll sideways.
+  for (const path of ["dashboard", "dashboard?from=2025-01-01&to=2026-12-31"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, path).toBeLessThanOrEqual(0);
+  }
+});
