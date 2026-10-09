@@ -1,23 +1,27 @@
 import type { Metadata } from "next";
-import { CalendarClock, Inbox } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, Inbox, Users } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { Row } from "@/components/RecordParts";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Status } from "@/components/ui/Status";
-import { formatDateTime, plural } from "@/lib/format";
+import { formatDate, formatDateTime, nowInMalaysia, plural, toDateInput } from "@/lib/format";
 import { isEmail, jobSummaryText, MAIL_MODE_LABELS, parseJobSummary, RETENTION_DAYS } from "@/server/rules/mail";
 import { JOB_LIST_SIZE, jobRuns } from "@/server/services/job";
+import { CLOSING_NOTICE_DAYS, REMINDER_INFO, REMINDER_KINDS } from "@/server/rules/reminder";
 import { EMAIL_LIST_SIZE, mailStatus, recentEmails } from "@/server/services/mail";
+import { reminderOverview } from "@/server/services/reminder";
 import { requirePermission } from "@/server/session";
 import { MailModeDialog, RunJobDialog, TestEmailDialog } from "./JobActions";
+import { ReminderSettingsDialog } from "./ReminderSettings";
 
 export const metadata: Metadata = { title: "Jobs and email" };
 
 const JOB_STATUS = { OK: { tone: "ok", label: "Finished" }, FAILED: { tone: "bad", label: "Failed" }, RUNNING: { tone: "wait", label: "Running" } } as const;
 const EMAIL_STATUS = { SENT: { tone: "ok", label: "Sent" }, FAILED: { tone: "bad", label: "Not sent" }, QUEUED: { tone: "wait", label: "Waiting" }, RECORDED: { tone: "na", label: "Recorded only" } } as const;
 const MODE = { OFF: { tone: "na", header: "Email off" }, TEST: { tone: "wait", header: "Email in test mode" }, LIVE: { tone: "ok", header: "Email live" } } as const;
-const EMAIL_KIND: Record<string, string> = { test: "Test", digest: "Reminder" };
+const EMAIL_KIND: Record<string, string> = { test: "Test", digest: "Reminder", copy: "Copy for L&D" };
 
 const took = (from: Date, to: Date | null) => {
   if (!to) return "";
@@ -31,7 +35,7 @@ const took = (from: Date, to: Date | null) => {
  */
 export default async function JobsPage() {
   const user = await requirePermission("jobs.manage");
-  const [mail, runs, emails] = await Promise.all([mailStatus(user), jobRuns(user), recentEmails(user)]);
+  const [mail, runs, emails, reminders] = await Promise.all([mailStatus(user), jobRuns(user), recentEmails(user), reminderOverview(user, nowInMalaysia())]);
   const { setup, testMode, sending, mode } = mail;
   const last = runs[0];
 
@@ -126,6 +130,14 @@ export default async function JobsPage() {
                         <td>
                           {r.status === "FAILED" ? <span className="text-bad">{r.error ?? "No reason recorded."}</span> : summary ? jobSummaryText(summary) : <span className="muted">–</span>}
                           {r.finishedAt && <span className="muted"> · {took(r.startedAt, r.finishedAt)}</span>}
+                          {summary && summary.noEmail > 0 && (
+                            <div className="muted text-xs">
+                              No email address:{" "}
+                              {Object.entries(summary.noEmailByDepartment)
+                                .map(([name, n]) => `${name} ${n}`)
+                                .join(", ")}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -133,6 +145,65 @@ export default async function JobsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </Panel>
+
+        <Panel
+          className="lg:col-span-12"
+          title="Reminders"
+          description={
+            reminders.people.length === 0
+              ? "One email per person each day, listing what is waiting on them. No one has anything waiting today."
+              : `One email per person each day, listing what is waiting on them. Today: ${plural(reminders.people.length, "person", "people")}, ${reminders.withEmail} with an email address.`
+          }
+          flush
+        >
+          <div className="flex flex-wrap gap-2 border-b border-rule px-5 py-3">
+            <Link href="/jobs/reminders" className="btn">
+              <Users size={14} aria-hidden /> Who is reminded today
+            </Link>
+            <ReminderSettingsDialog switches={reminders.switches} chaseFrom={toDateInput(reminders.chaseFrom)} />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="table min-w-[720px]" aria-label="Reminders">
+              <thead>
+                <tr>
+                  <th className="w-px text-right whitespace-nowrap">No.</th>
+                  <th>Reminder</th>
+                  <th className="hidden md:table-cell">Who is told</th>
+                  <th className="w-px whitespace-nowrap">Sent</th>
+                  <th className="w-px text-right whitespace-nowrap">Waiting today</th>
+                  <th className="w-px text-right whitespace-nowrap">People</th>
+                </tr>
+              </thead>
+              <tbody>
+                {REMINDER_KINDS.map((k, i) => (
+                  <tr key={k}>
+                    <td className="num muted text-right">{i + 1}</td>
+                    <td>
+                      {REMINDER_INFO[k].label}
+                      {k === "SKILL_FILL" && !reminders.skillWindow && <div className="muted text-xs">Not this month: only in March, June, September and December.</div>}
+                      {(k === "TNA_START" || k === "TNI_START") && (
+                        <div className="muted text-xs">
+                          {reminders.closing
+                            ? `${reminders.openYear}'s close on ${formatDate(reminders.closing.date)}; reminded from ${CLOSING_NOTICE_DAYS} days before.`
+                            : `No closing date is set for ${reminders.openYear}, so no one is reminded. L&D set it on the TNA screen.`}
+                        </div>
+                      )}
+                    </td>
+                    <td className="hidden md:table-cell">{REMINDER_INFO[k].who}</td>
+                    <td className="whitespace-nowrap">{reminders.switches[k] ? <Status tone="ok">On</Status> : <Status tone="na">Off</Status>}</td>
+                    <td className="num text-right">{reminders.perKind[k].items || <span className="muted">–</span>}</td>
+                    <td className="num text-right">{reminders.perKind[k].people || <span className="muted">–</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {reminders.chaseFrom && (
+            <p className="border-t border-rule px-5 py-3 text-[12.5px] text-ink-2">
+              Chasing from <span className="font-medium text-ink">{formatDate(reminders.chaseFrom)}</span>: anything that became due before that day is left out of the emails.
+            </p>
           )}
         </Panel>
 

@@ -116,15 +116,29 @@ describe("the daily job", () => {
     expect(dayKey(new Date("2026-10-08T23:59:00Z"))).toBe("2026-10-08");
   });
   it("says what a run did in one line", () => {
-    const none = { emailsSent: 0, emailsRecorded: 0, emailsFailed: 0, removedEmails: 0, removedNotifications: 0, removedRuns: 0 };
+    const none = { remindersDue: 0, remindersQueued: 0, noEmail: 0, noEmailByDepartment: {}, emailsSent: 0, emailsRecorded: 0, emailsFailed: 0, removedEmails: 0, removedNotifications: 0, removedRuns: 0 };
     expect(jobSummaryText(none)).toBe("0 emails sent");
     expect(jobSummaryText({ ...none, emailsSent: 1 })).toBe("1 email sent");
     expect(jobSummaryText({ ...none, emailsSent: 12, emailsFailed: 2, removedEmails: 3, removedRuns: 1 })).toBe("12 emails sent, 2 failed, 4 old records removed");
     // Sending switched off: it says so, and doesn't claim any was sent.
     expect(jobSummaryText({ ...none, emailsRecorded: 5 })).toBe("5 emails recorded only (sending is off)");
+    // Reminders: how many people have something waiting, and how many of them have no address to send it to.
+    expect(jobSummaryText({ ...none, remindersDue: 25, remindersQueued: 10, noEmail: 15, emailsSent: 10 })).toBe("25 people with something waiting, 10 emails sent, 15 without an email address");
+    expect(jobSummaryText({ ...none, remindersDue: 1, emailsRecorded: 1 })).toBe("1 person with something waiting, 1 email recorded only (sending is off)");
   });
   it("reads a stored summary, and nothing from a run that has none", () => {
-    expect(parseJobSummary({ emailsSent: 3, emailsFailed: 1 })).toEqual({ emailsSent: 3, emailsRecorded: 0, emailsFailed: 1, removedEmails: 0, removedNotifications: 0, removedRuns: 0 });
+    expect(parseJobSummary({ emailsSent: 3, emailsFailed: 1, noEmail: 2, noEmailByDepartment: { Stamping: 2, Bad: "x" } })).toEqual({
+      remindersDue: 0,
+      remindersQueued: 0,
+      noEmail: 2,
+      noEmailByDepartment: { Stamping: 2 },
+      emailsSent: 3,
+      emailsRecorded: 0,
+      emailsFailed: 1,
+      removedEmails: 0,
+      removedNotifications: 0,
+      removedRuns: 0,
+    });
     expect(parseJobSummary(null)).toBeNull();
   });
 });

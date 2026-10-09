@@ -294,13 +294,14 @@ export async function setTnaYearSetting(year: number) {
 /**
  * Test-only: switches Sending off (so no test ever really sends an email),
  * puts email test mode to a known state and removes the test emails and
- * daily job runs a staff member made. Returns a function that removes them
- * again and puts both switches back as they were.
+ * daily job runs a staff member made, and every reminder email (the daily
+ * job writes one per person per day, so a test needs a clean day). Returns a
+ * function that removes them again and puts both switches back as they were.
  */
 export async function resetMail(staffNo: string, testMode: { enabled: boolean; address: string }) {
   const clear = async (db: PrismaClient) => {
     const staff = await db.staff.findUniqueOrThrow({ where: { staffNo }, select: { id: true } });
-    await db.emailMessage.deleteMany({ where: { staffId: staff.id, kind: "test" } });
+    await db.emailMessage.deleteMany({ where: { OR: [{ staffId: staff.id, kind: { in: ["test", "copy"] } }, { kind: "digest" }] } });
     await db.jobRun.deleteMany({ where: { startedById: staff.id } });
   };
   const db = new PrismaClient();
@@ -330,6 +331,28 @@ export async function deleteTestNotifications(staffNos: string[]) {
   const db = new PrismaClient();
   try {
     await db.notification.deleteMany({ where: { staff: { staffNo: { in: staffNos } } } });
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Test-only: remembers these settings and returns a function that puts each back as it was (or removes it, if it wasn't there). */
+export async function keepSettings(keys: string[]) {
+  const db = new PrismaClient();
+  try {
+    const before = await db.setting.findMany({ where: { key: { in: keys } }, select: { key: true, value: true } });
+    return async () => {
+      const again = new PrismaClient();
+      try {
+        for (const key of keys) {
+          const was = before.find((s) => s.key === key);
+          if (was) await again.setting.upsert({ where: { key }, update: { value: was.value ?? {} }, create: { key, value: was.value ?? {} } });
+          else await again.setting.deleteMany({ where: { key } });
+        }
+      } finally {
+        await again.$disconnect();
+      }
+    };
   } finally {
     await db.$disconnect();
   }

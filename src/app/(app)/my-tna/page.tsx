@@ -4,10 +4,11 @@ import { BookOpen, Copy, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Status } from "@/components/ui/Status";
-import { nowInMalaysia } from "@/lib/format";
+import { formatDate, nowInMalaysia } from "@/lib/format";
 import { can } from "@/server/permissions";
 import { parseTnaYear, TNA_STAGE_LABELS, TNA_STAGE_TONE } from "@/server/rules/tna";
 import { myTna, myTnaInfo, tnaHistory, tnaOpen, tnaTrainingHours } from "@/server/services/tna";
+import { tnaClosing } from "@/server/services/reminder";
 import { requireUser } from "@/server/session";
 import { TnaBody, TnaHeaderActions, TnaNotices } from "../tna/TnaRecord";
 
@@ -33,6 +34,8 @@ export default async function MyTnaPage({ searchParams }: PageProps<"/my-tna">) 
   // What "Start from an earlier year's" would copy: the latest earlier TNA with rows.
   const copyFrom = info.years.find((y) => y.year < open && y._count.items > 0);
   const canStart = !info.block && !hasOpen;
+  // The date L&D ask this year's to be submitted by, if they set one.
+  const closing = year === open && !info.block ? await tnaClosing(open) : null;
 
   return (
     <div>
@@ -45,6 +48,7 @@ export default async function MyTnaPage({ searchParams }: PageProps<"/my-tna">) 
             <span className="font-semibold text-ink">{year}</span>
             {t ? <Status tone={TNA_STAGE_TONE[t.stage]}>{TNA_STAGE_LABELS[t.stage]}</Status> : !info.block && year === open && <Status tone="na">Not started</Status>}
             {t?.approver && t.status !== "APPROVED" && <span>HOD: {t.approver.name}</span>}
+            {closing && (!t || t.status === "DRAFT") && <span>Submit by {formatDate(closing.date)}</span>}
           </>
         }
         actions={

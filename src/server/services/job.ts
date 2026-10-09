@@ -4,15 +4,17 @@ import { UserError } from "../errors";
 import { can, type SessionUser } from "../permissions";
 import { jobIsStale, retentionCutoff, type JobSummary } from "../rules/mail";
 import { sendWaitingEmails } from "./mail";
+import { queueReminders } from "./reminder";
 
 // The daily job: started once a day by the server's scheduler
 // (npm run job:daily, scripts/daily-job.ts), or by L&D's Run now. Every run
 // is a JobRun row with what it did. Running it twice in a day is harmless:
 // each step only does what is still left to do.
 //
-// What it does today: sends emails still waiting (and tries failed ones
-// again), then removes emails, notifications and runs older than 90 days.
-// Module 2 adds the step before these that works out who is reminded.
+// What it does, in order: writes down today's reminder email for each person
+// with something waiting (services/reminder.ts), sends every email still
+// waiting (and tries failed ones again), then removes emails, notifications
+// and runs older than 90 days.
 
 const DAILY = "daily";
 
@@ -36,6 +38,8 @@ export async function runDailyJob(startedById: number | null, now: Date = new Da
   });
 
   try {
+    // "Today" is Malaysia's, as everywhere else: the server's clock may be on UTC.
+    const reminders = await queueReminders(new Date(now.getTime() + 8 * 3_600_000));
     const emails = await sendWaitingEmails(run.id);
     const cutoff = retentionCutoff(now);
     const [removedEmails, removedNotifications, removedRuns] = await Promise.all([
@@ -44,6 +48,10 @@ export async function runDailyJob(startedById: number | null, now: Date = new Da
       db.jobRun.deleteMany({ where: { startedAt: { lt: cutoff }, id: { not: run.id } } }),
     ]);
     const summary: JobSummary = {
+      remindersDue: reminders.due,
+      remindersQueued: reminders.queued,
+      noEmail: reminders.noEmail,
+      noEmailByDepartment: reminders.noEmailByDepartment,
       emailsSent: emails.sent,
       emailsRecorded: emails.recorded,
       emailsFailed: emails.failed,

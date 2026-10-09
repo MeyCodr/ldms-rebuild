@@ -5,6 +5,7 @@ import { UserError } from "../errors";
 import { deliver, MailError, mailSendingBlock, mailSetup } from "../mailer";
 import { can, type SessionUser } from "../permissions";
 import { isEmail, MAIL_MODE_LABELS, mailMode, mailModeBlock, mailRoute, MAX_ATTEMPTS, parseSending, parseTestMode, type MailMode, type TestMode } from "../rules/mail";
+import { renderEmail } from "../rules/emailTemplates";
 import { recordAudit } from "./audit";
 
 // Email: every message is written down (EmailMessage) before it is sent, with
@@ -95,6 +96,8 @@ export type NewEmail = { kind: string; staffId: number | null; intendedTo: strin
  * same dedupeKey exists already (it was queued before; nothing to do).
  */
 export async function queueEmail(email: NewEmail): Promise<number | null> {
+  // Asked first, so a second run of the day doesn't fill the server's log with refused inserts.
+  if (await db.emailMessage.findUnique({ where: { dedupeKey: email.dedupeKey }, select: { id: true } })) return null;
   const route = mailRoute(email.intendedTo, email.subject, await mailTestMode());
   try {
     const row = await db.emailMessage.create({
@@ -156,8 +159,6 @@ export async function sendWaitingEmails(jobRunId: number): Promise<{ sent: numbe
   return { sent: count.SENT, recorded: count.RECORDED, failed: count.FAILED };
 }
 
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
 /** L&D send themselves an email to see that the server can send one. Follows test mode like any other. */
 export async function sendTestEmail(user: SessionUser): Promise<{ status: SendResult; sentTo: string; error: string | null }> {
   ensureManager(user);
@@ -169,7 +170,7 @@ export async function sendTestEmail(user: SessionUser): Promise<{ status: SendRe
     staffId: user.id,
     intendedTo: intended,
     subject: "LDMS test email",
-    body: `<p>This is a test email from LDMS, sent by ${escapeHtml(user.name)}.</p><p>If you can read it, this server can send email.</p><p>--This is an auto-generated email, no reply is needed--</p>`,
+    body: renderEmail("test", { sentBy: user.name }, "LDMS test email", "If you can read this, the server can send email."),
     dedupeKey: `test:${user.id}:${Date.now()}`,
   });
   if (!id) throw new UserError("That test email was already sent. Try again.");

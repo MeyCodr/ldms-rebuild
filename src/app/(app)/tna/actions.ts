@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/action-state";
-import { nowInMalaysia, plural } from "@/lib/format";
+import { formatDate, nowInMalaysia, plural } from "@/lib/format";
 import { toErrorState } from "@/server/errors";
 import { requireUser } from "@/server/session";
+import { setTnaClosingDate } from "@/server/services/reminder";
 import { approveTnas, closeNextTnaYear, createTna, deleteTna, openNextTnaYear, reopenTna, sendBackTna, submitTna, TnaContentError, updateTna, type TnaTarget } from "@/server/services/tna";
 
 // Every action asks only that the person is signed in: the service checks
@@ -132,6 +133,18 @@ export async function reopenTnaAction(id: number, _prev: ActionState, fd: FormDa
 }
 
 /** L&D open next year's TNAs before January (this year's close), or close them again if no one has started one. */
+/** L&D set, change or remove the closing date of the open year's TNAs and TNIs. */
+export async function setTnaClosingDateAction(clear: boolean, _prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  try {
+    const closing = await setTnaClosingDate(user, clear ? "" : str(fd.get("closingDate")), nowInMalaysia());
+    refresh();
+    return { status: "ok", message: closing ? `Saved. ${closing.year}'s TNAs and TNIs close on ${formatDate(closing.date)}; people who haven't submitted are reminded from 14 days before.` : "Removed. No one is reminded to start their TNA or TNI." };
+  } catch (e) {
+    return toErrorState(e);
+  }
+}
+
 export async function switchTnaYearAction(to: "next" | "back", _prev: ActionState): Promise<ActionState> {
   const user = await requireUser();
   try {

@@ -1,12 +1,13 @@
 "use client";
 
 import { useId } from "react";
-import { CalendarPlus, Check, CheckCheck, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { CalendarClock, CalendarPlus, Check, CheckCheck, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { DateField } from "@/components/ui/DateField";
 import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import type { ActionState } from "@/lib/action-state";
 import { plural } from "@/lib/format";
-import { approveTnasAction, deleteTnaAction, reopenTnaAction, sendBackTnaAction, submitTnaAction, switchTnaYearAction } from "./actions";
+import { approveTnasAction, deleteTnaAction, reopenTnaAction, sendBackTnaAction, setTnaClosingDateAction, submitTnaAction, switchTnaYearAction } from "./actions";
 
 /** After a successful dialog action: the message and a Close button. */
 function Done({ state }: { state: ActionState }) {
@@ -221,6 +222,57 @@ export function TnaYearDialog({ open, calendar, early, closeBlock }: { open: num
           itself on 1 Jan {open}.
         </Confirm>
       )}
+    </DialogButton>
+  );
+}
+
+function ClosingDateForm({ year, date, today }: { year: number; date: string; today: string }) {
+  const save = useFormAction(setTnaClosingDateAction.bind(null, false));
+  const remove = useFormAction(setTnaClosingDateAction.bind(null, true));
+  const done = save.state.status === "ok" ? save.state : remove.state.status === "ok" ? remove.state : null;
+  if (done) return <Done state={done} />;
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={save.onSubmit} className="flex flex-col gap-4" noValidate>
+        <FormMessage state={save.state} />
+        <FormMessage state={remove.state} />
+        <p className="text-[13px] text-ink-2">
+          The date by which {year}&apos;s TNAs and TNIs should be submitted. Nothing closes on it: staff who haven&apos;t submitted their TNA, and HODs who haven&apos;t filled in
+          their TNI, get a reminder email each day from 14 days before it until they do. With no date, no one is reminded to start.
+        </p>
+        <Field label="Closing date" name="closingDate" required state={save.state}>
+          <DateField {...fieldProps("closingDate", save.state)} defaultValue={date} min={today} max={`${year}-12-31`} />
+        </Field>
+        <div className="flex justify-end gap-2 border-t border-rule pt-4">
+          <CancelButton />
+          <SubmitButton pending={save.pending} pendingLabel="Saving…">
+            Save
+          </SubmitButton>
+        </div>
+      </form>
+      {date && (
+        <form onSubmit={remove.onSubmit} className="-mt-2 flex justify-start">
+          <SubmitButton variant="secondary" pending={remove.pending} pendingLabel="Removing…">
+            Remove the closing date
+          </SubmitButton>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** L&D set the closing date of the open year's TNAs and TNIs, which starts the reminders to those who haven't submitted. */
+export function TnaClosingDialog({ year, date, today }: { year: number; date: string; today: string }) {
+  return (
+    <DialogButton
+      label={
+        <>
+          <CalendarClock size={15} aria-hidden /> {date ? "Change closing date" : "Set closing date"}
+        </>
+      }
+      title={`Closing date for ${year}'s TNAs and TNIs`}
+    >
+      <ClosingDateForm year={year} date={date} today={today} />
     </DialogButton>
   );
 }

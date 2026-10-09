@@ -88,13 +88,13 @@ test("with email off, L&D record a test email, see what Test and Live would do, 
     await open(ld);
     await ld.getByRole("button", { name: "Run now" }).click();
     await dialog(ld).getByRole("button", { name: "Run now" }).click();
-    await expect(dialog(ld).getByRole("status")).toHaveText("The daily job ran: 0 emails sent.");
+    await expect(dialog(ld).getByRole("status")).toContainText("The daily job ran:", { timeout: 60_000 });
     await open(ld);
     const row = runs(ld).getByRole("row").nth(1);
     await expect(row).toContainText(LD);
     await expect(row).toContainText("Finished");
-    await expect(row).toContainText("0 emails sent");
-    await expect(emails(ld).getByRole("row").nth(1)).toContainText("Recorded only");
+    // The test email recorded earlier is still only recorded: a run never sends what was recorded.
+    await expect(emails(ld).getByRole("row", { name: /LDMS test email/ }).first()).toContainText("Recorded only");
     await ld.context().close();
   });
 

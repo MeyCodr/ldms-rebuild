@@ -117,14 +117,29 @@ export function dayKey(today: Date): string {
   return today.toISOString().slice(0, 10);
 }
 
-export type JobSummary = { emailsSent: number; emailsRecorded: number; emailsFailed: number; removedEmails: number; removedNotifications: number; removedRuns: number };
+export type JobSummary = {
+  /** People with something waiting today, and how many of them had today's reminder written by this run (the rest already had it). */
+  remindersDue: number;
+  remindersQueued: number;
+  /** People with something waiting and no email address to send it to, in all and by department. */
+  noEmail: number;
+  noEmailByDepartment: Record<string, number>;
+  emailsSent: number;
+  emailsRecorded: number;
+  emailsFailed: number;
+  removedEmails: number;
+  removedNotifications: number;
+  removedRuns: number;
+};
 
 /** One line saying what a run did. */
 export function jobSummaryText(s: JobSummary): string {
   const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
-  const parts = s.emailsRecorded && !s.emailsSent ? [] : [`${n(s.emailsSent, "email")} sent`];
+  const parts = s.remindersDue ? [`${n(s.remindersDue, "person", "people")} with something waiting`] : [];
+  if (s.emailsSent || !s.emailsRecorded) parts.push(`${n(s.emailsSent, "email")} sent`);
   if (s.emailsRecorded) parts.push(`${n(s.emailsRecorded, "email")} recorded only (sending is off)`);
   if (s.emailsFailed) parts.push(`${s.emailsFailed} failed`);
+  if (s.noEmail) parts.push(`${s.noEmail} without an email address`);
   const removed = s.removedEmails + s.removedNotifications + s.removedRuns;
   if (removed) parts.push(`${n(removed, "old record")} removed`);
   return parts.join(", ");
@@ -134,5 +149,17 @@ export function parseJobSummary(value: unknown): JobSummary | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
   const num = (k: string) => (typeof v[k] === "number" ? (v[k] as number) : 0);
-  return { emailsSent: num("emailsSent"), emailsRecorded: num("emailsRecorded"), emailsFailed: num("emailsFailed"), removedEmails: num("removedEmails"), removedNotifications: num("removedNotifications"), removedRuns: num("removedRuns") };
+  const byDepartment = v.noEmailByDepartment && typeof v.noEmailByDepartment === "object" ? (v.noEmailByDepartment as Record<string, unknown>) : {};
+  return {
+    remindersDue: num("remindersDue"),
+    remindersQueued: num("remindersQueued"),
+    noEmail: num("noEmail"),
+    noEmailByDepartment: Object.fromEntries(Object.entries(byDepartment).filter((e): e is [string, number] => typeof e[1] === "number")),
+    emailsSent: num("emailsSent"),
+    emailsRecorded: num("emailsRecorded"),
+    emailsFailed: num("emailsFailed"),
+    removedEmails: num("removedEmails"),
+    removedNotifications: num("removedNotifications"),
+    removedRuns: num("removedRuns"),
+  };
 }

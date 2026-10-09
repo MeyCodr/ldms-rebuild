@@ -6,7 +6,7 @@ import { CancelButton, DialogButton } from "@/components/ui/Dialog";
 import { Field, fieldProps, FormMessage, SubmitButton, useFormAction } from "@/components/ui/forms";
 import type { ActionState } from "@/lib/action-state";
 import type { MailMode } from "@/server/rules/mail";
-import { runDailyJobAction, sendTestEmailAction, setMailModeAction } from "./actions";
+import { runDailyJobAction, sendReminderCopyAction, sendTestEmailAction, setMailModeAction } from "./actions";
 
 /** After a successful dialog action: the message and a Close button. */
 function Done({ state }: { state: ActionState }) {
@@ -74,6 +74,35 @@ export function TestEmailDialog({ goesTo, block, sending }: { goesTo: string | n
   );
 }
 
+/** On a person's reminder preview: L&D send themselves a copy, to see it in their own mail program. */
+export function ReminderCopyDialog({ staffId, name, goesTo, sending }: { staffId: number; name: string; goesTo: string | null; sending: boolean }) {
+  return (
+    <DialogButton
+      label={
+        <>
+          <Send size={14} aria-hidden /> Send this email to me
+        </>
+      }
+      title="Send this email to me"
+    >
+      {!goesTo ? (
+        <div className="flex flex-col gap-4">
+          <div className="notice notice-wait">Your staff record has no email address, so there is nowhere to send it.</div>
+          <div className="flex justify-end">
+            <CancelButton label="Close" />
+          </div>
+        </div>
+      ) : (
+        <Confirm action={sendReminderCopyAction.bind(null, staffId)} submitLabel="Send" pendingLabel="Sending…">
+          A copy of {name}&apos;s reminder goes to <span className="font-medium break-all text-ink">{goesTo}</span>
+          {sending ? ", so you can see it in your own mail program." : ". Email is off, so it is only recorded, not sent."} Nothing is sent to {name}, and it doesn&apos;t
+          count as their reminder for today.
+        </Confirm>
+      )}
+    </DialogButton>
+  );
+}
+
 /** L&D's Run now for the daily job. */
 export function RunJobDialog() {
   return (
@@ -87,8 +116,8 @@ export function RunJobDialog() {
       title="Run the daily job now"
     >
       <Confirm action={runDailyJobAction} submitLabel="Run now" pendingLabel="Running…">
-        It does what the server does by itself each morning: sends any email still waiting, tries failed ones again, and removes records older than 90 days. Nothing
-        is sent twice, so running it again is harmless.
+        It does what the server does by itself each morning: writes today&apos;s reminder for everyone with something waiting, sends every email still waiting, tries
+        failed ones again, and removes records older than 90 days. No one gets today&apos;s reminder twice, so running it again is harmless.
       </Confirm>
     </DialogButton>
   );

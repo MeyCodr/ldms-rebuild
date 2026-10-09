@@ -9,7 +9,7 @@ The plan lives in the **LDMS Rebuild Roadmap** artifact; this repo follows its p
 | 1 | Foundation: org chart, staff, sign-in, permissions, audit log | **Built** |
 | 2 | Training core: trainings, participants, attendance, OJT | **Built** (6 Oct 2026): Trainings, Participants, My Training, OJT for clerks, Certificates, Reports and staff training history; see `docs/phase-2-plan.md`. Still open: the 16 course feedback questions are placeholder wording until L&D supplies them |
 | 3 | Workflows: PME, TNA, TNI, skill matrix | **Built** (8 Oct 2026): PME with the Approvals page, skill matrix, TNA (My TNA, by job grade, training options, summary, opening next year early) and TNI; see `docs/phase-3-plan.md` |
-| 4 | Reminder emails, notifications, the daily job, dashboards | **In progress**: plan approved 8 Oct 2026 (`docs/phase-4-plan.md`); module 0 (groundwork: email with its Off / Test / Live mode, the daily job, the Jobs and email screen) built; module 1 (notifications) built, in review |
+| 4 | Reminder emails, notifications, the daily job, dashboards | **In progress**: plan approved 8 Oct 2026 (`docs/phase-4-plan.md`); module 0 (groundwork: email with its Off / Test / Live mode, the daily job, the Jobs and email screen) built; module 1 (notifications) built; module 2 (reminder emails, with a closing date for TNA and TNI) built, in review |
 | 5 | Migration rehearsal and cutover | |
 
 ## Run it locally
@@ -63,7 +63,10 @@ On the Linux server, one crontab line runs it at 8am Malaysia time (use `0 0 * *
 0 8 * * * cd /path/to/ldms && npm run job:daily >> /var/log/ldms-daily.log 2>&1
 ```
 
-Running it again the same day is harmless. Each run, and what it did, is listed on Jobs and email; L&D can also
+Each run writes today's **reminder email** for everyone with something waiting on them (one per person per day,
+listing everything; `rules/reminder.ts`, `services/reminder.ts`), sends what is waiting, and removes records older
+than 90 days. L&D choose which kinds of reminder go out, and read the email each person would get, on Jobs and
+email. Running it again the same day is harmless. Each run, and what it did, is listed on Jobs and email; L&D can also
 start one there with **Run now**.
 
 ## Checks
@@ -87,6 +90,7 @@ src/server/permissions.ts   roles → permissions, can(), staff visibility scope
 src/server/rules/           pure business rules, each with tests in tests/rules
 src/server/services/        all reads and writes; check permissions and write the audit log
 src/server/mailer.ts        the one place that talks to the mail server
+src/server/rules/emailTemplates.ts   the emails' layout and wording (Handlebars)
 scripts/daily-job.ts        the daily job, for the server's scheduler
 src/app/(app)/              signed-in screens
 src/lib/validation/         Zod schemas shared by forms and services

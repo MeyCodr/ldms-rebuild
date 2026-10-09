@@ -7,13 +7,14 @@ import { ClickableRow } from "@/components/ui/ClickableRow";
 import { Select } from "@/components/ui/Select";
 import { Status } from "@/components/ui/Status";
 import { withBasePath } from "@/lib/base-path";
-import { nowInMalaysia, plural } from "@/lib/format";
+import { formatDate, nowInMalaysia, plural, toDateInput } from "@/lib/format";
 import { DESIGNATION_LABELS } from "@/lib/validation/staff";
 import { can } from "@/server/permissions";
 import { parseTnaYear, seesTeamTnas, TNA_STAGE_LABELS, TNA_STAGE_TONE, TNA_STAGES, tnaStaffScope, tnaYearBlock, type TnaStage } from "@/server/rules/tna";
 import { TNA_PAGE_SIZE, tnaDepartments, tnaGradeList, tnaStaffList, tnaStaffStageCounts, tnaYears, tnaYearSwitch, type TnaFilters } from "@/server/services/tna";
 import { requireUser } from "@/server/session";
-import { ApproveTnaDialog, TnaYearDialog } from "./TnaActions";
+import { tnaClosing } from "@/server/services/reminder";
+import { ApproveTnaDialog, TnaClosingDialog, TnaYearDialog } from "./TnaActions";
 
 export const metadata: Metadata = { title: "TNA" };
 
@@ -31,6 +32,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
   const sp = await searchParams;
   const yearSwitch = await tnaYearSwitch(user, today);
   const open = yearSwitch.open;
+  const closing = await tnaClosing(open);
   const year = parseTnaYear(one(sp.year)) ?? open;
   const isOpen = year === open;
   // A main clerk has only the job grades; everyone else has both lists.
@@ -86,6 +88,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
               <span className="font-semibold text-ink">{year}</span> <span className="text-ink-3">· Training Need Analysis</span>
             </span>
             {isOpen ? yearSwitch.early && <Status tone="ok">Opened early</Status> : <Status tone="na">Closed: view only</Status>}
+            {isOpen && closing && <span>Closing date {formatDate(closing.date)}</span>}
             {(["RETURNED", "SUBMITTED"] as const)
               .filter((s) => counts[s] > 0)
               .map((s) => (
@@ -103,6 +106,7 @@ export default async function TnaPage({ searchParams }: PageProps<"/tna">) {
             {can(user, "tna.manage") && (
               <>
                 <TnaYearDialog open={yearSwitch.open} calendar={yearSwitch.calendar} early={yearSwitch.early} closeBlock={yearSwitch.closeBlock} />
+                <TnaClosingDialog year={open} date={toDateInput(closing?.date)} today={toDateInput(today)} />
                 <Link href={`/tna/summary${isOpen ? "" : `?year=${year}`}`} className="btn">
                   <BarChart3 size={15} aria-hidden /> Summary
                 </Link>

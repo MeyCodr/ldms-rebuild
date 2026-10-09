@@ -1,6 +1,6 @@
 # Phase 4: Reminders, notifications, the daily job and dashboards
 
-Build plan for LDMS v2 phase 4. **Approved 8 Oct 2026; the answers are in §3.** Question 4 (a closing date for TNA and TNI) is to be confirmed at module 2. Written
+Build plan for LDMS v2 phase 4. **Approved 8 Oct 2026; the answers are in §3.** Question 4 (a closing date for TNA and TNI) was answered yes on 8 Oct 2026. Written
 after reading the old system's reminder scripts and dashboards (`C:\Apache24\htdocs\ldms`) and counting, without
 reading any personal data, what is in its database (`phnportalenterto_trms`, read-only). Read with `README.md`,
 `CLAUDE.md` and `docs/phase-3-plan.md`.
@@ -82,8 +82,7 @@ Each has what the old system does, what was recommended and its downside. **The 
 
 - **1**: one combined email per person, **every day until resolved**, as the old system does. No weekly option, so
   there is no `reminders.cadence` setting.
-- **4**: open. There is no closing-date field today; the proposal is an optional one in the *Open year* dialog.
-  Decide at module 2.
+- **4**: **yes** (8 Oct 2026): L&D can set an optional closing date for the open year's TNAs and TNIs.
 - **8**: SMTP, with the settings in `.env`.
 - **9**: a **Linux** server; the daily job is a `cron` line.
 - **12**: **yes**, the old PDF reports are needed. Added as module 5: the PME report, the training audit report and
@@ -223,7 +222,7 @@ keeps its own cards; the L&D figures there link to this screen.
   - The `Notification` table is created now and first used in module 1.
   - Email bodies are kept (for retries) but never shown on the screen.
 
-### Module 1: Notifications (built 8 Oct 2026, in review)
+### Module 1: Notifications (built 8 Oct 2026, merged)
 
 - **Notifications** (`/notifications`, everyone, under My work): the person's own list, newest first, 50 a page,
   unread ones in bold with a dot (amber when it asks them to do something). **Mark all as read**. The sidebar entry
@@ -251,6 +250,38 @@ keeps its own cards; the L&D figures there link to this screen.
     module 2; a notification each would double them.
   - Approving 40 skill matrices at once writes 40 notifications to their evaluators. If that proves noisy, it can
     become one line per approval.
+
+### Module 2: Reminder emails (built 8 Oct 2026, in review)
+
+- **The daily job** now starts by writing today's reminder for each person with something waiting: one email, every
+  kind in it, each with a count, up to ten lines, how many days each has waited, and a link into LDMS. One per
+  person per day, so a second run writes nothing. Then it sends as before, following the email mode.
+- **Thirteen kinds** (the twelve of §4, with *TNA not submitted* and *TNI not filled in* counted apart), each
+  using the same filter as the matching part of *Waiting on you* (`services/reminder.ts`).
+- **Jobs and email → Reminders**: each kind with who is told, whether it is on, and how many items and people are
+  waiting today. **Change reminders** switches kinds on and off and sets **Chase from**. **Who is reminded today**
+  lists everyone with something waiting; each row opens **the email that person would get**, as it would arrive.
+- **Closing date** (question 4): **Set closing date** on the TNA screen, for L&D. It closes nothing; from 14 days
+  before it, staff who haven't submitted their TNA and HODs who haven't filled in their TNI are reminded each day
+  until they do. My TNA shows *Submit by* that date. With no date, no one is chased to start.
+- **Each run's summary** says how many people had something waiting and how many have no email address, by
+  department.
+- **Decided while building**
+  - **People with no email address get no daily notification either.** A new line in the bell every day would
+    bury the real ones; what is waiting is already on their overview and in the sidebar counts. L&D see how many
+    there are, by department, on each run.
+  - **Skill matrices not submitted** are one line per evaluator per department ("12 staff in Stamping have no
+    skill matrix submitted for Q3 2026"), not a line per person, and only in March, June, September and December.
+  - **A job grade's TNA not started** isn't chased; only a person's own TNA and a department's TNI are.
+  - **A sent-back TNA** is listed under *sent back*, not also under *not submitted*.
+  - **L&D's own reminders** (PMEs to verify, attendance to record) go to everyone holding the L&D admin role.
+  - **The emails are Handlebars templates in one layout** (asked for 8 Oct 2026; `rules/emailTemplates.ts`): a navy
+    LDMS band, a white card, each kind as a small table with how long each line has waited and a teal button into
+    LDMS, a quiet footer. Built for Outlook: tables, inline styles, no images. The test email uses the same
+    layout. Handlebars was chosen over MJML (a large set of packages for two templates) and React Email (its
+    renderer doesn't suit how the daily job runs). One new package: `handlebars`.
+  - On a development copy in Test mode, **Run now really sends** one email per demo person with an address to the
+    test address. The end-to-end tests put email to Off first, and clear the day's reminder emails.
 
 ## 8. Data model
 
@@ -304,7 +335,7 @@ Settings (the existing `Setting` table): `mail.testMode` (exists),
 `reminders.kinds` (which are on), `reminders.chaseFrom` (a date), `tna.closingDate`. In `.env`: `SMTP_HOST`,
 `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, and `APP_URL` for the links in emails.
 
-One new package: `nodemailer`.
+New packages: `nodemailer`, and `handlebars` for the email templates.
 
 - **Rules** (`src/server/rules/reminder.ts`, pure and unit-tested): what goes into a person's list; the *Chase from* cut-off; the last month of a quarter; the closing-date window.
 - **Services**: `reminder.ts` (who is waiting on what, for everyone at once), `mail.ts` (queue, send, retry, test
